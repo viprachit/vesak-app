@@ -107,28 +107,18 @@ def clean_text(text):
     return text.strip()
 
 def format_date_with_suffix(d):
-    """
-    Formats a date object or string into 'Nov. 28th 2025' format.
-    """
     if pd.isna(d) or str(d).lower() == 'nan' or str(d).lower() == 'n/a':
         return "N/A"
-
     try:
-        # Convert to datetime if it's a string
         if not isinstance(d, (datetime.date, datetime.datetime)):
             d = pd.to_datetime(d)
-        
-        # If it's a timestamp, get just the date
         if isinstance(d, datetime.datetime):
             d = d.date()
-
         day = d.day
-        # Determine suffix
         if 4 <= day <= 20 or 24 <= day <= 30:
             suffix = "th"
         else:
             suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-
         return d.strftime(f"%b. {day}{suffix} %Y")
     except:
         return str(d)
@@ -203,23 +193,26 @@ with st.sidebar:
 raw_file_obj = None
 
 if data_source == "Upload File":
+    st.info("ℹ️ **Use this for Mobile / Web Version**")
     uploaded_file = st.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
     if uploaded_file:
         raw_file_obj = uploaded_file
 
 elif data_source == "OneDrive Path":
+    st.info("ℹ️ **Only works on Desktop App (Offline)**")
     current_path = load_config_path()
     path_input = st.text_input("Full File Path:", value=current_path)
+    
     if st.button("Save Path"):
         if path_input:
             save_config_path(path_input)
-            st.experimental_rerun()
+            st.rerun()  # FIXED: Updated from experimental_rerun
     
     current_path = load_config_path()
     if current_path and os.path.exists(current_path):
         raw_file_obj = current_path
     elif current_path:
-        st.warning("Path not found.")
+        st.warning("Path not found (If you are on the website, this is normal. Use Upload instead).")
 
 # --- PROCESS DATA ---
 if raw_file_obj:
@@ -276,7 +269,6 @@ if raw_file_obj:
         st.divider()
         st.subheader("📝 Customize Invoice")
         
-        # --- LAYOUT: DATE PICKER & PLAN INFO ---
         display_name = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
         st.info(f"**Plan:** {display_name}")
         
@@ -285,18 +277,16 @@ if raw_file_obj:
             today = datetime.date.today()
             invoice_date = st.date_input("Select Invoice Date:", value=today)
         with col_d2:
-            st.write("") # Spacer
-            st.write("") # Spacer
+            st.write("") 
+            st.write("") 
             st.caption(f"ℹ️ **Excel Reference Date:** {formatted_ref_date}")
 
         st.divider()
 
-        # --- LAYOUT: LISTS (INCLUDED vs NOT INCLUDED) ---
         col1, col2 = st.columns(2)
         
         with col1:
             st.write("**✅ Services Included (Reference):**")
-            # READ-ONLY LIST FOR REFERENCE
             if not inc_default:
                 st.write("*None*")
             else:
