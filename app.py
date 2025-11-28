@@ -13,16 +13,17 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="🏥")
 
 CONFIG_FILE = "path_config.txt"
+URL_CONFIG_FILE = "url_config.txt"
 
-def load_config_path():
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
+def load_config_path(file_name):
+    if os.path.exists(file_name):
+        with open(file_name, "r") as f:
             return f.read().strip()
     return ""
 
-def save_config_path(path):
+def save_config_path(path, file_name):
     clean_path = path.replace('"', '').strip()
-    with open(CONFIG_FILE, "w") as f:
+    with open(file_name, "w") as f:
         f.write(clean_path)
     return clean_path
 
@@ -125,13 +126,11 @@ def format_date_with_suffix(d):
 
 def get_base_lists(selected_plan, selected_sub_service):
     master_list = SERVICES_MASTER.get(selected_plan, [])
-    
     if "All" in str(selected_sub_service) and selected_plan in STANDARD_PLANS:
         included_raw = [s for s in master_list if s.lower() != "all"]
     else:
         included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
     included_clean = sorted(list(set([clean_text(s) for s in included_raw if clean_text(s)])))
-    
     not_included_clean = []
     if selected_plan in STANDARD_PLANS:
         for plan_name in STANDARD_PLANS:
@@ -180,6 +179,20 @@ def normalize_columns(df, aliases):
                 break 
     return df
 
+def transform_onedrive_url(url):
+    """
+    Attempts to convert a OneDrive/SharePoint viewing URL into a direct download URL.
+    """
+    # Fix for standard OneDrive "view.aspx" links
+    if "view.aspx" in url:
+        return url.replace("view.aspx", "download.aspx")
+    
+    # Fix for "1drv.ms" or other links - try appending download=1
+    if "?" in url:
+        return url + "&download=1"
+    else:
+        return url + "?download=1"
+
 # ==========================================
 # 4. APP INTERFACE & FILE LOGIC
 # ==========================================
@@ -187,32 +200,57 @@ st.title("🏥 Vesak Care - Invoice Generator")
 
 with st.sidebar:
     st.header("📂 Data Source")
-    data_source = st.radio("Load Method:", ["Upload File", "OneDrive Path"])
+    data_source = st.radio(
+        "Load Method:", 
+        ["Upload File", "OneDrive Web URL", "Local Path (Offline Only)"]
+    )
 
-# --- LOAD RAW DATA ---
 raw_file_obj = None
 
+# --- OPTION 1: UPLOAD ---
 if data_source == "Upload File":
-    st.info("ℹ️ **Use this for Mobile / Web Version**")
+    st.caption("Best for Mobile / Travel")
     uploaded_file = st.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
     if uploaded_file:
         raw_file_obj = uploaded_file
 
-elif data_source == "OneDrive Path":
-    st.info("ℹ️ **Only works on Desktop App (Offline)**")
-    current_path = load_config_path()
+# --- OPTION 2: ONEDRIVE URL ---
+elif data_source == "OneDrive Web URL":
+    st.caption("Works Online & Offline (Requires Internet)")
+    current_url = load_config_path(URL_CONFIG_FILE)
+    url_input = st.text_input("Paste OneDrive Link:", value=current_url, placeholder="https://onedrive.live.com/...")
+    
+    st.info("⚠️ **Important:** This link must be public ('Anyone with the link can edit/view').")
+    
+    if st.button("Load URL"):
+        if url_input:
+            save_config_path(url_input, URL_CONFIG_FILE)
+            st.rerun()
+            
+    if current_url:
+        try:
+            download_url = transform_onedrive_url(current_url)
+            # We treat the URL string as the file object for pandas
+            raw_file_obj = download_url 
+            st.success("✅ Linked to OneDrive")
+        except:
+            st.error("Invalid URL format.")
+
+# --- OPTION 3: LOCAL PATH ---
+elif data_source == "Local Path (Offline Only)":
+    st.caption("Fastest for Desktop")
+    current_path = load_config_path(CONFIG_FILE)
     path_input = st.text_input("Full File Path:", value=current_path)
     
     if st.button("Save Path"):
         if path_input:
-            save_config_path(path_input)
-            st.rerun()  # FIXED: Updated from experimental_rerun
+            save_config_path(path_input, CONFIG_FILE)
+            st.rerun()
     
-    current_path = load_config_path()
     if current_path and os.path.exists(current_path):
         raw_file_obj = current_path
     elif current_path:
-        st.warning("Path not found (If you are on the website, this is normal. Use Upload instead).")
+        st.warning("Path not found on this machine.")
 
 # --- PROCESS DATA ---
 if raw_file_obj:
@@ -220,21 +258,36 @@ if raw_file_obj:
         sheet_name = 0
         is_excel = False
         try:
-            xl = pd.ExcelFile(raw_file_obj)
-            is_excel = True
-            sheet_names = xl.sheet_names
-            default_ix = 0
-            if 'Confirmed' in sheet_names: default_ix = sheet_names.index('Confirmed')
-            with st.sidebar:
-                st.divider()
-                st.write("🔧 **Excel Settings**")
-                selected_sheet = st.selectbox("Select Sheet:", sheet_names, index=default_ix)
-            sheet_name = selected_sheet
+            # For URLs, pandas reads directly. xl.sheet_names works if we read it into memory first or pass the URL
+            # To be robust with URLs, we just try reading it.
+            if isinstance(raw_file_obj, str) and "http" in raw_file_obj:
+                 # It's a URL, Pandas handles it, but ExcelFile might need bytes if we want sheet names
+                 # Let's just try reading default first to check connection
+                 is_excel = True
+                 # If we really need sheet selection for URL, we'd need to download bytes first using requests.
+                 # For simplicity in this structure, we assume default sheet or try to read header directly.
+            else:
+                xl = pd.ExcelFile(raw_file_obj)
+                is_excel = True
+                sheet_names = xl.sheet_names
+                default_ix = 0
+                if 'Confirmed' in sheet_names: default_ix = sheet_names.index('Confirmed')
+                with st.sidebar:
+                    st.divider()
+                    st.write("🔧 **Excel Settings**")
+                    selected_sheet = st.selectbox("Select Sheet:", sheet_names, index=default_ix)
+                sheet_name = selected_sheet
         except:
             pass 
 
         if is_excel:
-            df = pd.read_excel(raw_file_obj, sheet_name=sheet_name)
+            # If it's a sheet name selection on local file/upload
+            if not isinstance(raw_file_obj, str) or "http" not in raw_file_obj:
+                df = pd.read_excel(raw_file_obj, sheet_name=sheet_name)
+            else:
+                # For URL, simple read (defaults to first sheet usually unless we download bytes)
+                # To keep it simple for the user URL input:
+                df = pd.read_excel(raw_file_obj) 
         else:
             if isinstance(raw_file_obj, str):
                 df = pd.read_csv(raw_file_obj)
@@ -244,13 +297,11 @@ if raw_file_obj:
 
         df = normalize_columns(df, COLUMN_ALIASES)
         
-        # STRICT Check for Final Rate
         missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required'] if k not in df.columns]
         if missing:
             st.error(f"❌ Missing Columns: {missing}")
             st.stop()
 
-        # --- SUCCESS ---
         st.success("✅ Data Loaded")
         
         df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
@@ -260,8 +311,6 @@ if raw_file_obj:
         c_plan = row.get('Service Required', '')
         c_sub = row.get('Sub Service', '')
         c_call_date = row.get('Call Date', 'N/A')
-        
-        # --- REFERENCE DATE (From Excel) ---
         formatted_ref_date = format_date_with_suffix(c_call_date)
         
         inc_default, exc_default = get_base_lists(c_plan, c_sub)
@@ -284,7 +333,6 @@ if raw_file_obj:
         st.divider()
 
         col1, col2 = st.columns(2)
-        
         with col1:
             st.write("**✅ Services Included (Reference):**")
             if not inc_default:
@@ -316,7 +364,6 @@ if raw_file_obj:
             inc_cols = chunk_list(inc_default, 2)
             exc_cols = chunk_list(final_excluded, 3)
 
-            # --- APPLY CUSTOM DATE FORMAT ---
             formatted_date = format_date_with_suffix(invoice_date)
             invoice_num_date = invoice_date.strftime('%Y%m%d')
 
@@ -400,4 +447,5 @@ if raw_file_obj:
                 st.download_button(label="📄 Download PDF Invoice", data=pdf_bytes, file_name=f"Invoice_{c_name.replace(' ', '_')}.pdf", mime="application/pdf")
 
     except Exception as e:
-        st.error(f"Something went wrong: {e}")
+        st.error(f"Connection Error: {e}")
+        st.warning("Ensure the URL is a direct download link or 'Anyone with link can view'.")
