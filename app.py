@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import re
 import os
+import datetime
 from io import BytesIO
 from xhtml2pdf import pisa
 import streamlit.components.v1 as components
@@ -84,14 +85,14 @@ PLAN_DISPLAY_NAMES = {
     "A-la-carte Services": "Other Services"
 }
 
-# --- STRICT ALIASES ---
 COLUMN_ALIASES = {
     'Name': ['Name', 'name', 'patient name', 'client name', 'patient', 'client'],
     'Mobile': ['Mobile', 'mobile', 'phone', 'contact', 'mobile no', 'cell'],
     'Address': ['Address', 'address', 'location', 'city', 'residence'],
     'Service Required': ['Service Required', 'service required', 'plan', 'service', 'service name', 'inquiry'],
     'Sub Service': ['Sub Service', 'sub service', 'sub plan', 'services'],
-    'Final Rate': ['Final Rate', 'final rate', 'final amount', 'amount'] 
+    'Final Rate': ['Final Rate', 'final rate', 'final amount', 'amount'],
+    'Call Date': ['Call Date', 'call date', 'date', 'inquiry date']
 }
 
 # ==========================================
@@ -105,17 +106,42 @@ def clean_text(text):
     text = text.replace(' ,', ',').strip(' ,')
     return text.strip()
 
+def format_date_with_suffix(d):
+    """
+    Formats a date object or string into 'Nov. 28th 2025' format.
+    """
+    if pd.isna(d) or str(d).lower() == 'nan' or str(d).lower() == 'n/a':
+        return "N/A"
+
+    try:
+        # Convert to datetime if it's a string
+        if not isinstance(d, (datetime.date, datetime.datetime)):
+            d = pd.to_datetime(d)
+        
+        # If it's a timestamp, get just the date
+        if isinstance(d, datetime.datetime):
+            d = d.date()
+
+        day = d.day
+        # Determine suffix
+        if 4 <= day <= 20 or 24 <= day <= 30:
+            suffix = "th"
+        else:
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+
+        return d.strftime(f"%b. {day}{suffix} %Y")
+    except:
+        return str(d)
+
 def get_base_lists(selected_plan, selected_sub_service):
     master_list = SERVICES_MASTER.get(selected_plan, [])
     
-    # INCLUDED
     if "All" in str(selected_sub_service) and selected_plan in STANDARD_PLANS:
         included_raw = [s for s in master_list if s.lower() != "all"]
     else:
         included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
     included_clean = sorted(list(set([clean_text(s) for s in included_raw if clean_text(s)])))
     
-    # NOT INCLUDED
     not_included_clean = []
     if selected_plan in STANDARD_PLANS:
         for plan_name in STANDARD_PLANS:
@@ -149,15 +175,10 @@ def convert_html_to_pdf(source_html):
     return result.getvalue()
 
 def normalize_columns(df, aliases):
-    # 1. Clean current headers
     df.columns = df.columns.astype(str).str.strip()
-    
     for standard_name, possible_aliases in aliases.items():
-        # Check if standard name is ALREADY in the dataframe (Exact match)
         if standard_name in df.columns:
             continue 
-        
-        # If not found, look through aliases
         match_found = False
         for alias in possible_aliases:
             for df_col in df.columns:
@@ -167,7 +188,6 @@ def normalize_columns(df, aliases):
                     break 
             if match_found:
                 break 
-                
     return df
 
 # ==========================================
@@ -204,28 +224,22 @@ elif data_source == "OneDrive Path":
 # --- PROCESS DATA ---
 if raw_file_obj:
     try:
-        # Determine Sheet
         sheet_name = 0
         is_excel = False
-        
         try:
             xl = pd.ExcelFile(raw_file_obj)
             is_excel = True
             sheet_names = xl.sheet_names
-            
-            # Auto-select 'Confirmed'
             default_ix = 0
             if 'Confirmed' in sheet_names: default_ix = sheet_names.index('Confirmed')
-            
             with st.sidebar:
                 st.divider()
                 st.write("🔧 **Excel Settings**")
                 selected_sheet = st.selectbox("Select Sheet:", sheet_names, index=default_ix)
             sheet_name = selected_sheet
         except:
-            pass # CSV
+            pass 
 
-        # Read Data
         if is_excel:
             df = pd.read_excel(raw_file_obj, sheet_name=sheet_name)
         else:
@@ -235,21 +249,16 @@ if raw_file_obj:
                 raw_file_obj.seek(0)
                 df = pd.read_csv(raw_file_obj)
 
-        # Normalize Columns
         df = normalize_columns(df, COLUMN_ALIASES)
         
-        # Verify Critical Columns
-        missing = [k for k in COLUMN_ALIASES.keys() if k not in df.columns]
-        
+        # STRICT Check for Final Rate
+        missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required'] if k not in df.columns]
         if missing:
             st.error(f"❌ Missing Columns: {missing}")
-            st.warning("Please ensure your sheet has headers like 'Name', 'Mobile', 'Final Rate'.")
-            st.subheader("Raw Columns Found:")
-            st.write(df.columns.tolist())
             st.stop()
 
         # --- SUCCESS ---
-        st.success("✅ Data Loaded Successfully")
+        st.success("✅ Data Loaded")
         
         df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
         selected_label = st.selectbox("Select Customer:", df['Label'].unique())
@@ -257,27 +266,56 @@ if raw_file_obj:
         row = df[df['Label'] == selected_label].iloc[0]
         c_plan = row.get('Service Required', '')
         c_sub = row.get('Sub Service', '')
+        c_call_date = row.get('Call Date', 'N/A')
+        
+        # --- REFERENCE DATE (From Excel) ---
+        formatted_ref_date = format_date_with_suffix(c_call_date)
+        
         inc_default, exc_default = get_base_lists(c_plan, c_sub)
 
         st.divider()
+        st.subheader("📝 Customize Invoice")
+        
+        # --- LAYOUT: DATE PICKER & PLAN INFO ---
+        display_name = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
+        st.info(f"**Plan:** {display_name}")
+        
+        col_d1, col_d2 = st.columns([1, 2])
+        with col_d1:
+            today = datetime.date.today()
+            invoice_date = st.date_input("Select Invoice Date:", value=today)
+        with col_d2:
+            st.write("") # Spacer
+            st.write("") # Spacer
+            st.caption(f"ℹ️ **Excel Reference Date:** {formatted_ref_date}")
+
+        st.divider()
+
+        # --- LAYOUT: LISTS (INCLUDED vs NOT INCLUDED) ---
         col1, col2 = st.columns(2)
+        
         with col1:
-            display_name = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
-            st.info(f"**Plan:** {display_name}")
-            st.write("**Included:**")
-            for item in inc_default: st.markdown(f"- {item}")
+            st.write("**✅ Services Included (Reference):**")
+            # READ-ONLY LIST FOR REFERENCE
+            if not inc_default:
+                st.write("*None*")
+            else:
+                for item in inc_default:
+                    st.markdown(f"- {item}")
 
         with col2:
-            st.write("**Not Included (Editable):**")
-            final_excluded = st.multiselect("Modify List:", options=exc_default + ["Others"], default=exc_default)
+            st.write("**❌ Services Not Included (Editable):**")
+            final_excluded = st.multiselect(
+                "Add/Remove Items:", 
+                options=exc_default + ["Others"], 
+                default=exc_default
+            )
 
         if st.button("Generate Invoice Preview"):
             c_name = row.get('Name', '')
             c_addr = row.get('Address', '')
             c_mob = row.get('Mobile', '')
             
-            # --- FIX FOR RATE ---
-            # Ensure we only get one value, and ensure it is 'Final Rate'
             raw_rate = row.get('Final Rate', 0)
             if isinstance(raw_rate, pd.Series):
                 c_rate = raw_rate.iloc[0]
@@ -285,9 +323,12 @@ if raw_file_obj:
                 c_rate = raw_rate
             
             final_plan_name = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
-
             inc_cols = chunk_list(inc_default, 2)
             exc_cols = chunk_list(final_excluded, 3)
+
+            # --- APPLY CUSTOM DATE FORMAT ---
+            formatted_date = format_date_with_suffix(invoice_date)
+            invoice_num_date = invoice_date.strftime('%Y%m%d')
 
             invoice_body = f"""
             <div style="font-family: Helvetica, Arial, sans-serif; padding: 20px;">
@@ -302,8 +343,8 @@ if raw_file_obj:
                         <td width="40%" style="text-align: right;">
                             <div style="font-size: 28px; font-weight: bold; color: #95a5a6;">INVOICE</div>
                             <div style="font-size: 12px; margin-top: 5px;">
-                                <b>Date:</b> {pd.Timestamp.now().strftime('%d-%b-%Y')}<br>
-                                <b>Invoice #:</b> {pd.Timestamp.now().strftime('%Y%m%d')}-001
+                                <b>Date:</b> {formatted_date}<br>
+                                <b>Invoice #:</b> {invoice_num_date}-001
                             </div>
                         </td>
                     </tr>
