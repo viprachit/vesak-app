@@ -11,6 +11,7 @@ import streamlit.components.v1 as components
 from xhtml2pdf import pisa 
 import gspread
 from google.oauth2.service_account import Credentials
+import numpy as np
 
 # --- CRITICAL FIX FOR BROKEN IMAGES ---
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -58,14 +59,15 @@ def get_google_sheet_client():
 def download_and_save_icon(url, filename):
     if not os.path.exists(filename):
         try:
-            response = requests.get(url)
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGBA")
                 # Resize specifically for the file type
                 if "logo" in filename:
-                    img.thumbnail((150, 150)) # Larger for logo
+                    img.thumbnail((150, 150)) 
                 else:
-                    img = img.resize((32, 32)) # Smaller for social icons
+                    img = img.resize((32, 32)) 
                 img.save(filename, format="PNG")
                 return True
         except:
@@ -75,12 +77,12 @@ def download_and_save_icon(url, filename):
 # URLs
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
-# [FIX 3] Added a placeholder logo URL so the header doesn't break if logo.png is missing
-LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3063/3063823.png" 
+# [FIXED LOGO LINK] Using a highly reliable static asset for fallback
+LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
 
 download_and_save_icon(IG_URL, "icon-ig.png")
 download_and_save_icon(FB_URL, "icon-fb.png")
-download_and_save_icon(LOGO_URL, "logo.png") # Ensures logo.png always exists
+download_and_save_icon(LOGO_URL, "logo.png") 
 
 # ==========================================
 # 2. HELPER FUNCTIONS
@@ -122,35 +124,41 @@ def save_config_path(path, file_name):
     with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
     return path
 
+# [FIXED] ROBUST DOWNLOADER WITH REDIRECT HANDLING
 def robust_file_downloader(url):
     """Downloads file from OneDrive or direct link."""
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     
-    # [FIX 1] Improved 403 handling strategy
-    # Try modifying the URL first
-    download_url_variant = url
-    if any(x in url for x in ["1drv.ms", "sharepoint.com", "onedrive.live.com"]):
-        if "?" in url:
-            if "download=1" not in url:
-                download_url_variant = url + "&download=1"
-        else:
-            download_url_variant = url + "?download=1"
+    final_url = url
 
-    # Attempt 1: Modified URL
+    # 1. If it is a shortlink (1drv.ms), resolve it to the full URL first
+    if "1drv.ms" in url:
+        try:
+            # HEAD request follows redirects to get the real URL
+            r = requests.head(url, allow_redirects=True)
+            final_url = r.url
+        except:
+            pass
+
+    # 2. Append download command safely
+    if "download=1" not in final_url:
+        if "?" in final_url:
+            final_url += "&download=1"
+        else:
+            final_url += "?download=1"
+
     try:
-        response = requests.get(download_url_variant, headers=headers, verify=False)
+        # Attempt 1: With Modified URL
+        response = requests.get(final_url, headers=headers, verify=False)
         if response.status_code == 200: 
             return BytesIO(response.content)
-    except:
-        pass # Fall through to fallback
-
-    # Attempt 2: Fallback to Original URL (if modification broke auth tokens)
-    try:
-        fallback_response = requests.get(url, headers=headers, verify=False)
-        if fallback_response.status_code == 200:
-            return BytesIO(fallback_response.content)
-        else:
-            raise Exception(f"Status Code: {fallback_response.status_code}")
+        
+        # Attempt 2: Fallback to original URL if modification caused 403
+        fallback = requests.get(url, headers=headers, verify=False)
+        if fallback.status_code == 200:
+            return BytesIO(fallback.content)
+            
+        raise Exception(f"Status Code: {response.status_code}")
     except Exception as e:
         raise Exception(f"Download failed: {e}")
 
@@ -563,13 +571,12 @@ if raw_file_obj:
             
             # --- SAVE TO HISTORY (ONLY IF NOT DUPLICATE) ---
             if not force_print:
-                # [FIX 2] Explicitly convert numpy types to standard Python types for JSON serialization
-                try:
-                    visits_val = int(safe_float(row.get('Visits', 0)))
+                # [FIXED JSON ERROR] Strict Type Casting
+                try: visits_val = int(safe_float(row.get('Visits', 0)))
                 except: visits_val = 0
 
                 invoice_record = {
-                    "Serial No.": str(c_serial),  # Force string
+                    "Serial No.": str(c_serial), 
                     "Invoice Number": str(inv_num),
                     "Date": str(fmt_date),
                     "Generated At": str(datetime.datetime.now().strftime("%H:%M:%S")),
@@ -583,8 +590,8 @@ if raw_file_obj:
                     "Shift": str(row.get('Shift', '')),
                     "Recurring Service": str(row.get('Recurring', '')),
                     "Period": str(row.get('Period', '')),
-                    "Visits": int(visits_val), # Force Int
-                    "Amount": float(final_amt), # Force Float
+                    "Visits": int(visits_val), 
+                    "Amount": float(final_amt), 
                     "Generated By": str(generated_by)
                 }
                 success = save_invoice_to_gsheet(invoice_record, sheet_obj)
