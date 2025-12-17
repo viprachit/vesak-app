@@ -32,28 +32,29 @@ def get_google_sheet_client():
         "https://www.googleapis.com/auth/drive",
     ]
     try:
-        s_info = st.secrets["connections"]["gsheets"]
-        
-        creds_dict = {
-            "type": s_info["type"],
-            "project_id": s_info["project_id"],
-            "private_key_id": s_info["private_key_id"],
-            "private_key": s_info["private_key"],
-            "client_email": s_info["client_email"],
-            "client_id": s_info["client_id"],
-            "auth_uri": s_info["auth_uri"],
-            "token_uri": s_info["token_uri"],
-            "auth_provider_x509_cert_url": s_info["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": s_info["client_x509_cert_url"],
-        }
-        
-        credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-        client = gspread.authorize(credentials)
-        sheet = client.open_by_url(s_info["spreadsheet"])
-        return sheet.sheet1 
+        if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+            s_info = st.secrets["connections"]["gsheets"]
+            
+            creds_dict = {
+                "type": s_info["type"],
+                "project_id": s_info["project_id"],
+                "private_key_id": s_info["private_key_id"],
+                "private_key": s_info["private_key"],
+                "client_email": s_info["client_email"],
+                "client_id": s_info["client_id"],
+                "auth_uri": s_info["auth_uri"],
+                "token_uri": s_info["token_uri"],
+                "auth_provider_x509_cert_url": s_info["auth_provider_x509_cert_url"],
+                "client_x509_cert_url": s_info["client_x509_cert_url"],
+            }
+            
+            credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+            client = gspread.authorize(credentials)
+            sheet = client.open_by_url(s_info["spreadsheet"])
+            return sheet.sheet1 
     except Exception as e:
         st.error(f"Connection Error: {e}")
-        return None
+    return None
 
 # --- AUTO-DOWNLOAD ICONS ---
 def download_and_save_icon(url, filename):
@@ -65,24 +66,24 @@ def download_and_save_icon(url, filename):
                 img = Image.open(BytesIO(response.content)).convert("RGBA")
                 # Resize specifically for the file type
                 if "logo" in filename:
-                    img.thumbnail((150, 150)) 
+                    img.thumbnail((200, 200)) # Larger for logo
                 else:
-                    img = img.resize((32, 32)) 
+                    img = img.resize((32, 32)) # Smaller for social icons
                 img.save(filename, format="PNG")
                 return True
         except:
             return False
     return True
 
-# URLs
+# URLs (Do not change)
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
-# [FIXED LOGO LINK] Using a highly reliable static asset for fallback
+# Fallback Logo URL (Medical Cross)
 LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
 
 download_and_save_icon(IG_URL, "icon-ig.png")
 download_and_save_icon(FB_URL, "icon-fb.png")
-download_and_save_icon(LOGO_URL, "logo.png") 
+download_and_save_icon(LOGO_URL, "logo.png")
 
 # ==========================================
 # 2. HELPER FUNCTIONS
@@ -124,48 +125,59 @@ def save_config_path(path, file_name):
     with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
     return path
 
-# [FIXED] ROBUST DOWNLOADER WITH REDIRECT HANDLING
+# [ROBUST DOWNLOADER V2 - MS API ENCODING]
 def robust_file_downloader(url):
-    """Downloads file from OneDrive or direct link."""
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    """
+    Robustly downloads file from OneDrive using the official Sharing API 
+    method to bypass 403 Forbidden errors.
+    """
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
-    final_url = url
-
-    # 1. If it is a shortlink (1drv.ms), resolve it to the full URL first
-    if "1drv.ms" in url:
-        try:
-            # HEAD request follows redirects to get the real URL
-            r = requests.head(url, allow_redirects=True)
-            final_url = r.url
-        except:
-            pass
-
-    # 2. Append download command safely
-    if "download=1" not in final_url:
-        if "?" in final_url:
-            final_url += "&download=1"
-        else:
-            final_url += "?download=1"
-
+    # Method 1: The Microsoft "Embed" Trick (Most Robust)
+    # Convert sharing URL to Base64, clean it, and hit the API endpoint
     try:
-        # Attempt 1: With Modified URL
+        if "1drv.ms" in url or "sharepoint" in url or "onedrive" in url:
+            base64_value = base64.b64encode(url.encode("utf-8")).decode("utf-8")
+            encoded_url = "u!" + base64_value.rstrip("=").replace("/", "_").replace("+", "-")
+            api_url = f"https://api.onedrive.com/v1.0/shares/{encoded_url}/root/content"
+            
+            response = requests.get(api_url, headers=headers, verify=False)
+            if response.status_code == 200:
+                return BytesIO(response.content)
+    except:
+        pass # If API method fails, fall through to direct manipulation
+
+    # Method 2: Fallback to ?download=1 manipulation
+    try:
+        # Resolve shortlink first
+        if "1drv.ms" in url:
+            try:
+                r = requests.head(url, allow_redirects=True)
+                url = r.url
+            except: pass
+
+        if "download=1" not in url:
+            final_url = url + "&download=1" if "?" in url else url + "?download=1"
+        else:
+            final_url = url
+            
         response = requests.get(final_url, headers=headers, verify=False)
-        if response.status_code == 200: 
+        if response.status_code == 200:
             return BytesIO(response.content)
-        
-        # Attempt 2: Fallback to original URL if modification caused 403
-        fallback = requests.get(url, headers=headers, verify=False)
-        if fallback.status_code == 200:
-            return BytesIO(fallback.content)
+            
+        # Method 3: Absolute Desperation (Original URL)
+        response = requests.get(url, headers=headers, verify=False)
+        if response.status_code == 200:
+            return BytesIO(response.content)
             
         raise Exception(f"Status Code: {response.status_code}")
+        
     except Exception as e:
-        raise Exception(f"Download failed: {e}")
+        raise Exception(f"All download methods failed. Error: {e}")
 
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
 def get_history_data(sheet_obj):
-    """Fetches the Master History data from Google Sheets."""
     if sheet_obj is None: return pd.DataFrame()
     try:
         data = sheet_obj.get_all_records()
@@ -174,14 +186,11 @@ def get_history_data(sheet_obj):
         return pd.DataFrame()
 
 def get_next_invoice_number_gsheet(date_obj, df_hist):
-    """Determines next invoice number from Google Sheet history."""
     date_str = date_obj.strftime('%Y%m%d')
     next_seq = 1
-    
     if not df_hist.empty and 'Invoice Number' in df_hist.columns:
         df_hist['Invoice Number'] = df_hist['Invoice Number'].astype(str)
         todays_inv = df_hist[df_hist['Invoice Number'].str.startswith(date_str)]
-        
         if not todays_inv.empty:
             last_inv = todays_inv['Invoice Number'].iloc[-1]
             try:
@@ -190,11 +199,9 @@ def get_next_invoice_number_gsheet(date_obj, df_hist):
                     last_seq = int(parts[-1])
                     next_seq = last_seq + 1
             except: pass
-            
     return f"{date_str}-{next_seq:03d}"
 
 def check_invoice_exists(df_hist, customer_name, date_str):
-    """Checks if invoice exists for Customer + Date."""
     if df_hist.empty or 'Customer Name' not in df_hist.columns or 'Date' not in df_hist.columns:
         return False
     mask = (
@@ -204,7 +211,6 @@ def check_invoice_exists(df_hist, customer_name, date_str):
     return not df_hist[mask].empty
 
 def save_invoice_to_gsheet(data_dict, sheet_obj):
-    """Appends data to Google Sheet."""
     if sheet_obj is None: return False
     try:
         row_values = list(data_dict.values())
@@ -292,7 +298,7 @@ def normalize_columns(df, aliases):
                     break 
     return df
 
-# --- HTML CONSTRUCTORS (UNCHANGED) ---
+# --- HTML CONSTRUCTORS ---
 def construct_description_html(row):
     shift_raw = str(row.get('Shift', '')).strip()
     recurring = str(row.get('Recurring', '')).strip().lower()
@@ -411,7 +417,6 @@ ig_b64 = get_clean_image_base64("icon-ig.png")
 fb_b64 = get_clean_image_base64("icon-fb.png")
 
 # --- UI FOR FILE UPLOAD & GOOGLE CONNECT ---
-# Connect to GSheet
 sheet_obj = get_google_sheet_client()
 
 with st.sidebar:
@@ -421,60 +426,62 @@ with st.sidebar:
     else:
         st.error("❌ Not Connected to Google Sheets")
     
-    # [RESTORED] Option to choose method
     data_source = st.radio("Load Confirmed Sheet via:", ["Upload File", "OneDrive Link"])
 
 raw_file_obj = None
 
-# --- LOGIC TO GET THE FILE ---
 if data_source == "Upload File":
     uploaded_file = st.sidebar.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
     if uploaded_file: raw_file_obj = uploaded_file
 
 elif data_source == "OneDrive Link":
-    # Load previously saved URL if available
     current_url = load_config_path(URL_CONFIG_FILE)
     url_input = st.sidebar.text_input("Paste OneDrive/Sharepoint Link:", value=current_url)
     
     if st.sidebar.button("Load from Link"):
-        save_config_path(url_input, URL_CONFIG_FILE) # Save for next time
+        save_config_path(url_input, URL_CONFIG_FILE) 
         st.rerun()
         
     if current_url:
         try: 
             raw_file_obj = robust_file_downloader(current_url)
-            st.sidebar.success("✅ File Downloaded from Link")
+            st.sidebar.success("✅ File Downloaded")
         except Exception as e: 
             st.sidebar.error(f"Link Error: {e}")
 
-# --- PROCESS FILE IF LOADED ---
+# --- PROCESS FILE IF LOADED (ROBUST METHOD) ---
 if raw_file_obj:
+    df = None
+    # 1. Try Excel
     try:
+        if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
+        xl = pd.ExcelFile(raw_file_obj)
+        sheet_names = xl.sheet_names
+        default_ix = 0
+        if 'Confirmed' in sheet_names: default_ix = sheet_names.index('Confirmed')
+        selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
+        df = pd.read_excel(raw_file_obj, sheet_name=selected_sheet)
+    except Exception as e_excel:
+        # 2. Try CSV ONLY if Excel fails completely and it doesn't look like an XML error
         try:
-            xl = pd.ExcelFile(raw_file_obj)
-            sheet_names = xl.sheet_names
-            if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
-            default_ix = 0
-            if 'Confirmed' in sheet_names: default_ix = sheet_names.index('Confirmed')
-            selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
-            df = pd.read_excel(raw_file_obj, sheet_name=selected_sheet)
-        except:
             if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
             df = pd.read_csv(raw_file_obj)
+        except Exception as e_csv:
+            st.error(f"❌ Could not read file. \nExcel Error: {e_excel}\nCSV Error: {e_csv}")
+            st.stop()
 
+    if df is not None:
         df = normalize_columns(df, COLUMN_ALIASES)
         missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required', 'Unit Rate'] if k not in df.columns]
         if missing: st.error(f"Missing columns: {missing}"); st.stop()
         
         st.success("✅ Data Loaded")
         
-        # Create Label and Add BLANK option
         df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
-        unique_labels = [""] + list(df['Label'].unique()) # Add blank option
+        unique_labels = [""] + list(df['Label'].unique()) 
         
         selected_label = st.selectbox("Select Customer:", unique_labels)
         
-        # Stop execution if nothing selected
         if not selected_label:
             st.info("👈 Please select a customer to proceed.")
             st.stop()
@@ -493,7 +500,6 @@ if raw_file_obj:
         c_name = row.get('Name', '')
         c_gender = row.get('Gender', '')
         
-        # Safe Age extraction
         raw_age = row.get('Age', '')
         try: 
             if pd.isna(raw_age) or raw_age == '': c_age = ""
@@ -511,7 +517,6 @@ if raw_file_obj:
         st.divider()
         col1, col2 = st.columns(2)
         
-        # --- PRELOAD HISTORY DATA ---
         df_history = get_history_data(sheet_obj)
         
         with col1:
@@ -519,13 +524,11 @@ if raw_file_obj:
             inv_date = st.date_input("Date:", value=datetime.date.today())
             fmt_date = format_date_with_suffix(inv_date)
             
-            # --- INTELLIGENT INVOICE NUMBERING & CHECKING ---
             is_duplicate = check_invoice_exists(df_history, c_name, fmt_date)
             
             if is_duplicate:
                 st.warning(f"⚠️ An invoice for {c_name} on {fmt_date} already exists in Google Sheets!")
                 force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", value=False)
-                # Logic: If duplicate, we just auto-fill next number but wont save it
                 default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
             else:
                 force_print = False
@@ -550,12 +553,10 @@ if raw_file_obj:
         
         final_notes = st.text_area("Notes:", value=c_notes_raw)
         
-        # LABEL FOR BUTTON
         btn_label = "Generate Duplicate Copy (PDF Only)" if (is_duplicate and force_print) else "Generate & Save Invoice"
         
         if st.button(btn_label):
             
-            # BLOCKER: If duplicate exists and user didn't check "Print Duplicate"
             if is_duplicate and not force_print:
                 st.error("❌ Invoice already exists! Enable 'Print Duplicate Copy' to print anyway.")
                 st.stop()
@@ -569,7 +570,6 @@ if raw_file_obj:
             
             final_amt = safe_float(row.get('Final Rate', 0))
             
-            # --- SAVE TO HISTORY (ONLY IF NOT DUPLICATE) ---
             if not force_print:
                 # [FIXED JSON ERROR] Strict Type Casting
                 try: visits_val = int(safe_float(row.get('Visits', 0)))
@@ -597,7 +597,6 @@ if raw_file_obj:
                 success = save_invoice_to_gsheet(invoice_record, sheet_obj)
                 if success:
                     st.success(f"✅ Invoice {inv_num} saved to Google Sheets History!")
-                    # Refresh
                     df_history = get_history_data(sheet_obj)
             else:
                 st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
@@ -609,7 +608,6 @@ if raw_file_obj:
             if final_notes:
                 notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
 
-            # HTML TEMPLATE (UNCHANGED)
             html_template = f"""
             <!DOCTYPE html>
             <html lang="en">
