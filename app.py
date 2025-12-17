@@ -61,18 +61,26 @@ def download_and_save_icon(url, filename):
             response = requests.get(url)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGBA")
-                img = img.resize((32, 32)) 
+                # Resize specifically for the file type
+                if "logo" in filename:
+                    img.thumbnail((150, 150)) # Larger for logo
+                else:
+                    img = img.resize((32, 32)) # Smaller for social icons
                 img.save(filename, format="PNG")
                 return True
         except:
             return False
     return True
 
+# URLs
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
+# [FIX 3] Added a placeholder logo URL so the header doesn't break if logo.png is missing
+LOGO_URL = "https://cdn-icons-png.flaticon.com/512/3063/3063823.png" 
 
 download_and_save_icon(IG_URL, "icon-ig.png")
 download_and_save_icon(FB_URL, "icon-fb.png")
+download_and_save_icon(LOGO_URL, "logo.png") # Ensures logo.png always exists
 
 # ==========================================
 # 2. HELPER FUNCTIONS
@@ -118,32 +126,31 @@ def robust_file_downloader(url):
     """Downloads file from OneDrive or direct link."""
     headers = {'User-Agent': 'Mozilla/5.0'}
     
-    # [FIX] Do not strip parameters. Append download=1 correctly.
-    # If it's a Microsoft link, we want to force download.
+    # [FIX 1] Improved 403 handling strategy
+    # Try modifying the URL first
+    download_url_variant = url
     if any(x in url for x in ["1drv.ms", "sharepoint.com", "onedrive.live.com"]):
         if "?" in url:
-            # Check if download=1 is already there to avoid duplication
             if "download=1" not in url:
-                download_url = url + "&download=1"
-            else:
-                download_url = url
+                download_url_variant = url + "&download=1"
         else:
-            download_url = url + "?download=1"
-    else:
-        download_url = url
+            download_url_variant = url + "?download=1"
 
+    # Attempt 1: Modified URL
     try:
-        response = requests.get(download_url, headers=headers, verify=False)
+        response = requests.get(download_url_variant, headers=headers, verify=False)
         if response.status_code == 200: 
             return BytesIO(response.content)
+    except:
+        pass # Fall through to fallback
+
+    # Attempt 2: Fallback to Original URL (if modification broke auth tokens)
+    try:
+        fallback_response = requests.get(url, headers=headers, verify=False)
+        if fallback_response.status_code == 200:
+            return BytesIO(fallback_response.content)
         else:
-            # Fallback: Try the original URL if the manipulation caused a 403
-            # Sometimes the user pastes a direct download link that gets broken by appending
-            fallback_response = requests.get(url, headers=headers, verify=False)
-            if fallback_response.status_code == 200:
-                return BytesIO(fallback_response.content)
-            
-            raise Exception(f"Status Code: {response.status_code}")
+            raise Exception(f"Status Code: {fallback_response.status_code}")
     except Exception as e:
         raise Exception(f"Download failed: {e}")
 
@@ -510,8 +517,7 @@ if raw_file_obj:
             if is_duplicate:
                 st.warning(f"⚠️ An invoice for {c_name} on {fmt_date} already exists in Google Sheets!")
                 force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", value=False)
-                # Logic: If duplicate, we just auto-fill next number but wont save it, or logic could be to find existing
-                # For simplicity in this robust version, we get the next number available
+                # Logic: If duplicate, we just auto-fill next number but wont save it
                 default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
             else:
                 force_print = False
@@ -557,24 +563,29 @@ if raw_file_obj:
             
             # --- SAVE TO HISTORY (ONLY IF NOT DUPLICATE) ---
             if not force_print:
+                # [FIX 2] Explicitly convert numpy types to standard Python types for JSON serialization
+                try:
+                    visits_val = int(safe_float(row.get('Visits', 0)))
+                except: visits_val = 0
+
                 invoice_record = {
-                    "Serial No.": c_serial,
-                    "Invoice Number": inv_num,
-                    "Date": fmt_date,
-                    "Generated At": datetime.datetime.now().strftime("%H:%M:%S"),
-                    "Customer Name": c_name,
-                    "Age": c_age,
-                    "Gender": c_gender,
-                    "Location": c_location,
-                    "Address": c_addr,
-                    "Mobile": c_mob,
-                    "Plan": clean_plan,
-                    "Shift": row.get('Shift', ''),
-                    "Recurring Service": row.get('Recurring', ''),
-                    "Period": row.get('Period', ''),
-                    "Visits": row.get('Visits', ''),
-                    "Amount": final_amt,
-                    "Generated By": generated_by
+                    "Serial No.": str(c_serial),  # Force string
+                    "Invoice Number": str(inv_num),
+                    "Date": str(fmt_date),
+                    "Generated At": str(datetime.datetime.now().strftime("%H:%M:%S")),
+                    "Customer Name": str(c_name),
+                    "Age": str(c_age),
+                    "Gender": str(c_gender),
+                    "Location": str(c_location),
+                    "Address": str(c_addr),
+                    "Mobile": str(c_mob),
+                    "Plan": str(clean_plan),
+                    "Shift": str(row.get('Shift', '')),
+                    "Recurring Service": str(row.get('Recurring', '')),
+                    "Period": str(row.get('Period', '')),
+                    "Visits": int(visits_val), # Force Int
+                    "Amount": float(final_amt), # Force Float
+                    "Generated By": str(generated_by)
                 }
                 success = save_invoice_to_gsheet(invoice_record, sheet_obj)
                 if success:
