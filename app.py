@@ -32,7 +32,6 @@ def get_google_sheet_client():
         "https://www.googleapis.com/auth/drive",
     ]
     try:
-        # Check if secrets exist
         if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
             s_info = st.secrets["connections"]["gsheets"]
             
@@ -65,7 +64,6 @@ def download_and_save_icon(url, filename):
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGBA")
-                # Resize specifically for the file type
                 if "logo" in filename:
                     img.thumbnail((200, 200)) 
                 else:
@@ -79,7 +77,7 @@ def download_and_save_icon(url, filename):
 # URLs
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
-# Fallback Logo URL (Medical Cross) - This replaces the broken link logic
+# Fallback Logo URL (Medical Cross)
 LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
 
 download_and_save_icon(IG_URL, "icon-ig.png")
@@ -134,7 +132,6 @@ def robust_file_downloader(url):
     """
     headers = {'User-Agent': 'Mozilla/5.0'}
     
-    # 1. Resolve Shortlinks (e.g. 1drv.ms) to get the real URL
     resolved_url = url
     if "1drv.ms" in url:
         try:
@@ -143,9 +140,8 @@ def robust_file_downloader(url):
         except: 
             pass
 
-    # 2. METHOD A: The Official Microsoft API "Share" Encoding
+    # Method A: API Encoding
     try:
-        # Steps: Base64 Encode -> Make URL Safe -> Call API
         base64_value = base64.b64encode(resolved_url.encode("utf-8")).decode("utf-8")
         encoded_url = "u!" + base64_value.rstrip("=").replace("/", "_").replace("+", "-")
         api_url = f"https://api.onedrive.com/v1.0/shares/{encoded_url}/root/content"
@@ -154,9 +150,9 @@ def robust_file_downloader(url):
         if response.status_code == 200:
             return BytesIO(response.content)
     except:
-        pass # Fallback to Method B
+        pass 
 
-    # 3. METHOD B: Standard Download Parameter Manipulation
+    # Method B: Parameter Manipulation
     try:
         if "download=1" not in resolved_url:
             final_url = resolved_url + "&download=1" if "?" in resolved_url else resolved_url + "?download=1"
@@ -167,7 +163,7 @@ def robust_file_downloader(url):
         if response.status_code == 200:
             return BytesIO(response.content)
             
-        # Method 3: Absolute Desperation (Original URL)
+        # Method C: Original URL Fallback
         response = requests.get(url, headers=headers, verify=False)
         if response.status_code == 200:
             return BytesIO(response.content)
@@ -223,7 +219,7 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         return False
 
 # ==========================================
-# 3. DATA LOGIC (UNCHANGED)
+# 3. DATA LOGIC
 # ==========================================
 SERVICES_MASTER = {
     "Plan A: Patient Attendant Care": ["All", "Basic Care", "Assistance with Activities for Daily Living", "Feeding & Oral Hygiene", "Mobility Support & Transfers", "Bed Bath and Emptying Bedpans", "Catheter & Ostomy Care"],
@@ -408,12 +404,10 @@ def convert_html_to_pdf(source_html):
 # ==========================================
 st.title("🏥 Vesak Care - Invoice Generator")
 
-# Absolute paths for PDF engine
 abs_logo_path = get_absolute_path(LOGO_FILE)
 abs_ig_path = get_absolute_path("icon-ig.png")
 abs_fb_path = get_absolute_path("icon-fb.png")
 
-# Base64 for Web Preview
 logo_b64 = get_clean_image_base64(LOGO_FILE)
 ig_b64 = get_clean_image_base64("icon-ig.png")
 fb_b64 = get_clean_image_base64("icon-fb.png")
@@ -451,10 +445,9 @@ elif data_source == "OneDrive Link":
         except Exception as e: 
             st.sidebar.error(f"Link Error: {e}")
 
-# --- PROCESS FILE IF LOADED (DEEP FIX) ---
+# --- PROCESS FILE IF LOADED ---
 if raw_file_obj:
     df = None
-    # 1. Try Excel FIRST
     try:
         if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
         xl = pd.ExcelFile(raw_file_obj)
@@ -464,9 +457,6 @@ if raw_file_obj:
         selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
         df = pd.read_excel(raw_file_obj, sheet_name=selected_sheet)
     except Exception as e_excel:
-        # [CRITICAL FIX] If Excel fails, DO NOT try CSV if it's supposed to be Excel.
-        # This prevents the "tokenizing" error which comes from reading binary as text.
-        # Only try CSV if the error explicitly looks like it's not an excel file or file extension says so.
         st.error(f"❌ Excel Read Error: {e_excel}")
         st.info("ℹ️ If this is a valid Excel file, it might be corrupt or encrypted. If it is a CSV, rename it.")
         st.stop()
