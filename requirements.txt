@@ -4,5 +4,5 @@ openpyxl
 requests
 Pillow
 xhtml2pdf
-streamlit-gsheets
-st-files-connection
+gspread
+google-auth
