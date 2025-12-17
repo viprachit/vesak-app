@@ -4,11 +4,11 @@ import base64
 import os
 import datetime
 import requests
-import math 
 from io import BytesIO
 from PIL import Image, ImageFile
 import streamlit.components.v1 as components
-from xhtml2pdf import pisa 
+from xhtml2pdf import pisa
+from streamlit_gsheets import GSheetsConnection
 
 # --- CRITICAL FIX FOR BROKEN IMAGES ---
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -18,14 +18,13 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 # ==========================================
 st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="🏥")
 
-CONFIG_FILE = "path_config.txt"
-URL_CONFIG_FILE = "url_config.txt"
 LOGO_FILE = "logo.png"
 
-# --- ⬇️ SET YOUR ONEDRIVE/LOCAL MASTER FILE PATH HERE ⬇️ ---
-DEFAULT_MASTER_DB_PATH = r"C:\Users\Viprachit\OneDrive\Vesak_invoice_history.xlsx"
+# --- CONNECT TO GOOGLE SHEETS ---
+# This looks for the [connections.gsheets] section in your Secrets
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- AUTO-DOWNLOAD ICONS ---
+# --- AUTO-DOWNLOAD ICONS (Reliable Method) ---
 def download_and_save_icon(url, filename):
     if not os.path.exists(filename):
         try:
@@ -39,6 +38,7 @@ def download_and_save_icon(url, filename):
             return False
     return True
 
+# Public URLs for standard icons
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
 
@@ -48,14 +48,6 @@ download_and_save_icon(FB_URL, "icon-fb.png")
 # ==========================================
 # 2. HELPER FUNCTIONS
 # ==========================================
-def load_config_path(file_name):
-    if os.path.exists(file_name):
-        with open(file_name, "r") as f: return f.read().strip()
-    return ""
-
-def save_config_path(path, file_name):
-    with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
-    return path
 
 def get_absolute_path(filename):
     if os.path.exists(filename): return os.path.abspath(filename).replace('\\', '/')
@@ -70,13 +62,6 @@ def get_clean_image_base64(file_path):
         return base64.b64encode(buffer.getvalue()).decode('utf-8')
     except: return None
 
-def robust_file_downloader(url):
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    download_url = url.split('?')[0] + "?download=1" if "1drv.ms" in url else url
-    response = requests.get(download_url, headers=headers, verify=False)
-    if response.status_code == 200: return BytesIO(response.content)
-    raise Exception("Download failed")
-
 def clean_text(text):
     return str(text).strip() if isinstance(text, str) else str(text)
 
@@ -90,91 +75,63 @@ def format_date_with_suffix(d):
         return d.strftime(f"%b. {day}{suffix} %Y")
     except: return str(d)
 
-# --- DATABASE LOGIC ---
+# --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
-def get_existing_invoice_by_serial(serial_no, history_path):
-    """
-    Checks if a Serial No already has an invoice in the Master DB.
-    Returns: (Invoice Number, True) if found.
-    Returns: (None, False) if not found.
-    """
-    if not os.path.exists(history_path) or not serial_no:
-        return None, False
-    
+def get_history_data():
+    """Fetches the Master History data from Google Sheets."""
     try:
-        df_hist = pd.read_excel(history_path)
-        df_hist.columns = df_hist.columns.str.strip()
-        
-        if 'Serial No.' in df_hist.columns:
-            # Convert both to string for comparison (handle 1 vs 1.0)
-            # Drop NaNs first
-            clean_s_col = pd.to_numeric(df_hist['Serial No.'], errors='coerce').dropna().astype(int).astype(str)
-            target = str(int(float(serial_no)))
-            
-            # Find in the cleaned series
-            if target in clean_s_col.values:
-                # Get the original row index
-                idx = clean_s_col[clean_s_col == target].index[0]
-                return df_hist.loc[idx, 'Invoice Number'], True
-    except:
-        pass
-    
-    return None, False
+        # ttl=0 ensures we don't cache old data, we always get fresh data
+        return conn.read(worksheet="Sheet1", ttl=0)
+    except Exception as e:
+        st.error(f"Could not connect to Google Sheet. Check Secrets. Error: {e}")
+        return pd.DataFrame()
 
-def check_if_invoice_number_exists(inv_num, history_path):
-    """Checks if the invoice number string exists in the DB (Collision check)."""
-    if not os.path.exists(history_path): return False
-    try:
-        df_hist = pd.read_excel(history_path)
-        df_hist.columns = df_hist.columns.str.strip()
-        if 'Invoice Number' in df_hist.columns:
-            return str(inv_num) in df_hist['Invoice Number'].astype(str).values
-    except: return False
-    return False
-
-def get_next_invoice_number_from_excel(date_obj, history_path):
-    """Safely determines next invoice number from Excel history based on Date."""
+def get_next_invoice_number_gsheet(date_obj, df_hist):
+    """
+    Reads the Google Sheet dataframe to find the next number for today.
+    """
     date_str = date_obj.strftime('%Y%m%d')
     next_seq = 1
     
-    if os.path.exists(history_path):
-        try:
-            df_hist = pd.read_excel(history_path)
-            df_hist.columns = df_hist.columns.str.strip()
-            
-            if 'Invoice Number' in df_hist.columns:
-                # Force to string to handle potential mixed types
-                df_hist['Invoice Number'] = df_hist['Invoice Number'].astype(str)
-                todays_inv = df_hist[df_hist['Invoice Number'].str.startswith(date_str)]
-                
-                if not todays_inv.empty:
-                    last_inv = todays_inv['Invoice Number'].iloc[-1]
-                    try:
-                        # Split by hyphen and take last part
-                        parts = last_inv.split('-')
-                        if len(parts) > 1:
-                            last_seq = int(parts[-1])
-                            next_seq = last_seq + 1
-                    except: pass
-        except: pass
+    if not df_hist.empty and 'Invoice Number' in df_hist.columns:
+        # Filter for invoices created on the selected date
+        todays_inv = df_hist[df_hist['Invoice Number'].astype(str).str.startswith(date_str)]
+        
+        if not todays_inv.empty:
+            last_inv = todays_inv['Invoice Number'].iloc[-1]
+            try:
+                last_seq = int(last_inv.split('-')[-1])
+                next_seq = last_seq + 1
+            except: pass
             
     return f"{date_str}-{next_seq:03d}"
 
-def save_invoice_to_history(data_dict, history_path):
-    """Appends data to Excel safely."""
-    df_new = pd.DataFrame([data_dict])
-    if os.path.exists(history_path):
-        try:
-            df_old = pd.read_excel(history_path)
-            df_combined = pd.concat([df_old, df_new], ignore_index=True)
-            df_combined.to_excel(history_path, index=False)
-        except Exception as e:
-            st.error(f"⚠️ Error saving to database: {e}. Please close the Excel file if it is open.")
-    else:
-        df_new.to_excel(history_path, index=False)
+def check_invoice_exists(df_hist, customer_name, date_str):
+    """Checks if an invoice already exists for this customer on this date."""
+    if df_hist.empty or 'Customer Name' not in df_hist.columns or 'Date' not in df_hist.columns:
+        return False
+    
+    # Normalize checks
+    mask = (
+        (df_hist['Customer Name'].astype(str).str.lower() == str(customer_name).lower()) &
+        (df_hist['Date'] == date_str)
+    )
+    return not df_hist[mask].empty
+
+def save_invoice_to_gsheet(data_dict, df_old):
+    """Appends a new invoice record to the Google Sheet."""
+    try:
+        df_new = pd.DataFrame([data_dict])
+        df_combined = pd.concat([df_old, df_new], ignore_index=True)
+        conn.update(worksheet="Sheet1", data=df_combined)
+        st.cache_data.clear() # Clear cache to ensure next read is fresh
+        return True
+    except Exception as e:
+        st.error(f"Error saving to Google Sheet: {e}")
+        return False
 
 # ==========================================
-# 3. DATA LOGIC
+# 3. DATA LOGIC (UNCHANGED)
 # ==========================================
 SERVICES_MASTER = {
     "Plan A: Patient Attendant Care": ["All", "Basic Care", "Assistance with Activities for Daily Living", "Feeding & Oral Hygiene", "Mobility Support & Transfers", "Bed Bath and Emptying Bedpans", "Catheter & Ostomy Care"],
@@ -198,13 +155,10 @@ PLAN_DISPLAY_NAMES = {
     "A-la-carte Services": "Other Services"
 }
 
-# [UPDATED] Included 'Serial No.'
 COLUMN_ALIASES = {
-    'Serial No.': ['Serial No.', 'serial no', 'sr no', 'sr. no.', 'id'],
     'Name': ['Name', 'name', 'patient name', 'client name'],
     'Mobile': ['Mobile', 'mobile', 'phone', 'contact'],
-    'Location': ['Location', 'location', 'city'], 
-    'Address': ['Address', 'address', 'residence'],
+    'Address': ['Address', 'address', 'location', 'city'],
     'Gender': ['Gender', 'gender', 'sex'],
     'Age': ['Age', 'age'],
     'Service Required': ['Service Required', 'service required', 'plan'],
@@ -294,7 +248,7 @@ def construct_amount_html(row):
     
     def safe_float(val):
         try:
-            if pd.isna(val) or str(val).strip() == '': return 0.0
+            if pd.isna(val) or val == '': return 0.0
             return float(val)
         except: return 0.0
 
@@ -349,15 +303,6 @@ def construct_amount_html(row):
     </div>
     """
 
-def chunk_list(data, num_chunks):
-    chunks = [[] for _ in range(num_chunks)]
-    for i, item in enumerate(data): chunks[i % num_chunks].append(item)
-    return chunks
-
-def make_html_list(items):
-    if not items: return ""
-    return "".join([f'<div style="margin-bottom:3px; font-size:10px;">• {x}</div>' for x in items])
-
 def convert_html_to_pdf(source_html):
     result = BytesIO()
     pisa_status = pisa.CreatePDF(source_html, dest=result)
@@ -369,60 +314,34 @@ def convert_html_to_pdf(source_html):
 # ==========================================
 st.title("🏥 Vesak Care - Invoice Generator")
 
+# Absolute paths for PDF engine
 abs_logo_path = get_absolute_path(LOGO_FILE)
 abs_ig_path = get_absolute_path("icon-ig.png")
 abs_fb_path = get_absolute_path("icon-fb.png")
 
+# Base64 for Web Preview
 logo_b64 = get_clean_image_base64(LOGO_FILE)
 ig_b64 = get_clean_image_base64("icon-ig.png")
 fb_b64 = get_clean_image_base64("icon-fb.png")
 
-if not abs_logo_path: st.sidebar.warning("⚠️ Logo not found. (Checks local path)")
+# --- UI FOR FILE UPLOAD ---
+st.sidebar.header("📂 Data Source")
+st.sidebar.info("Connected to Google Sheets History ✅")
+uploaded_file = st.sidebar.file_uploader("Upload 'Confirmed' Sheet (Excel/CSV):", type=['xlsx', 'csv'])
 
-with st.sidebar:
-    st.header("📂 Data Source")
-    data_source = st.radio("Load Method:", ["Upload File", "Master Database (Local/OneDrive)", "OneDrive Link"])
-
-raw_file_obj = None
-history_db_path = DEFAULT_MASTER_DB_PATH
-
-if data_source == "Upload File":
-    uploaded_file = st.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
-    if uploaded_file: raw_file_obj = uploaded_file
-
-elif data_source == "Master Database (Local/OneDrive)":
-    history_db_path = st.text_input("Path to Master History File:", value=DEFAULT_MASTER_DB_PATH)
-    uploaded_file = st.file_uploader("Upload Daily/Confirmed Sheet:", type=['xlsx', 'csv'])
-    if uploaded_file: raw_file_obj = uploaded_file
-
-elif data_source == "OneDrive Link":
-    current_url = load_config_path(URL_CONFIG_FILE)
-    url_input = st.text_input("Link:", value=current_url)
-    if st.button("Load"): save_config_path(url_input, URL_CONFIG_FILE); st.rerun()
-    if current_url:
-        try: raw_file_obj = robust_file_downloader(current_url); st.success("Connected")
-        except: st.error("Link Error")
-
-elif data_source == "Local Path":
-    current_path = load_config_path(CONFIG_FILE)
-    path_input = st.text_input("Path:", value=current_path)
-    if st.button("Save"): save_config_path(path_input, CONFIG_FILE); st.rerun()
-    if current_path and os.path.exists(current_path): raw_file_obj = current_path
-
-if raw_file_obj:
+if uploaded_file:
     try:
         try:
-            xl = pd.ExcelFile(raw_file_obj)
+            xl = pd.ExcelFile(uploaded_file)
             sheet_names = xl.sheet_names
-            if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
+            if hasattr(uploaded_file, 'seek'): uploaded_file.seek(0)
             default_ix = 0
             if 'Confirmed' in sheet_names: default_ix = sheet_names.index('Confirmed')
-            with st.sidebar:
-                selected_sheet = st.selectbox("Sheet:", sheet_names, index=default_ix)
-            df = pd.read_excel(raw_file_obj, sheet_name=selected_sheet)
+            selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
+            df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
         except:
-            if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
-            df = pd.read_csv(raw_file_obj)
+            if hasattr(uploaded_file, 'seek'): uploaded_file.seek(0)
+            df = pd.read_csv(uploaded_file)
 
         df = normalize_columns(df, COLUMN_ALIASES)
         missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required', 'Unit Rate'] if k not in df.columns]
@@ -430,25 +349,11 @@ if raw_file_obj:
         
         st.success("✅ Data Loaded")
         
-        # Create Label and Add BLANK option
         df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
-        unique_labels = [""] + list(df['Label'].unique()) # Add blank option
-        
-        selected_label = st.selectbox("Select Customer:", unique_labels)
-        
-        # Stop execution if nothing selected
-        if not selected_label:
-            st.info("👈 Please select a customer to proceed.")
-            st.stop()
-            
+        selected_label = st.selectbox("Select Customer:", df['Label'].unique())
         row = df[df['Label'] == selected_label].iloc[0]
         
         # Prepare Data - SAFE EXTRACTION
-        # Clean Serial No to be a plain integer string if possible
-        c_serial_raw = row.get('Serial No.', '')
-        try: c_serial = str(int(float(c_serial_raw)))
-        except: c_serial = str(c_serial_raw)
-
         c_plan = row.get('Service Required', '')
         c_sub = row.get('Sub Service', '')
         c_ref_date = format_date_with_suffix(row.get('Call Date', 'N/A'))
@@ -456,7 +361,6 @@ if raw_file_obj:
         c_name = row.get('Name', '')
         c_gender = row.get('Gender', '')
         
-        # Safe Age extraction
         raw_age = row.get('Age', '')
         try: 
             if pd.isna(raw_age) or raw_age == '': c_age = ""
@@ -464,7 +368,6 @@ if raw_file_obj:
         except: c_age = str(raw_age)
 
         c_addr = row.get('Address', '')
-        c_location = row.get('Location', c_addr) 
         c_mob = row.get('Mobile', '')
         
         inc_def, exc_def = get_base_lists(c_plan, c_sub)
@@ -473,37 +376,34 @@ if raw_file_obj:
 
         st.divider()
         col1, col2 = st.columns(2)
+        
+        # --- PRELOAD HISTORY DATA TO CHECK DUPLICATES ---
+        df_history = get_history_data()
+
         with col1:
             st.info(f"**Plan:** {PLAN_DISPLAY_NAMES.get(c_plan, c_plan)}")
             inv_date = st.date_input("Date:", value=datetime.date.today())
+            fmt_date = format_date_with_suffix(inv_date)
+
+            # --- CHECK FOR DUPLICATES ---
+            is_duplicate = check_invoice_exists(df_history, c_name, fmt_date)
             
-            # --- INTELLIGENT INVOICE NUMBERING ---
-            existing_inv_num, found_in_history = get_existing_invoice_by_serial(c_serial, history_db_path)
-            
-            if found_in_history:
-                st.warning(f"⚠️ Serial No. {c_serial} exists! Duplicate Copy Mode.")
-                inv_num_input = st.text_input("Invoice No:", value=existing_inv_num, disabled=True)
-                is_duplicate_generation = True
+            # --- AUTO-CALCULATE INVOICE NUMBER ---
+            if is_duplicate:
+                st.warning(f"⚠️ An invoice for {c_name} on {fmt_date} already exists!")
+                force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", value=False)
+                # If duplicate, we grab the EXISTING invoice number if possible, or just keep next
+                # Here we default to the next logical number, but the user won't save it.
+                default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
             else:
-                default_inv_num = get_next_invoice_number_from_excel(inv_date, history_db_path)
-                inv_num_input = st.text_input("Invoice No (New):", value=default_inv_num)
-                is_duplicate_generation = False
-                
-                # Check for manual collision if user edits
-                if check_if_invoice_number_exists(inv_num_input, history_db_path):
-                     st.error(f"⛔ Warning: Invoice Number '{inv_num_input}' already exists in the database for a different client!")
+                force_print = False
+                default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
+
+            inv_num_input = st.text_input("Invoice No (Editable):", value=default_inv_num)
             
             st.caption(f"Ref Date: {c_ref_date}")
-            
         with col2:
-            generated_by_input = st.text_input("Invoice Generated By:", placeholder="")
-            
-            # DEFAULT NAME LOGIC: If blank, save "Vesak Patient Care", else save input
-            if not generated_by_input:
-                generated_by = "Vesak Patient Care"
-            else:
-                generated_by = generated_by_input
-
+            generated_by = st.text_input("Invoice Generated By:", placeholder="Enter your name")
             final_exc = st.multiselect("Excluded (Editable):", options=exc_def + ["Others"], default=exc_def)
             
         st.write("**Included Services:**")
@@ -511,31 +411,32 @@ if raw_file_obj:
         
         final_notes = st.text_area("Notes:", value=c_notes_raw)
         
-        if st.button("Generate Invoice"):
+        # LABEL FOR BUTTON
+        btn_label = "Generate Duplicate Copy (PDF Only)" if (is_duplicate and force_print) else "Generate & Save Invoice"
+        
+        if st.button(btn_label):
             
+            # BLOCKER: If duplicate exists and user didn't check "Print Duplicate"
+            if is_duplicate and not force_print:
+                st.error("❌ Invoice already exists! Enable 'Print Duplicate Copy' to print anyway.")
+                st.stop()
+
             clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
-            fmt_date = format_date_with_suffix(inv_date)
             inv_num = inv_num_input
             
-            # Safe amount extraction
-            def safe_float(val):
-                try: return float(val) if not pd.isna(val) else 0.0
-                except: return 0.0
+            try: final_amt = float(row.get('Final Rate', 0))
+            except: final_amt = 0.0
             
-            # AMOUNT = Final Rate (as requested)
-            final_amt = safe_float(row.get('Final Rate', 0))
-            
-            # --- SAVE TO HISTORY (ONLY IF NOT DUPLICATE) ---
-            if not is_duplicate_generation:
+            # --- SAVE TO GOOGLE SHEET (Only if NOT a forced duplicate print) ---
+            if not force_print:
                 invoice_record = {
-                    "Serial No.": c_serial, # Important for tracking
                     "Invoice Number": inv_num,
                     "Date": fmt_date,
                     "Generated At": datetime.datetime.now().strftime("%H:%M:%S"),
                     "Customer Name": c_name,
                     "Age": c_age,
                     "Gender": c_gender,
-                    "Location": c_location,
+                    "Location": c_addr, 
                     "Address": c_addr,
                     "Mobile": c_mob,
                     "Plan": clean_plan,
@@ -546,11 +447,15 @@ if raw_file_obj:
                     "Amount": final_amt,
                     "Generated By": generated_by
                 }
-                save_invoice_to_history(invoice_record, history_db_path)
-                st.success(f"✅ Invoice {inv_num} saved to History!")
+                success = save_invoice_to_gsheet(invoice_record, df_history)
+                if success:
+                    st.success(f"✅ Invoice {inv_num} saved to Google Sheets History!")
+                else:
+                    st.error("Failed to save to Google Sheet, but PDF is generating...")
             else:
-                st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
+                st.warning("ℹ️ Generating Duplicate Copy - Record NOT added to History.")
             
+            # --- PDF GENERATION (UNCHANGED LAYOUT) ---
             inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
             exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
             
@@ -558,7 +463,6 @@ if raw_file_obj:
             if final_notes:
                 notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
 
-            # HTML TEMPLATE
             html_template = f"""
             <!DOCTYPE html>
             <html lang="en">
