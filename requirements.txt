@@ -1,8 +1,8 @@
 streamlit
 pandas
 openpyxl
-# Use the binary version of reportlab to avoid compiling
-reportlab
+requests
+Pillow
 xhtml2pdf
-six
-pillow
+streamlit-gsheets
+st-files-connection
