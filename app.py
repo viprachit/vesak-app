@@ -64,6 +64,7 @@ def download_and_save_icon(url, filename):
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGBA")
+                # Resize specifically for the file type
                 if "logo" in filename:
                     img.thumbnail((200, 200)) 
                 else:
@@ -77,10 +78,7 @@ def download_and_save_icon(url, filename):
 # URLs (Kept exactly as requested)
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
-# 
-
-[Image of Logo]
- Fallback logic used here to ensure header doesn't break
+# Fallback Logo URL (Medical Cross)
 LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
 
 download_and_save_icon(IG_URL, "icon-ig.png")
@@ -166,6 +164,11 @@ def robust_file_downloader(url):
             final_url = resolved_url
             
         response = requests.get(final_url, headers=headers, verify=False)
+        if response.status_code == 200:
+            return BytesIO(response.content)
+            
+        # Method 3: Absolute Desperation (Original URL)
+        response = requests.get(url, headers=headers, verify=False)
         if response.status_code == 200:
             return BytesIO(response.content)
             
