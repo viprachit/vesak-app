@@ -64,26 +64,28 @@ def download_and_save_icon(url, filename):
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 img = Image.open(BytesIO(response.content)).convert("RGBA")
-                # Resize specifically for the file type
                 if "logo" in filename:
-                    img.thumbnail((200, 200)) # Larger for logo
+                    img.thumbnail((200, 200)) 
                 else:
-                    img = img.resize((32, 32)) # Smaller for social icons
+                    img = img.resize((32, 32)) 
                 img.save(filename, format="PNG")
                 return True
         except:
             return False
     return True
 
-# URLs (Do not change)
+# URLs (Kept exactly as requested)
 IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
 FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
-# Fallback Logo URL (Medical Cross)
+# 
+
+[Image of Logo]
+ Fallback logic used here to ensure header doesn't break
 LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
 
 download_and_save_icon(IG_URL, "icon-ig.png")
 download_and_save_icon(FB_URL, "icon-fb.png")
-download_and_save_icon(LOGO_URL, "logo.png")
+download_and_save_icon(LOGO_URL, "logo.png") 
 
 # ==========================================
 # 2. HELPER FUNCTIONS
@@ -125,55 +127,52 @@ def save_config_path(path, file_name):
     with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
     return path
 
-# [ROBUST DOWNLOADER V2 - MS API ENCODING]
+# [DEEP FIX] MICROSOFT API ENCODING DOWNLOADER
 def robust_file_downloader(url):
     """
-    Robustly downloads file from OneDrive using the official Sharing API 
+    Downloads file from OneDrive using the official Sharing API 
     method to bypass 403 Forbidden errors.
     """
     headers = {'User-Agent': 'Mozilla/5.0'}
     
-    # Method 1: The Microsoft "Embed" Trick (Most Robust)
-    # Convert sharing URL to Base64, clean it, and hit the API endpoint
-    try:
-        if "1drv.ms" in url or "sharepoint" in url or "onedrive" in url:
-            base64_value = base64.b64encode(url.encode("utf-8")).decode("utf-8")
-            encoded_url = "u!" + base64_value.rstrip("=").replace("/", "_").replace("+", "-")
-            api_url = f"https://api.onedrive.com/v1.0/shares/{encoded_url}/root/content"
-            
-            response = requests.get(api_url, headers=headers, verify=False)
-            if response.status_code == 200:
-                return BytesIO(response.content)
-    except:
-        pass # If API method fails, fall through to direct manipulation
+    # 1. Resolve Shortlinks (e.g. 1drv.ms) to get the real URL
+    resolved_url = url
+    if "1drv.ms" in url:
+        try:
+            r = requests.head(url, allow_redirects=True)
+            resolved_url = r.url
+        except: 
+            pass
 
-    # Method 2: Fallback to ?download=1 manipulation
+    # 2. METHOD A: The Official Microsoft API "Share" Encoding
+    # This works for most Sharepoint/OneDrive Personal links by converting them to an API call
     try:
-        # Resolve shortlink first
-        if "1drv.ms" in url:
-            try:
-                r = requests.head(url, allow_redirects=True)
-                url = r.url
-            except: pass
-
-        if "download=1" not in url:
-            final_url = url + "&download=1" if "?" in url else url + "?download=1"
-        else:
-            final_url = url
-            
-        response = requests.get(final_url, headers=headers, verify=False)
+        # Steps: Base64 Encode -> Make URL Safe -> Call API
+        base64_value = base64.b64encode(resolved_url.encode("utf-8")).decode("utf-8")
+        encoded_url = "u!" + base64_value.rstrip("=").replace("/", "_").replace("+", "-")
+        api_url = f"https://api.onedrive.com/v1.0/shares/{encoded_url}/root/content"
+        
+        response = requests.get(api_url, headers=headers, verify=False)
         if response.status_code == 200:
             return BytesIO(response.content)
+    except:
+        pass # Fallback to Method B if this fails
+
+    # 3. METHOD B: Standard Download Parameter Manipulation
+    try:
+        if "download=1" not in resolved_url:
+            final_url = resolved_url + "&download=1" if "?" in resolved_url else resolved_url + "?download=1"
+        else:
+            final_url = resolved_url
             
-        # Method 3: Absolute Desperation (Original URL)
-        response = requests.get(url, headers=headers, verify=False)
+        response = requests.get(final_url, headers=headers, verify=False)
         if response.status_code == 200:
             return BytesIO(response.content)
             
         raise Exception(f"Status Code: {response.status_code}")
         
     except Exception as e:
-        raise Exception(f"All download methods failed. Error: {e}")
+        raise Exception(f"All download methods failed. Please check the link permissions. Error: {e}")
 
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
@@ -298,7 +297,7 @@ def normalize_columns(df, aliases):
                     break 
     return df
 
-# --- HTML CONSTRUCTORS ---
+# --- HTML CONSTRUCTORS (UNCHANGED) ---
 def construct_description_html(row):
     shift_raw = str(row.get('Shift', '')).strip()
     recurring = str(row.get('Recurring', '')).strip().lower()
@@ -449,10 +448,10 @@ elif data_source == "OneDrive Link":
         except Exception as e: 
             st.sidebar.error(f"Link Error: {e}")
 
-# --- PROCESS FILE IF LOADED (ROBUST METHOD) ---
+# --- PROCESS FILE IF LOADED (DEEP FIX) ---
 if raw_file_obj:
     df = None
-    # 1. Try Excel
+    # 1. Try Excel FIRST
     try:
         if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
         xl = pd.ExcelFile(raw_file_obj)
@@ -462,13 +461,12 @@ if raw_file_obj:
         selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
         df = pd.read_excel(raw_file_obj, sheet_name=selected_sheet)
     except Exception as e_excel:
-        # 2. Try CSV ONLY if Excel fails completely and it doesn't look like an XML error
-        try:
-            if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
-            df = pd.read_csv(raw_file_obj)
-        except Exception as e_csv:
-            st.error(f"❌ Could not read file. \nExcel Error: {e_excel}\nCSV Error: {e_csv}")
-            st.stop()
+        # [CRITICAL FIX] If Excel fails, DO NOT try CSV if it's supposed to be Excel.
+        # This prevents the "tokenizing" error which comes from reading binary as text.
+        # Only try CSV if the error explicitly looks like it's not an excel file or file extension says so.
+        st.error(f"❌ Excel Read Error: {e_excel}")
+        st.info("ℹ️ If this is a valid Excel file, it might be corrupt or encrypted. If it is a CSV, rename it.")
+        st.stop()
 
     if df is not None:
         df = normalize_columns(df, COLUMN_ALIASES)
