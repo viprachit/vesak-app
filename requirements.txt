@@ -4,4 +4,4 @@ openpyxl
 requests
 Pillow
 xhtml2pdf
-streamlit-gsheets
+streamlit-gsheets==0.0.3
