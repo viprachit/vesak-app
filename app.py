@@ -24,6 +24,26 @@ st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="�
 LOGO_FILE = "logo.png"
 URL_CONFIG_FILE = "url_config.txt"
 
+# --- CHECKBOX STATE MANAGEMENT ---
+if 'chk_force_new' not in st.session_state: st.session_state.chk_force_new = False
+if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = False
+if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
+
+def on_force_new_change():
+    if st.session_state.chk_force_new:
+        st.session_state.chk_print_dup = False
+        st.session_state.chk_overwrite = False
+
+def on_print_dup_change():
+    if st.session_state.chk_print_dup:
+        st.session_state.chk_force_new = False
+        st.session_state.chk_overwrite = False
+
+def on_overwrite_change():
+    if st.session_state.chk_overwrite:
+        st.session_state.chk_force_new = False
+        st.session_state.chk_print_dup = False
+
 # --- CONNECT TO GOOGLE SHEETS ---
 def get_google_sheet_client():
     """Connects to Google Sheets using the standard gspread library."""
@@ -236,11 +256,9 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         st.error(f"Error saving to Google Sheet: {e}")
         return False
 
-# [NEW] Function to OVERWRITE existing invoice row
 def update_invoice_in_gsheet(data_dict, sheet_obj):
     if sheet_obj is None: return False
     try:
-        # Find cell with invoice number
         cell = sheet_obj.find(str(data_dict["Invoice Number"]))
         if cell:
             row_idx = cell.row
@@ -268,7 +286,6 @@ def update_invoice_in_gsheet(data_dict, sheet_obj):
                 data_dict.get("Service Started", ""),
                 data_dict.get("Service Ended", "")
             ]
-            # Update the specific range for this row (A to V)
             range_name = f"A{row_idx}:V{row_idx}"
             sheet_obj.update(range_name, [row_values])
             return True
@@ -559,6 +576,7 @@ if raw_file_obj:
     except Exception as e_excel:
         st.error(f"❌ Excel Read Error: {e_excel}")
         st.info("ℹ️ File seems corrupted or password protected.")
+        # Don't stop, allow Tab 2 to work if GSheets connected
 
     # === TAB 1: GENERATOR ===
     with tab1:
@@ -623,6 +641,7 @@ if raw_file_obj:
                         
                         is_duplicate = False
                         existing_inv_num = ""
+                        default_inv_num = "" # Initialize here
 
                         if existing_record is not None:
                             existing_inv_num = existing_record['Invoice Number']
@@ -637,21 +656,22 @@ if raw_file_obj:
                             default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
                             
                         # Force New Invoice Checkbox
-                        force_new = st.checkbox("Force New Invoice (Ignore Duplicate Check)", value=False)
+                        force_new = st.checkbox("Force New Invoice (Ignore Duplicate Check)", key="chk_force_new", on_change=on_force_new_change)
                         
                         # Overwrite Checkbox (Only if Duplicate)
                         overwrite_existing = False
                         if is_duplicate:
                             col_dup1, col_dup2 = st.columns(2)
-                            with col_dup1: force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", value=False)
-                            with col_dup2: overwrite_existing = st.checkbox("🛠️ Overwrite Existing Entry (Use with Caution)")
+                            with col_dup1: force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", key="chk_print_dup", on_change=on_print_dup_change)
+                            with col_dup2: overwrite_existing = st.checkbox("🛠️ Overwrite Existing Entry (Use with Caution)", key="chk_overwrite", on_change=on_overwrite_change)
                         else:
                             force_print = False
                             if force_new and is_duplicate:
                                 default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
-
+                        
+                        # Ensure default_inv_num is set if duplicate and no override
                         if is_duplicate and not force_new and not overwrite_existing:
-                            default_inv_num = existing_inv_num
+                             default_inv_num = existing_inv_num
 
                         inv_num_input = st.text_input("Invoice No (New/Editable):", value=default_inv_num)
                         
@@ -693,6 +713,7 @@ if raw_file_obj:
                         unit_rate_val = safe_float(row.get('Unit Rate', 0))
                         total_billed_amount = unit_rate_val * billing_qty
                         
+                        # Extract "Paid for..." text for Details column
                         unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
                         def get_plural_save(unit, qty):
                              if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
@@ -706,6 +727,8 @@ if raw_file_obj:
                             except: visits_val = 0
 
                             period_val = str(row.get('Period', ''))
+                            # if service_ended: period_val += " [ENDED]" # Removed this logic from here
+
                             generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                             invoice_record = {
@@ -724,7 +747,7 @@ if raw_file_obj:
                                 "Recurring Service": str(row.get('Recurring', '')),
                                 "Period": period_val, 
                                 "Visits": int(visits_val), 
-                                "Amount": float(unit_rate_val), 
+                                "Amount": float(unit_rate_val), # Rate Agreed
                                 "Notes / Remarks": str(final_notes),  
                                 "Generated By": str(generated_by),
                                 "Amount Paid": float(total_billed_amount), 
@@ -735,13 +758,27 @@ if raw_file_obj:
                             
                             if is_duplicate and overwrite_existing:
                                 success = update_invoice_in_gsheet(invoice_record, sheet_obj)
-                                if success: st.success(f"✅ Invoice {inv_num} UPDATED in History!")
+                                if success: 
+                                    st.success(f"✅ Invoice {inv_num} UPDATED in History!")
+                                    # Reset Checkboxes
+                                    st.session_state.chk_overwrite = False
+                                    st.session_state.chk_force_new = False
+                                    st.rerun()
+
                             else:
                                 success = save_invoice_to_gsheet(invoice_record, sheet_obj)
-                                if success: st.success(f"✅ Invoice {inv_num} saved to History!")
+                                if success: 
+                                    st.success(f"✅ Invoice {inv_num} saved to History!")
+                                    # Reset Checkboxes
+                                    st.session_state.chk_overwrite = False
+                                    st.session_state.chk_force_new = False
+                                    st.rerun()
                                 
                         else:
                             st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
+                            # Reset Checkboxes
+                            st.session_state.chk_print_dup = False
+                            st.rerun()
                         
                         inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
                         exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
