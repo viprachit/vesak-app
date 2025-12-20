@@ -304,8 +304,9 @@ def normalize_columns(df, aliases):
     return df
 
 # --- HTML CONSTRUCTORS ---
-def construct_description_html(row, billing_mode="Standard"):
+def construct_description_html(row):
     shift_raw = str(row.get('Shift', '')).strip()
+    recurring = str(row.get('Recurring', '')).strip().lower()
     period_raw = str(row.get('Period', '')).strip()
     visits_raw = row.get('Visits', 0)
 
@@ -316,22 +317,16 @@ def construct_description_html(row, billing_mode="Standard"):
     try: visits = int(float(visits_raw)) if visits_raw and str(visits_raw).lower() != 'nan' else 0
     except: visits = 0
 
-    if billing_mode == "Monthly":
-        line1 = f"{shift_str}{time_suffix} - Monthly Plan"
-        line2 = "To be Billed Monthly"
-    elif billing_mode == "Weekly":
-        line1 = f"{shift_str}{time_suffix} - Weekly Plan"
-        line2 = "To be Billed Weekly (7 Days)"
-    elif billing_mode == "Per Visit":
-        line1 = f"{shift_str}{time_suffix} - Per Visit"
-        line2 = f"To be Billed Per Visit ({visits} visits estimated)"
+    p_lower = period_raw.lower()
+    if 'dai' in p_lower: p_single, p_multi = "Day", "Days"
+    elif 'week' in p_lower: p_single, p_multi = "Week", "Weeks"
+    elif 'month' in p_lower: p_single, p_multi = "Month", "Months"
+    else: p_single, p_multi = period_raw, period_raw
+
+    if recurring == 'yes':
+        line1 = f"{shift_str}{time_suffix} - {period_raw}"
+        line2 = "Till the Service Required"
     else:
-        # Standard logic
-        p_lower = period_raw.lower()
-        if 'dai' in p_lower: p_single, p_multi = "Day", "Days"
-        elif 'week' in p_lower: p_single, p_multi = "Week", "Weeks"
-        elif 'month' in p_lower: p_single, p_multi = "Month", "Months"
-        else: p_single, p_multi = period_raw, period_raw
         p_final = p_single if visits == 1 else p_multi
         line1 = f"{shift_str}{time_suffix}"
         line2 = f"For {visits} {p_final}"
@@ -343,55 +338,68 @@ def construct_description_html(row, billing_mode="Standard"):
     </div>
     """
 
-def construct_amount_html(row, billing_mode="Standard"):
+def construct_amount_html(row):
+    shift_raw = str(row.get('Shift', '')).strip()
+    recurring = str(row.get('Recurring', '')).strip().lower()
+    period_raw = str(row.get('Period', '')).strip()
+    
     def safe_float(val):
-        try: return float(val) if not pd.isna(val) else 0.0
+        try:
+            if pd.isna(val) or str(val).strip() == '': return 0.0
+            return float(val)
         except: return 0.0
 
     visits = int(safe_float(row.get('Visits', 0)))
     final_rate = safe_float(row.get('Final Rate', 0))
-    if isinstance(row.get('Final Rate'), pd.Series): final_rate = safe_float(row.get('Final Rate').iloc[0])
-    
+    if isinstance(row.get('Final Rate'), pd.Series): 
+        final_rate = safe_float(row.get('Final Rate').iloc[0])
+        
     unit_rate = safe_float(row.get('Unit Rate', 0))
-    if isinstance(row.get('Unit Rate'), pd.Series): unit_rate = safe_float(row.get('Unit Rate').iloc[0])
+    if isinstance(row.get('Unit Rate'), pd.Series):
+        unit_rate = safe_float(row.get('Unit Rate').iloc[0])
 
-    if unit_rate == 0 and visits > 0 and final_rate > 0: unit_rate = int(final_rate / visits)
-    if visits == 0 and final_rate > 0: visits = 1; unit_rate = int(final_rate) if unit_rate == 0 else unit_rate
+    shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
+    shift_str = shift_map.get(shift_raw, shift_raw)
+    time_suffix = " (Time)" if "12" in shift_str else ""
+    shift_display = f"{shift_str}{time_suffix}"
 
-    # Logic for billing modes
-    if billing_mode == "Monthly":
-        # Show Monthly Rate (assuming final_rate is the monthly rate if period is month)
-        disp_amt = final_rate
-        disp_text = "Monthly Rate"
-        calc_text = "Per Month"
-    elif billing_mode == "Weekly":
-        # Calculate weekly approx
-        disp_amt = (unit_rate * 7) if unit_rate > 0 else (final_rate / 4)
-        disp_text = "Weekly Rate"
-        calc_text = "7 Days"
-    elif billing_mode == "Per Visit":
-        disp_amt = unit_rate
-        disp_text = "Per Visit Rate"
-        calc_text = "1 Visit"
-    else:
-        disp_amt = final_rate
-        disp_text = "Total"
-        calc_text = f"{visits} Visits"
+    if unit_rate == 0 and visits > 0 and final_rate > 0:
+        unit_rate = int(final_rate / visits)
+    if visits == 0 and final_rate > 0:
+        visits = 1
+        if unit_rate == 0: unit_rate = int(final_rate)
 
-    amt_str = "{:,.0f}".format(disp_amt)
+    unit_rate_disp = "{:,.0f}".format(unit_rate)
+    final_rate_disp = "{:,.0f}".format(final_rate)
+
+    p_lower = period_raw.lower()
+    if 'dai' in p_lower: p_single, p_multi = "Day", "Days"
+    elif 'week' in p_lower: p_single, p_multi = "Week", "Weeks"
+    elif 'month' in p_lower: p_single, p_multi = "Month", "Months"
+    else: p_single, p_multi = period_raw, period_raw
     
+    p_final = p_single if visits == 1 else p_multi
+
+    if recurring == 'yes' and 'month' in p_lower:
+        duration_text = "Per Month"
+    else:
+        duration_text = f"{visits} {p_final}"
+
     return f"""
     <div style="text-align: right; font-size: 12px; color: #666;">
         <div style="display: flex; justify-content: flex-end; align-items: center;">
-             <span style="font-size: 10px; font-weight: bold; color: #002147; text-transform: uppercase; margin-right: 5px;">{disp_text}</span>
+            <span>{shift_display} / {p_single} = <b style="color: #333;">₹ {unit_rate_disp}</b></span>
         </div>
+        <div style="color: #CC4E00; font-weight: bold; font-size: 14px; margin: 2px 0;">X</div>
+        <div>{duration_text}</div>
         <div style="border-bottom: 1px solid #ccc; width: 100%; margin: 4px 0;"></div>
         <div style="display: flex; justify-content: flex-end; gap: 5px;">
-            <span style="font-size: 14px; font-weight: bold; color: #000;">₹ {amt_str}</span>
+            <span style="font-size: 10px; font-weight: bold; color: #002147; text-transform: uppercase;">Total -</span>
+            <span style="font-size: 14px; font-weight: bold; color: #000;">₹ {final_rate_disp}</span>
         </div>
-        <div style="font-size: 9px; color: #777;">({calc_text})</div>
     </div>
     """
+
 def convert_html_to_pdf(source_html):
     result = BytesIO()
     pisa_status = pisa.CreatePDF(source_html, dest=result)
