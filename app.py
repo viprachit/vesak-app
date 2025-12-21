@@ -392,7 +392,7 @@ def construct_amount_html(row, billing_qty):
         if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
         if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
         if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
-        if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit" # Added Visit Plural
+        if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit" 
         return unit
 
     if is_per_visit:
@@ -427,14 +427,13 @@ def construct_amount_html(row, billing_qty):
     
     period_display = "Monthly" if "month" in period_lower else period_raw.capitalize()
     if "daily" in period_lower: period_display = "Daily"
-    # Adjust display for per visit
     if is_per_visit: period_display = "Visit"
     
     unit_rate_str = "{:,.0f}".format(unit_rate)
     total_amount_str = "{:,.0f}".format(total_amount)
     
     unit_label = "Month" if "month" in period_lower else "Week" if "week" in period_lower else "Day"
-    if is_per_visit: unit_label = "Visit" # Correct unit label for X calc
+    if is_per_visit: unit_label = "Visit"
     
     paid_for_text = f"Paid for {billing_qty} {get_plural(unit_label, billing_qty)}"
 
@@ -609,7 +608,7 @@ if raw_file_obj:
                     fmt_date = format_date_with_suffix(inv_date)
                     default_qty = get_last_billing_qty(df_history, c_name, c_mob)
                     p_raw = str(row.get('Period', '')).strip()
-                    shift_raw = str(row.get('Shift', '')).strip() # Get shift for logic
+                    shift_raw = str(row.get('Shift', '')).strip() 
                     
                     # --- MODIFIED LABEL LOGIC ---
                     if "per visit" in shift_raw.lower():
@@ -691,10 +690,11 @@ if raw_file_obj:
                         unit_rate_val = safe_float(row.get('Unit Rate', 0))
                         total_billed_amount = unit_rate_val * billing_qty
                         
+                        # --- LOGIC TO DETERMINE UNIT LABEL FOR HISTORY SAVING ---
                         unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
                         
-                        # --- CRITICAL FIX: OVERRIDE FOR SAVING ---
-                        if "per visit" in str(row.get('Shift', '')).lower():
+                        # FORCE VISIT IF DETECTED
+                        if "per visit" in shift_raw.lower():
                              unit_label_for_details = "Visit"
 
                         def get_plural_save(unit, qty):
