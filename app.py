@@ -183,7 +183,6 @@ def robust_file_downloader(url):
     except Exception as e:
         raise Exception(f"Download failed: {e}. Ensure the OneDrive link is set to 'Anyone with the link'.")
 
-
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
 def get_history_data(sheet_obj):
@@ -570,8 +569,8 @@ elif data_source == "OneDrive Link":
         except Exception as e: 
             st.sidebar.error(f"Link Error: {e}")
 
-# --- TABS: GENERATOR | FORCE NEW | SERVICE MANAGER ---
-tab1, tab2, tab3 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "🛑 Manage Services"])
+# --- TABS: GENERATOR | MANAGE SERVICES ---
+tab1, tab2 = st.tabs(["🧾 Generate Invoice", "🛑 Manage Services"])
 
 # --- PROCESS FILE IF LOADED ---
 if raw_file_obj:
@@ -630,9 +629,9 @@ if raw_file_obj:
             # === SHARED LOGIC FOR GENERATING INVOICE ===
             def render_invoice_ui(mode="standard"):
                 """
-                mode: 'standard' (Tab 1) or 'force_new' (Tab 2)
+                mode: 'standard' or 'force_new'
                 """
-                selected_label = st.selectbox(f"Select Customer ({mode}):", unique_labels, key=f"sel_{mode}")
+                selected_label = st.selectbox(f"Select Customer:", unique_labels, key=f"sel_{mode}")
                 
                 if not selected_label:
                     st.info("👈 Please select a customer to proceed.")
@@ -749,16 +748,11 @@ if raw_file_obj:
                 elif chk_overwrite:
                     btn_label = "⚠ Update/Overwrite Invoice"
                 
-                # Logic to ensure only valid operations proceed
-                proceed = False
-                
-                # If Duplicate is checked, proceed is TRUE
-                if chk_print_dup:
-                    proceed = True
-                
+                # ACTION
                 if st.button(btn_label, key=f"btn_{mode}"):
                     
                     # VALIDATION FOR STANDARD TAB
+                    proceed = True
                     if mode == "standard" and not chk_print_dup:
                         if is_duplicate and not chk_overwrite:
                             st.error("❌ Invoice exists! Select 'Generate Duplicate' or 'Overwrite'.")
@@ -1037,16 +1031,10 @@ if raw_file_obj:
                                 if pdf_bytes:
                                     st.download_button(label="📄 Download PDF (Offline Engine)", data=pdf_bytes, file_name=f"Invoice_{c_name}.pdf", mime="application/pdf")
         except Exception as e:
-            st.error(f"Error: {e}")
+                st.error(f"Error: {e}")
 
-    # === TAB 2: FORCE NEW INVOICE ===
+    # === TAB 2: MANAGE SERVICES (FORMERLY TAB 3) ===
     with tab2:
-        if df is not None:
-             # Just render the same UI with 'force_new' mode
-             render_invoice_ui(mode="force_new")
-
-    # === TAB 3: MANAGE SERVICES ===
-    with tab3:
         st.header("🛑 Manage Active Services")
         df_hist = get_history_data(sheet_obj)
         
