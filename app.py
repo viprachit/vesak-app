@@ -25,10 +25,19 @@ st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="�
 LOGO_FILE = "logo.png"
 URL_CONFIG_FILE = "url_config.txt"
 
-# --- CHECKBOX STATE INITIALIZATION ---
-if 'chk_force_new' not in st.session_state: st.session_state.chk_force_new = False
+# --- CHECKBOX STATE MANAGEMENT ---
+# Initialize session state keys if they don't exist
 if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = False
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
+
+# Callback functions to ensure mutual exclusivity
+def on_print_dup_change():
+    if st.session_state.chk_print_dup:
+        st.session_state.chk_overwrite = False
+
+def on_overwrite_change():
+    if st.session_state.chk_overwrite:
+        st.session_state.chk_print_dup = False
 
 # --- CONNECT TO GOOGLE SHEETS ---
 def get_google_sheet_client():
@@ -685,24 +694,19 @@ if raw_file_obj:
                         else:
                             default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
                             
-                        # Checkboxes
-                        force_new = st.checkbox("Force New Invoice (Ignore Duplicate Check)", key="chk_force_new")
+                        # Removed "Force New Invoice" Checkbox from here as requested
                         
-                        overwrite_existing = False
-                        force_print = False
+                        # Duplicate & Overwrite Checkboxes
+                        chk_print_dup = st.checkbox("Generate Duplicate Invoice (PDF Only)", key="chk_print_dup", on_change=on_print_dup_change)
+                        chk_overwrite = st.checkbox("Overwrite existing entry (Update History)", key="chk_overwrite", on_change=on_overwrite_change)
                         
-                        if is_duplicate:
-                            col_dup1, col_dup2 = st.columns(2)
-                            with col_dup1: force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", key="chk_print_dup")
-                            with col_dup2: overwrite_existing = st.checkbox("🛠️ Overwrite Existing Entry (Use with Caution)", key="chk_overwrite")
-                        else:
-                            if force_new:
-                                st.warning("⚠ You are about to generate a NEW invoice for an existing client.")
-                                default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
-                        
-                        # Set default if duplicate and not forced new/overwritten
-                        if is_duplicate and not force_new and not overwrite_existing:
+                        # Set default if duplicate and not overwritten
+                        if is_duplicate and not chk_overwrite:
                              default_inv_num = existing_inv_num
+                        
+                        # If not duplicate, standard new invoice number
+                        if not is_duplicate:
+                             default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
 
                         inv_num_input = st.text_input("Invoice No (New/Editable):", value=default_inv_num)
                         
@@ -724,17 +728,22 @@ if raw_file_obj:
                     desc_col_html = construct_description_html(row) 
                     amount_col_html = construct_amount_html(row, billing_qty)
                     
-                    btn_label = "Generate Duplicate Copy (PDF Only)" if (is_duplicate and not force_new and not overwrite_existing and force_print) else "Generate & Save Invoice"
-                    if is_duplicate and overwrite_existing: btn_label = "⚠ Update/Overwrite Existing Invoice"
-                    if force_new: btn_label = "⚠ Force Generate New Invoice"
+                    # Button Label Logic
+                    if chk_print_dup:
+                        btn_label = "Generate Duplicate Copy"
+                    elif chk_overwrite:
+                        btn_label = "Update & Overwrite Invoice"
+                    else:
+                        btn_label = "Generate & Save Invoice"
                     
                     # Logic to ensure only valid operations proceed
                     proceed = False
                     
                     if st.button(btn_label):
                         
-                        if is_duplicate and not force_new and not overwrite_existing and not force_print:
-                            st.error("❌ Invoice exists! Select 'Force New', 'Overwrite', or 'Print Duplicate'.")
+                        # Block accidental new generation if duplicate exists and no checkbox selected
+                        if is_duplicate and not chk_print_dup and not chk_overwrite:
+                            st.error("❌ Invoice already exists! Please select 'Generate Duplicate Invoice' or 'Overwrite existing entry'.")
                         else:
                             proceed = True
                         
@@ -761,7 +770,7 @@ if raw_file_obj:
 
                             success = False
                             
-                            if not force_print:
+                            if not chk_print_dup:
                                 try: visits_val = int(safe_float(row.get('Visits', 0)))
                                 except: visits_val = 0
 
@@ -793,25 +802,24 @@ if raw_file_obj:
                                     "Service Ended": ""
                                 }
                                 
-                                if is_duplicate and overwrite_existing:
+                                if chk_overwrite:
                                     success = update_invoice_in_gsheet(invoice_record, sheet_obj)
                                     if success: 
                                         st.success(f"✅ Invoice {inv_num} UPDATED in History!")
-                                        # Implicit reset via rerun
-                                        st.rerun()
-
+                                        # Reset checkboxes by setting session state directly for next run
+                                        st.session_state.chk_overwrite = False
                                 else:
+                                    # Standard Save
                                     success = save_invoice_to_gsheet(invoice_record, sheet_obj)
                                     if success: 
                                         st.success(f"✅ Invoice {inv_num} saved to History!")
-                                        st.rerun()
-                                    
                             else:
                                 st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
+                                st.session_state.chk_print_dup = False
                                 success = True 
                             
-                            # PDF GENERATION LOGIC - OUTSIDE DB BLOCKS
-                            if success or force_print:
+                            if success:
+                                # PDF GENERATION LOGIC INSIDE SUCCESS BLOCK
                                 inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
                                 exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
                                 
