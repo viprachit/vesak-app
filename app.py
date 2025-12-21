@@ -591,7 +591,9 @@ if raw_file_obj:
                     default_qty = get_last_billing_qty(df_history, c_name, c_mob)
                     p_raw = str(row.get('Period', '')).strip()
                     bill_label = "Months" if "month" in p_raw.lower() else "Weeks" if "week" in p_raw.lower() else "Days"
-                    billing_qty = st.number_input(f"Paid for how many {bill_label}?", min_value=1, value=default_qty, step=1, key=f"qty_{mode}")
+                    
+                    # --- FIXED: ADDED LABEL TO KEY TO FORCE RESET ---
+                    billing_qty = st.number_input(f"Paid for how many {bill_label}?", min_value=1, value=default_qty, step=1, key=f"qty_{mode}_{selected_label}")
                     
                     existing_record = get_record_by_serial(df_history, c_serial)
                     is_duplicate = False
@@ -667,7 +669,6 @@ if raw_file_obj:
                                 if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
                                 return unit
                         
-                        # --- MODIFICATION: ADD (New) for Force New Mode ---
                         details_text = f"Paid for {billing_qty} {get_plural_save(unit_label_for_details, billing_qty)}"
                         if mode == "force_new":
                             details_text += " (New)"
@@ -700,7 +701,6 @@ if raw_file_obj:
                                     st.success(f"✅ Invoice {inv_num} SAVED!")
                                     success = True
                             elif mode == "force_new":
-                                # Requirement 2: Update Previous Service Ended
                                 prev_active_inv = get_active_invoice_number(df_history, c_name)
                                 if prev_active_inv:
                                     success_end, end_ts = mark_service_ended(sheet_obj, prev_active_inv, inv_date)
