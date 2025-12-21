@@ -828,7 +828,6 @@ if raw_file_obj:
                             if mode == "standard" and chk_overwrite:
                                 if update_invoice_in_gsheet(invoice_record, sheet_obj):
                                     st.success(f"✅ Invoice {inv_num} UPDATED!")
-                                    st.session_state.chk_overwrite = False
                                     success = True
                             elif mode == "standard" and not is_duplicate:
                                 if save_invoice_to_gsheet(invoice_record, sheet_obj):
@@ -840,7 +839,6 @@ if raw_file_obj:
                                     success = True
                         else:
                             st.info("ℹ️ Generating Duplicate Copy (No DB Change).")
-                            st.session_state.chk_print_dup = False
                             success = True
 
                         # --- PDF PREVIEW ---
