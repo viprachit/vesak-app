@@ -748,15 +748,22 @@ if raw_file_obj:
                 elif chk_overwrite:
                     btn_label = "⚠ Update/Overwrite Invoice"
                 
-                # ACTION
+                # Logic to ensure only valid operations proceed
+                proceed = False
+                
+                # If Duplicate is checked, proceed is TRUE
+                if chk_print_dup:
+                    proceed = True
+                
                 if st.button(btn_label, key=f"btn_{mode}"):
                     
                     # VALIDATION FOR STANDARD TAB
-                    proceed = True
-                    if mode == "standard":
-                        if is_duplicate and not chk_print_dup and not chk_overwrite:
+                    if mode == "standard" and not chk_print_dup:
+                        if is_duplicate and not chk_overwrite:
                             st.error("❌ Invoice exists! Select 'Generate Duplicate' or 'Overwrite'.")
                             proceed = False
+                        else:
+                            proceed = True
                     
                     if proceed:
                         clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
@@ -784,6 +791,7 @@ if raw_file_obj:
                         if not chk_print_dup:
                             try: visits_val = int(safe_float(row.get('Visits', 0)))
                             except: visits_val = 0
+
                             period_val = str(row.get('Period', ''))
                             generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
