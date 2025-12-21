@@ -865,7 +865,7 @@ if raw_file_obj:
                             <div align="right">
                                 {str(row.get('Shift',''))} / {str(row.get('Period',''))} = <b>Rs. {unit_rate_val:.0f}</b><br/>
                                 <font color="#CC4E00"><b>X</b></font><br/>
-                                Paid for {billing_qty} {unit_label}<br/>
+                                Paid for {billing_qty} {unit_label_for_details}<br/>
                                 <hr/>
                                 <b>TOTAL - Rs. {total_billed_amount:.0f}</b>
                             </div>
