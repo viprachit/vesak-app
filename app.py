@@ -25,25 +25,10 @@ st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="�
 LOGO_FILE = "logo.png"
 URL_CONFIG_FILE = "url_config.txt"
 
-# --- CHECKBOX STATE MANAGEMENT ---
+# --- CHECKBOX STATE INITIALIZATION (Simple approach) ---
 if 'chk_force_new' not in st.session_state: st.session_state.chk_force_new = False
 if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = False
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
-
-def on_force_new_change():
-    if st.session_state.chk_force_new:
-        st.session_state.chk_print_dup = False
-        st.session_state.chk_overwrite = False
-
-def on_print_dup_change():
-    if st.session_state.chk_print_dup:
-        st.session_state.chk_force_new = False
-        st.session_state.chk_overwrite = False
-
-def on_overwrite_change():
-    if st.session_state.chk_overwrite:
-        st.session_state.chk_force_new = False
-        st.session_state.chk_print_dup = False
 
 # --- CONNECT TO GOOGLE SHEETS ---
 def get_google_sheet_client():
@@ -144,51 +129,41 @@ def save_config_path(path, file_name):
     with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
     return path
 
-# [FIXED] ROBUST DOWNLOADER V3 - SESSION BASED
+# [ROBUST DOWNLOADER V3 - SESSION BASED]
 def robust_file_downloader(url):
-    """
-    Downloads file using a session to persist cookies through redirects.
-    This fixes 403 errors on public OneDrive links.
-    """
     session = requests.Session()
     session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Referer': 'https://www.google.com/'
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Connection': 'keep-alive'
     })
+    target_url = url
+    if "1drv.ms" in url:
+        try:
+            r = session.head(url, allow_redirects=True)
+            target_url = r.url
+        except: pass
 
-    download_url = url
-    
-    # 1. Clean the URL (Remove existing parameters)
-    if "?" in url:
-        base_url = url.split("?")[0]
+    if "?" in target_url:
+        base_url = target_url.split("?")[0]
+        final_url = f"{base_url}?download=1"
     else:
-        base_url = url
-
-    # 2. Append download command
-    if "1drv.ms" in url or "sharepoint" in url or "onedrive" in url:
-        download_url = base_url + "?download=1"
+        final_url = f"{target_url}?download=1"
     
     try:
-        # Attempt download
-        response = session.get(download_url, verify=False, allow_redirects=True)
-        
-        # Check if successful
+        response = session.get(final_url, verify=False, allow_redirects=True)
         if response.status_code == 200:
-            # Verify we got a file (Excel/CSV usually) and not a HTML login page
             content_type = response.headers.get('Content-Type', '').lower()
-            if 'text/html' in content_type and len(response.content) < 5000:
-                # If we got a small HTML page, it might be a login redirect.
-                # Try the original URL without modification as a last resort
+            if 'text/html' in content_type:
                 response = session.get(url, verify=False, allow_redirects=True)
-            
-            return BytesIO(response.content)
-            
+                if response.status_code == 200:
+                    return BytesIO(response.content)
+            else:
+                return BytesIO(response.content)
         raise Exception(f"Status Code: {response.status_code}")
-        
     except Exception as e:
-        raise Exception(f"Download failed: {e}. Ensure the OneDrive link is set to 'Anyone with the link'.")
+        raise Exception(f"Download failed: {e}. Check link permissions.")
 
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
@@ -679,21 +654,21 @@ if raw_file_obj:
                         else:
                             default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
                             
-                        # Force New Invoice Checkbox
-                        force_new = st.checkbox("Force New Invoice (Ignore Duplicate Check)", key="chk_force_new", on_change=on_force_new_change)
+                        # Checkboxes
+                        force_new = st.checkbox("Force New Invoice (Ignore Duplicate Check)", key="chk_force_new")
                         
-                        # Overwrite Checkbox (Only if Duplicate)
                         overwrite_existing = False
+                        force_print = False
+                        
                         if is_duplicate:
                             col_dup1, col_dup2 = st.columns(2)
-                            with col_dup1: force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", key="chk_print_dup", on_change=on_print_dup_change)
-                            with col_dup2: overwrite_existing = st.checkbox("🛠️ Overwrite Existing Entry (Use with Caution)", key="chk_overwrite", on_change=on_overwrite_change)
+                            with col_dup1: force_print = st.checkbox("Print Duplicate Copy (Do not save to History)", key="chk_print_dup")
+                            with col_dup2: overwrite_existing = st.checkbox("🛠️ Overwrite Existing Entry (Use with Caution)", key="chk_overwrite")
                         else:
-                            force_print = False
                             if force_new and is_duplicate:
                                 default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
                         
-                        # Ensure default_inv_num is set if duplicate and no override
+                        # Set default if duplicate and not forced new/overwritten
                         if is_duplicate and not force_new and not overwrite_existing:
                              default_inv_num = existing_inv_num
 
@@ -720,283 +695,281 @@ if raw_file_obj:
                     btn_label = "Generate Duplicate Copy (PDF Only)" if (is_duplicate and not force_new and not overwrite_existing and force_print) else "Generate & Save Invoice"
                     if is_duplicate and overwrite_existing: btn_label = "⚠ Update/Overwrite Existing Invoice"
                     
+                    # Logic to ensure only valid operations proceed
+                    proceed = False
+                    
                     if st.button(btn_label):
                         
                         if is_duplicate and not force_new and not overwrite_existing and not force_print:
                             st.error("❌ Invoice exists! Select 'Force New', 'Overwrite', or 'Print Duplicate'.")
-                            st.stop()
-                        
-                        clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
-                        inv_num = inv_num_input
-                        
-                        # --- CALCULATE TOTAL FOR SAVING ---
-                        def safe_float(val):
-                            try: return float(val) if not pd.isna(val) else 0.0
-                            except: return 0.0
-                        
-                        unit_rate_val = safe_float(row.get('Unit Rate', 0))
-                        total_billed_amount = unit_rate_val * billing_qty
-                        
-                        # Extract "Paid for..." text for Details column
-                        unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
-                        def get_plural_save(unit, qty):
-                             if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
-                             if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
-                             if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
-                             return unit
-                        details_text = f"Paid for {billing_qty} {get_plural_save(unit_label_for_details, billing_qty)}"
-
-                        success = False
-                        
-                        if not force_print:
-                            try: visits_val = int(safe_float(row.get('Visits', 0)))
-                            except: visits_val = 0
-
-                            period_val = str(row.get('Period', ''))
-                            generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-                            invoice_record = {
-                                "Serial No.": str(c_serial), 
-                                "Invoice Number": str(inv_num),
-                                "Date": str(fmt_date),
-                                "Generated At": generated_at_ts,
-                                "Customer Name": str(c_name),
-                                "Age": str(c_age),
-                                "Gender": str(c_gender),
-                                "Location": str(c_location),
-                                "Address": str(c_addr),
-                                "Mobile": str(c_mob),
-                                "Plan": str(clean_plan),
-                                "Shift": str(row.get('Shift', '')),
-                                "Recurring Service": str(row.get('Recurring', '')),
-                                "Period": period_val, 
-                                "Visits": int(visits_val), 
-                                "Amount": float(unit_rate_val), 
-                                "Notes / Remarks": str(final_notes),  
-                                "Generated By": str(generated_by),
-                                "Amount Paid": float(total_billed_amount), 
-                                "Details": details_text,
-                                "Service Started": generated_at_ts,
-                                "Service Ended": ""
-                            }
-                            
-                            if is_duplicate and overwrite_existing:
-                                success = update_invoice_in_gsheet(invoice_record, sheet_obj)
-                                if success: 
-                                    st.success(f"✅ Invoice {inv_num} UPDATED in History!")
-                                    st.session_state.chk_overwrite = False
-                                    st.session_state.chk_force_new = False
-                                    # Don't rerun immediately, allow PDF download
-                            else:
-                                success = save_invoice_to_gsheet(invoice_record, sheet_obj)
-                                if success: 
-                                    st.success(f"✅ Invoice {inv_num} saved to History!")
-                                    st.session_state.chk_overwrite = False
-                                    st.session_state.chk_force_new = False
-                                    # Don't rerun immediately, allow PDF download
                         else:
-                            st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
-                            st.session_state.chk_print_dup = False
-                            success = True # Allow PDF generation
+                            proceed = True
                         
-                        if success:
-                            inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
-                            exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
+                        if proceed:
+                            clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
+                            inv_num = inv_num_input
                             
-                            notes_section = ""
-                            if final_notes:
-                                notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
+                            # --- CALCULATE TOTAL FOR SAVING ---
+                            def safe_float(val):
+                                try: return float(val) if not pd.isna(val) else 0.0
+                                except: return 0.0
+                            
+                            unit_rate_val = safe_float(row.get('Unit Rate', 0))
+                            total_billed_amount = unit_rate_val * billing_qty
+                            
+                            unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
+                            def get_plural_save(unit, qty):
+                                 if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
+                                 if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
+                                 if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
+                                 return unit
+                            details_text = f"Paid for {billing_qty} {get_plural_save(unit_label_for_details, billing_qty)}"
 
-                            html_template = f"""
-                            <!DOCTYPE html>
-                            <html lang="en">
-                            <head>
-                                <meta charset="UTF-8">
-                                <title>Invoice</title>
-                                <script src="https://cdn.tailwindcss.com"></script>
-                                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-                                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-                                <script>
-                                    tailwind.config = {{
-                                        theme: {{
-                                            extend: {{
-                                                colors: {{ vesak: {{ navy: '#002147', gold: '#C5A065', orange: '#CC4E00' }} }},
-                                                fontFamily: {{ serif: ['"Playfair Display"', 'serif'], sans: ['"Lato"', 'sans-serif'] }}
+                            success = False
+                            
+                            if not force_print:
+                                try: visits_val = int(safe_float(row.get('Visits', 0)))
+                                except: visits_val = 0
+
+                                period_val = str(row.get('Period', ''))
+                                generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                                invoice_record = {
+                                    "Serial No.": str(c_serial), 
+                                    "Invoice Number": str(inv_num),
+                                    "Date": str(fmt_date),
+                                    "Generated At": generated_at_ts,
+                                    "Customer Name": str(c_name),
+                                    "Age": str(c_age),
+                                    "Gender": str(c_gender),
+                                    "Location": str(c_location),
+                                    "Address": str(c_addr),
+                                    "Mobile": str(c_mob),
+                                    "Plan": str(clean_plan),
+                                    "Shift": str(row.get('Shift', '')),
+                                    "Recurring Service": str(row.get('Recurring', '')),
+                                    "Period": period_val, 
+                                    "Visits": int(visits_val), 
+                                    "Amount": float(unit_rate_val), 
+                                    "Notes / Remarks": str(final_notes),  
+                                    "Generated By": str(generated_by),
+                                    "Amount Paid": float(total_billed_amount), 
+                                    "Details": details_text,
+                                    "Service Started": generated_at_ts,
+                                    "Service Ended": ""
+                                }
+                                
+                                if is_duplicate and overwrite_existing:
+                                    success = update_invoice_in_gsheet(invoice_record, sheet_obj)
+                                    if success: 
+                                        st.success(f"✅ Invoice {inv_num} UPDATED in History!")
+                                else:
+                                    success = save_invoice_to_gsheet(invoice_record, sheet_obj)
+                                    if success: 
+                                        st.success(f"✅ Invoice {inv_num} saved to History!")
+                            else:
+                                st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
+                                success = True 
+                            
+                            if success:
+                                # PDF GENERATION LOGIC INSIDE SUCCESS BLOCK
+                                inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
+                                exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
+                                
+                                notes_section = ""
+                                if final_notes:
+                                    notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
+
+                                html_template = f"""
+                                <!DOCTYPE html>
+                                <html lang="en">
+                                <head>
+                                    <meta charset="UTF-8">
+                                    <title>Invoice</title>
+                                    <script src="https://cdn.tailwindcss.com"></script>
+                                    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+                                    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+                                    <script>
+                                        tailwind.config = {{
+                                            theme: {{
+                                                extend: {{
+                                                    colors: {{ vesak: {{ navy: '#002147', gold: '#C5A065', orange: '#CC4E00' }} }},
+                                                    fontFamily: {{ serif: ['"Playfair Display"', 'serif'], sans: ['"Lato"', 'sans-serif'] }}
+                                                }}
                                             }}
                                         }}
-                                    }}
-                                </script>
-                                <style>
-                                    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
-                                    body {{ font-family: 'Lato', sans-serif; background: #f0f0f0; }}
-                                    .invoice-page {{
-                                        background: white; width: 210mm; min-height: 297mm;
-                                        margin: 20px auto; padding: 40px; position: relative;
-                                        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); display: flex; flex-direction: column;
-                                    }}
-                                    .watermark-container {{
-                                        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                                        display: flex; flex-direction: column; align-items: center;
-                                        opacity: 0.03; pointer-events: none; z-index: 0;
-                                    }}
-                                    .watermark-text {{
-                                        font-family: 'Playfair Display', serif; font-size: 80px;
-                                        font-weight: 700; color: #002147; letter-spacing: 0.3em;
-                                    }}
-                                    @media print {{
-                                        body {{ background: white; -webkit-print-color-adjust: exact; }}
-                                        .invoice-page {{ margin: 0; box-shadow: none; width: 100%; height: 100%; padding: 40px; }}
-                                        .no-print {{ display: none !important; }}
-                                        .watermark-container {{ opacity: 0.015 !important; }}
-                                    }}
-                                </style>
-                            </head>
-                            <body class="py-10">
-                                <div class="max-w-[210mm] mx-auto mb-6 flex justify-end no-print px-4">
-                                    <button onclick="generatePDF()" class="bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition font-bold text-xs uppercase tracking-widest">
-                                        <i class="fas fa-download mr-2"></i> Download PDF
-                                    </button>
-                                </div>
-
-                                <div class="invoice-page" id="invoice-content">
-                                    <div class="watermark-container">
-                                        <img src="data:image/png;base64,{logo_b64}" style="width: 300px; opacity: 0.3;">
-                                        <div class="watermark-text mt-4">VESAK</div>
+                                    </script>
+                                    <style>
+                                        @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
+                                        body {{ font-family: 'Lato', sans-serif; background: #f0f0f0; }}
+                                        .invoice-page {{
+                                            background: white; width: 210mm; min-height: 297mm;
+                                            margin: 20px auto; padding: 40px; position: relative;
+                                            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); display: flex; flex-direction: column;
+                                        }}
+                                        .watermark-container {{
+                                            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                                            display: flex; flex-direction: column; align-items: center;
+                                            opacity: 0.03; pointer-events: none; z-index: 0;
+                                        }}
+                                        .watermark-text {{
+                                            font-family: 'Playfair Display', serif; font-size: 80px;
+                                            font-weight: 700; color: #002147; letter-spacing: 0.3em;
+                                        }}
+                                        @media print {{
+                                            body {{ background: white; -webkit-print-color-adjust: exact; }}
+                                            .invoice-page {{ margin: 0; box-shadow: none; width: 100%; height: 100%; padding: 40px; }}
+                                            .no-print {{ display: none !important; }}
+                                            .watermark-container {{ opacity: 0.015 !important; }}
+                                        }}
+                                    </style>
+                                </head>
+                                <body class="py-10">
+                                    <div class="max-w-[210mm] mx-auto mb-6 flex justify-end no-print px-4">
+                                        <button onclick="generatePDF()" class="bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition font-bold text-xs uppercase tracking-widest">
+                                            <i class="fas fa-download mr-2"></i> Download PDF
+                                        </button>
                                     </div>
 
-                                    <header class="relative z-10 w-full mb-10">
-                                        <div class="flex justify-between items-start border-b border-gray-100 pb-6">
-                                            <div class="flex items-center gap-5">
-                                                <img src="data:image/png;base64,{logo_b64}" class="w-20 h-auto">
-                                                <div>
-                                                    <h1 class="font-serif text-2xl font-bold text-vesak-navy tracking-wide leading-none mb-2">
-                                                        Vesak Care <span class="text-vesak-gold font-normal">Foundation</span>
-                                                    </h1>
-                                                    <div class="flex flex-col text-xs text-gray-500 font-light tracking-wide space-y-0.5">
-                                                        <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Web</span> vesakcare.com</span>
-                                                        <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Email</span> vesakcare@gmail.com</span>
-                                                        <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Phone</span> +91 7777 000 878</span>
+                                    <div class="invoice-page" id="invoice-content">
+                                        <div class="watermark-container">
+                                            <img src="data:image/png;base64,{logo_b64}" style="width: 300px; opacity: 0.3;">
+                                            <div class="watermark-text mt-4">VESAK</div>
+                                        </div>
+
+                                        <header class="relative z-10 w-full mb-10">
+                                            <div class="flex justify-between items-start border-b border-gray-100 pb-6">
+                                                <div class="flex items-center gap-5">
+                                                    <img src="data:image/png;base64,{logo_b64}" class="w-20 h-auto">
+                                                    <div>
+                                                        <h1 class="font-serif text-2xl font-bold text-vesak-navy tracking-wide leading-none mb-2">
+                                                            Vesak Care <span class="text-vesak-gold font-normal">Foundation</span>
+                                                        </h1>
+                                                        <div class="flex flex-col text-xs text-gray-500 font-light tracking-wide space-y-0.5">
+                                                            <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Web</span> vesakcare.com</span>
+                                                            <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Email</span> vesakcare@gmail.com</span>
+                                                            <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Phone</span> +91 7777 000 878</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <span class="block font-serif text-3xl text-gray-200 tracking-widest mb-2">INVOICE</span>
+                                                    <div class="text-xs text-vesak-navy">
+                                                        <div class="mb-1"><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">Date</span> <b>{fmt_date}</b></div>
+                                                        <div><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">No.</span> <b>{inv_num}</b></div>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="text-right">
-                                                <span class="block font-serif text-3xl text-gray-200 tracking-widest mb-2">INVOICE</span>
-                                                <div class="text-xs text-vesak-navy">
-                                                    <div class="mb-1"><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">Date</span> <b>{fmt_date}</b></div>
-                                                    <div><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">No.</span> <b>{inv_num}</b></div>
+                                        </header>
+
+                                        <main class="flex-grow relative z-10">
+                                            
+                                            <div class="flex mb-10 bg-gray-50 border-l-4 border-vesak-navy">
+                                                <div class="w-1/2 p-4 border-r border-gray-200">
+                                                    <div class="text-[10px] font-bold text-vesak-gold uppercase mb-1">Billed To</div>
+                                                    <div class="text-lg font-bold text-vesak-navy">{c_name}</div>
+                                                    <div class="flex gap-4 mt-2 text-xs text-gray-600">
+                                                        <div class="flex items-center gap-1"><i class="fas fa-user text-vesak-gold"></i> {c_gender}</div>
+                                                        <div class="flex items-center gap-1"><i class="fas fa-birthday-cake text-vesak-gold"></i> {c_age} Yrs</div>
+                                                    </div>
+                                                </div>
+                                                <div class="w-1/2 p-4 flex flex-col justify-center">
+                                                    <div class="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                                                        <i class="fas fa-phone-alt text-vesak-gold w-4"></i> {c_mob}
+                                                    </div>
+                                                    <div class="flex items-start gap-2 text-xs text-gray-600">
+                                                        <i class="fas fa-map-marker-alt text-vesak-gold w-4 mt-0.5"></i> 
+                                                        <span class="leading-tight">{c_addr}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </header>
 
-                                    <main class="flex-grow relative z-10">
-                                        
-                                        <div class="flex mb-10 bg-gray-50 border-l-4 border-vesak-navy">
-                                            <div class="w-1/2 p-4 border-r border-gray-200">
-                                                <div class="text-[10px] font-bold text-vesak-gold uppercase mb-1">Billed To</div>
-                                                <div class="text-lg font-bold text-vesak-navy">{c_name}</div>
-                                                <div class="flex gap-4 mt-2 text-xs text-gray-600">
-                                                    <div class="flex items-center gap-1"><i class="fas fa-user text-vesak-gold"></i> {c_gender}</div>
-                                                    <div class="flex items-center gap-1"><i class="fas fa-birthday-cake text-vesak-gold"></i> {c_age} Yrs</div>
+                                            <table class="w-full mb-8">
+                                                <thead>
+                                                    <tr class="bg-vesak-navy text-white text-xs uppercase tracking-wider text-left">
+                                                        <th class="p-3 w-3/5">Description</th>
+                                                        <th class="p-3 w-2/5 text-right">Amount</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr class="border-b border-gray-100">
+                                                        <td class="p-4 align-top">
+                                                            <div class="font-bold text-sm text-gray-800">{clean_plan}</div>
+                                                            {desc_col_html}
+                                                        </td>
+                                                        <td class="p-4 text-right font-bold text-sm text-gray-800 align-top">
+                                                            {amount_col_html}
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+
+                                            <div class="grid grid-cols-2 gap-8">
+                                                <div>
+                                                    <h4 class="text-xs font-bold text-vesak-navy uppercase border-b border-vesak-gold pb-1 mb-3">Services Included</h4>
+                                                    <ul class="list-disc pl-4 space-y-1">{inc_html}</ul>
+                                                </div>
+                                                <div>
+                                                    <h4 class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 pb-1 mb-3">Services Not Included</h4>
+                                                    <ul class="columns-1 text-[10px] text-gray-400 space-y-1">{exc_html}</ul>
                                                 </div>
                                             </div>
-                                            <div class="w-1/2 p-4 flex flex-col justify-center">
-                                                <div class="flex items-center gap-2 text-xs text-gray-600 mb-2">
-                                                    <i class="fas fa-phone-alt text-vesak-gold w-4"></i> {c_mob}
+
+                                            {notes_section}
+
+                                            <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">
+                                                Thank you for choosing Vesak Care Foundation!
+                                            </div>
+                                        </main>
+
+                                        <footer class="relative z-10 mt-auto w-full">
+                                            <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
+                                            <div class="flex justify-between items-end text-xs text-gray-500">
+                                                <div>
+                                                    <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
+                                                    <div class="flex gap-2">
+                                                        <span>Pune</span><span class="text-vesak-gold">•</span>
+                                                        <span>Mumbai</span><span class="text-vesak-gold">•</span>
+                                                        <span>Kolhapur</span>
+                                                    </div>
                                                 </div>
-                                                <div class="flex items-start gap-2 text-xs text-gray-600">
-                                                    <i class="fas fa-map-marker-alt text-vesak-gold w-4 mt-0.5"></i> 
-                                                    <span class="leading-tight">{c_addr}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <table class="w-full mb-8">
-                                            <thead>
-                                                <tr class="bg-vesak-navy text-white text-xs uppercase tracking-wider text-left">
-                                                    <th class="p-3 w-3/5">Description</th>
-                                                    <th class="p-3 w-2/5 text-right">Amount</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr class="border-b border-gray-100">
-                                                    <td class="p-4 align-top">
-                                                        <div class="font-bold text-sm text-gray-800">{clean_plan}</div>
-                                                        {desc_col_html}
-                                                    </td>
-                                                    <td class="p-4 text-right font-bold text-sm text-gray-800 align-top">
-                                                        {amount_col_html}
-                                                    </td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-
-                                        <div class="grid grid-cols-2 gap-8">
-                                            <div>
-                                                <h4 class="text-xs font-bold text-vesak-navy uppercase border-b border-vesak-gold pb-1 mb-3">Services Included</h4>
-                                                <ul class="list-disc pl-4 space-y-1">{inc_html}</ul>
-                                            </div>
-                                            <div>
-                                                <h4 class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 pb-1 mb-3">Services Not Included</h4>
-                                                <ul class="columns-1 text-[10px] text-gray-400 space-y-1">{exc_html}</ul>
-                                            </div>
-                                        </div>
-
-                                        {notes_section}
-
-                                        <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">
-                                            Thank you for choosing Vesak Care Foundation!
-                                        </div>
-                                    </main>
-
-                                    <footer class="relative z-10 mt-auto w-full">
-                                        <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
-                                        <div class="flex justify-between items-end text-xs text-gray-500">
-                                            <div>
-                                                <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
-                                                <div class="flex gap-2">
-                                                    <span>Pune</span><span class="text-vesak-gold">•</span>
-                                                    <span>Mumbai</span><span class="text-vesak-gold">•</span>
-                                                    <span>Kolhapur</span>
+                                                <div class="flex flex-col items-end gap-1">
+                                                    <span class="flex items-center gap-2"><img src="data:image/png;base64,{ig_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
+                                                    <span class="flex items-center gap-2"><img src="data:image/png;base64,{fb_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
                                                 </div>
                                             </div>
-                                            <div class="flex flex-col items-end gap-1">
-                                                <span class="flex items-center gap-2"><img src="data:image/png;base64,{ig_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
-                                                <span class="flex items-center gap-2"><img src="data:image/png;base64,{fb_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
-                                            </div>
-                                        </div>
-                                        <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
-                                    </footer>
-                                </div>
+                                            <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
+                                        </footer>
+                                    </div>
 
-                                <script>
-                                    function generatePDF() {{
-                                        const element = document.getElementById('invoice-content');
-                                        const opt = {{
-                                            margin: 0,
-                                            filename: 'Invoice_{c_name}.pdf',
-                                            image: {{ type: 'jpeg', quality: 0.98 }},
-                                            html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
-                                            jsPDF: {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
-                                        }};
-                                        html2pdf().set(opt).from(element).save();
-                                    }}
-                                </script>
-                            </body>
-                            </html>
-                            """
-                            
-                            components.html(html_template, height=1000, scrolling=True)
-                            
-                            # --- PDF Generation (Offline Engine Fallback) ---
-                            if abs_logo_path and abs_ig_path:
-                                pdf_html = html_template.replace(f'src="data:image/png;base64,{logo_b64}"', f'src="{abs_logo_path}"')
-                                pdf_html = pdf_html.replace(f'src="data:image/png;base64,{ig_b64}"', f'src="{abs_ig_path}"')
-                                pdf_html = pdf_html.replace(f'src="data:image/png;base64,{fb_b64}"', f'src="{abs_fb_path}"')
+                                    <script>
+                                        function generatePDF() {{
+                                            const element = document.getElementById('invoice-content');
+                                            const opt = {{
+                                                margin: 0,
+                                                filename: 'Invoice_{c_name}.pdf',
+                                                image: {{ type: 'jpeg', quality: 0.98 }},
+                                                html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
+                                                jsPDF: {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
+                                            }};
+                                            html2pdf().set(opt).from(element).save();
+                                        }}
+                                    </script>
+                                </body>
+                                </html>
+                                """
                                 
-                                pdf_bytes = convert_html_to_pdf(pdf_html)
-                                if pdf_bytes:
-                                    st.download_button(label="📄 Download PDF (Offline Engine)", data=pdf_bytes, file_name=f"Invoice_{c_name}.pdf", mime="application/pdf")
+                                components.html(html_template, height=1000, scrolling=True)
+                                
+                                # --- PDF Generation (Offline Engine Fallback) ---
+                                if abs_logo_path and abs_ig_path:
+                                    pdf_html = html_template.replace(f'src="data:image/png;base64,{logo_b64}"', f'src="{abs_logo_path}"')
+                                    pdf_html = pdf_html.replace(f'src="data:image/png;base64,{ig_b64}"', f'src="{abs_ig_path}"')
+                                    pdf_html = pdf_html.replace(f'src="data:image/png;base64,{fb_b64}"', f'src="{abs_fb_path}"')
+                                    
+                                    pdf_bytes = convert_html_to_pdf(pdf_html)
+                                    if pdf_bytes:
+                                        st.download_button(label="📄 Download PDF (Offline Engine)", data=pdf_bytes, file_name=f"Invoice_{c_name}.pdf", mime="application/pdf")
 
             except Exception as e:
                 st.error(f"Error: {e}")
