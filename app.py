@@ -212,6 +212,27 @@ def get_last_billing_qty(df_hist, customer_name, mobile):
         if match: return int(match.group(1))
     return 1
 
+def get_active_invoice_number(df_hist, customer_name):
+    """Finds the last active invoice (Service Ended is empty) for a customer."""
+    if df_hist.empty or 'Customer Name' not in df_hist.columns: return None
+    
+    # Filter by name
+    mask = df_hist['Customer Name'].astype(str).str.lower() == str(customer_name).lower()
+    user_hist = df_hist[mask]
+    
+    if user_hist.empty: return None
+    
+    # Check for empty Service Ended
+    if 'Service Ended' in user_hist.columns:
+        # We fillna with empty string to be safe
+        user_hist = user_hist.copy()
+        user_hist['Service Ended'] = user_hist['Service Ended'].fillna('').astype(str).str.strip()
+        active_rows = user_hist[user_hist['Service Ended'] == '']
+        if not active_rows.empty:
+            return active_rows.iloc[-1]['Invoice Number']
+    
+    return None
+
 def save_invoice_to_gsheet(data_dict, sheet_obj):
     if sheet_obj is None: return False
     try:
@@ -256,11 +277,12 @@ def update_invoice_in_gsheet(data_dict, sheet_obj):
         return False
 
 def mark_service_ended(sheet_obj, invoice_number, end_date):
-    if sheet_obj is None: return False
+    if sheet_obj is None: return False, "No Sheet"
     try:
         cell = sheet_obj.find(str(invoice_number))
         if cell:
             end_time = end_date.strftime("%Y-%m-%d") + " " + datetime.datetime.now().strftime("%H:%M:%S")
+            # Column 22 is V (Service Ended)
             sheet_obj.update_cell(cell.row, 22, end_time) 
             return True, end_time
         return False, "Invoice not found"
@@ -499,8 +521,31 @@ if raw_file_obj:
                 if enable_date_filter:
                     with filter_col2:
                         selected_date_filter = st.date_input("Show invoices generated on/after:", value=datetime.date.today(), key=f"filt_date_{mode}")
-                    
-                    if not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
+                
+                # --- LOGIC TO POPULATE LIST BASED ON MODE ---
+                if mode == "force_new":
+                    # Get list from HISTORY (Requirement 1)
+                    if not df_history.empty and 'Customer Name' in df_history.columns:
+                        hist_data = df_history.copy()
+                        if enable_date_filter and 'Date' in hist_data.columns:
+                             hist_data['DateObj'] = pd.to_datetime(hist_data['Date'], errors='coerce').dt.date
+                             hist_data = hist_data[hist_data['DateObj'] >= selected_date_filter]
+                        
+                        # Get names from History
+                        hist_names = hist_data['Customer Name'].unique()
+                        
+                        # Match against Confirmed sheet (df) to ensure we have details
+                        # Create labels only for people who are in BOTH lists (to be safe with data)
+                        df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
+                        
+                        # Filter df to only show those present in History
+                        df_filtered = df[df['Name'].isin(hist_names)]
+                        unique_labels = [""] + list(df_filtered['Label'].unique())
+                    else:
+                        unique_labels = [""]
+                else:
+                    # Standard Mode: Get list from CONFIRMED sheet
+                    if enable_date_filter and not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
                          df_history['DateObj'] = pd.to_datetime(df_history['Date'], errors='coerce').dt.date
                          filtered_hist = df_history[df_history['DateObj'] >= selected_date_filter]
                          valid_names = filtered_hist['Customer Name'].unique()
@@ -513,9 +558,6 @@ if raw_file_obj:
                     else:
                         df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
                         unique_labels = [""] + list(df['Label'].unique())
-                else:
-                    df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
-                    unique_labels = [""] + list(df['Label'].unique())
 
                 selected_label = st.selectbox(f"Select Customer ({mode}):", unique_labels, key=f"sel_{mode}")
                 
@@ -523,6 +565,7 @@ if raw_file_obj:
                     st.info("👈 Please select a customer to proceed.")
                     return
 
+                # Get the row details from the CONFIRMED sheet (Requirement 3: Compare details from confirmed)
                 row = df[df['Label'] == selected_label].iloc[0]
                 
                 # Data Prep
@@ -658,6 +701,13 @@ if raw_file_obj:
                                     st.success(f"✅ Invoice {inv_num} SAVED!")
                                     success = True
                             elif mode == "force_new":
+                                # Requirement 2: Update Previous Service Ended
+                                prev_active_inv = get_active_invoice_number(df_history, c_name)
+                                if prev_active_inv:
+                                    success_end, end_ts = mark_service_ended(sheet_obj, prev_active_inv, inv_date)
+                                    if success_end:
+                                        st.info(f"ℹ️ Previous Invoice {prev_active_inv} marked as Ended at {end_ts}")
+                                
                                 if save_invoice_to_gsheet(invoice_record, sheet_obj):
                                     st.success(f"✅ New Invoice {inv_num} CREATED!")
                                     success = True
