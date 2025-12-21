@@ -25,8 +25,7 @@ st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="ðŸ
 LOGO_FILE = "logo.png"
 URL_CONFIG_FILE = "url_config.txt"
 
-# --- CHECKBOX STATE MANAGEMENT ---
-# Initialize session state keys if they don't exist
+# --- CHECKBOX STATE INITIALIZATION ---
 if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = False
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
 
