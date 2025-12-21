@@ -25,7 +25,7 @@ st.set_page_config(page_title="Vesak Care Invoice", layout="wide", page_icon="�
 LOGO_FILE = "logo.png"
 URL_CONFIG_FILE = "url_config.txt"
 
-# --- CHECKBOX STATE INITIALIZATION (Simple approach) ---
+# --- CHECKBOX STATE INITIALIZATION ---
 if 'chk_force_new' not in st.session_state: st.session_state.chk_force_new = False
 if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = False
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
@@ -214,7 +214,6 @@ def get_last_billing_qty(df_hist, customer_name, mobile):
     if df_hist.empty or 'Customer Name' not in df_hist.columns or 'Details' not in df_hist.columns:
         return 1
     
-    # Filter by Customer Name and Mobile (approx match)
     mask = (df_hist['Customer Name'].astype(str).str.lower() == str(customer_name).lower())
     if 'Mobile' in df_hist.columns:
         mask = mask & (df_hist['Mobile'].astype(str) == str(mobile))
@@ -222,10 +221,7 @@ def get_last_billing_qty(df_hist, customer_name, mobile):
     client_history = df_hist[mask]
     
     if not client_history.empty:
-        # Get the latest entry
         last_details = str(client_history.iloc[-1]['Details'])
-        # Try to extract number from string like "Paid for 2 Days"
-        # Search for integer in the string
         match = re.search(r'Paid for (\d+)', last_details)
         if match:
             return int(match.group(1))
@@ -664,7 +660,7 @@ if raw_file_obj:
                         else:
                             default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
                             
-                        # Checkboxes
+                        # Checkboxes without callbacks
                         force_new = st.checkbox("Force New Invoice (Ignore Duplicate Check)", key="chk_force_new")
                         
                         overwrite_existing = False
@@ -727,6 +723,7 @@ if raw_file_obj:
                             unit_rate_val = safe_float(row.get('Unit Rate', 0))
                             total_billed_amount = unit_rate_val * billing_qty
                             
+                            # Extract "Paid for..." text for Details column
                             unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
                             def get_plural_save(unit, qty):
                                  if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
@@ -773,16 +770,21 @@ if raw_file_obj:
                                     success = update_invoice_in_gsheet(invoice_record, sheet_obj)
                                     if success: 
                                         st.success(f"✅ Invoice {inv_num} UPDATED in History!")
+                                        # Implicit reset via rerun
+                                        st.rerun()
+
                                 else:
                                     success = save_invoice_to_gsheet(invoice_record, sheet_obj)
                                     if success: 
                                         st.success(f"✅ Invoice {inv_num} saved to History!")
+                                        st.rerun()
+                                    
                             else:
                                 st.info("ℹ️ Generating Duplicate Copy. Database not updated.")
                                 success = True 
                             
-                            if success:
-                                # PDF GENERATION LOGIC INSIDE SUCCESS BLOCK
+                            # PDF GENERATION LOGIC - OUTSIDE DB BLOCKS
+                            if success or force_print:
                                 inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
                                 exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
                                 
