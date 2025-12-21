@@ -596,41 +596,50 @@ if raw_file_obj:
             
             st.success("✅ Data Loaded")
             
-            # --- FILTER BY DATE FEATURE ---
-            filter_col1, filter_col2 = st.columns([1, 2])
-            with filter_col1:
-                enable_date_filter = st.checkbox("Filter Customer List by Date")
-            
-            selected_date_filter = None
-            if enable_date_filter:
-                with filter_col2:
-                    selected_date_filter = st.date_input("Show invoices generated on/after:", value=datetime.date.today())
-            
-            # Filter Logic using History
+            # --- PRELOAD HISTORY ---
             df_history = get_history_data(sheet_obj)
-            
-            if enable_date_filter and not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
-                 # Convert history dates
-                 df_history['DateObj'] = pd.to_datetime(df_history['Date'], errors='coerce').dt.date
-                 filtered_hist = df_history[df_history['DateObj'] >= selected_date_filter]
-                 valid_names = filtered_hist['Customer Name'].unique()
-                 # Filter main df based on names present in history for that date range
-                 df_filtered = df[df['Name'].isin(valid_names)]
-                 if df_filtered.empty:
-                     st.warning("No customers found for the selected date filter.")
-                     df_filtered = df # Fallback
-                 
-                 df_filtered['Label'] = df_filtered['Name'].astype(str) + " (" + df_filtered['Mobile'].astype(str) + ")"
-                 unique_labels = [""] + list(df_filtered['Label'].unique())
-            else:
-                df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
-                unique_labels = [""] + list(df['Label'].unique())
 
             # === SHARED LOGIC FOR GENERATING INVOICE ===
             def render_invoice_ui(mode="standard"):
                 """
                 mode: 'standard' (Tab 1) or 'force_new' (Tab 2)
                 """
+                # --- MOVED FILTER LOGIC INSIDE FUNCTION ---
+                filter_col1, filter_col2 = st.columns([1, 2])
+                with filter_col1:
+                    enable_date_filter = st.checkbox("Filter Customer List by Date", key=f"filt_chk_{mode}")
+                
+                selected_date_filter = None
+                
+                unique_labels = []
+                
+                # Logic to determine unique labels based on filter
+                if enable_date_filter:
+                    with filter_col2:
+                        selected_date_filter = st.date_input("Show invoices generated on/after:", value=datetime.date.today(), key=f"filt_date_{mode}")
+                    
+                    if not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
+                         # Convert history dates
+                         df_history['DateObj'] = pd.to_datetime(df_history['Date'], errors='coerce').dt.date
+                         filtered_hist = df_history[df_history['DateObj'] >= selected_date_filter]
+                         valid_names = filtered_hist['Customer Name'].unique()
+                         # Filter main df based on names present in history for that date range
+                         df_filtered = df[df['Name'].isin(valid_names)]
+                         if df_filtered.empty:
+                             st.warning("No customers found for the selected date filter.")
+                             df_filtered = df # Fallback
+                         
+                         df_filtered['Label'] = df_filtered['Name'].astype(str) + " (" + df_filtered['Mobile'].astype(str) + ")"
+                         unique_labels = [""] + list(df_filtered['Label'].unique())
+                    else:
+                        # Fallback if no history
+                        df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
+                        unique_labels = [""] + list(df['Label'].unique())
+                else:
+                    df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
+                    unique_labels = [""] + list(df['Label'].unique())
+
+                # --- DROPDOWN (Now updated with filtered labels) ---
                 selected_label = st.selectbox(f"Select Customer ({mode}):", unique_labels, key=f"sel_{mode}")
                 
                 if not selected_label:
@@ -1036,13 +1045,11 @@ if raw_file_obj:
     # === TAB 1: GENERATE INVOICE ===
     with tab1:
         if df is not None:
-             # THIS LINE WAS MISSING:
              render_invoice_ui(mode="standard")
 
     # === TAB 2: FORCE NEW INVOICE ===
     with tab2:
         if df is not None:
-             # Just render the same UI with 'force_new' mode
              render_invoice_ui(mode="force_new")
 
     # === TAB 3: MANAGE SERVICES ===
