@@ -664,6 +664,9 @@ if raw_file_obj:
                     is_duplicate = False # Only used for Warning text now
                     existing_inv_num = ""
                     default_inv_num = "" 
+                    
+                    # Calculate next sequential number always first
+                    next_sequential_inv = get_next_invoice_number_gsheet(inv_date, df_history)
 
                     if existing_record is not None:
                         existing_inv_num = existing_record['Invoice Number']
@@ -677,15 +680,16 @@ if raw_file_obj:
                                 st.info(f"ℹ️ Previous Invoice Found: {existing_inv_num} (Re-billing or Edit)")
                     
                     if mode == "force_new":
-                        default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
+                        default_inv_num = next_sequential_inv
                         st.warning("⚠ You are about to generate a NEW invoice for an existing client.")
                     else:
-                        # [CHANGED] Default to Existing Invoice Number if found (so it's easier to overwrite)
-                        if existing_record is not None: default_inv_num = existing_inv_num
-                        else: default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
-                    
-                    chk_print_dup = False
-                    chk_overwrite = False
+                        # [CRITICAL LOGIC CHANGE]
+                        # If overwrite is checked, use existing invoice number.
+                        # If NOT checked, use the next sequential number.
+                        if st.session_state.chk_overwrite and existing_record is not None:
+                            default_inv_num = existing_inv_num
+                        else:
+                            default_inv_num = next_sequential_inv
                     
                     # [CRITICAL LOGIC CHANGE] Show checkboxes if ANY record exists for this client
                     if mode == "standard" and existing_record is not None:
@@ -693,7 +697,14 @@ if raw_file_obj:
                         with col_dup1: chk_print_dup = st.checkbox("Generate Duplicate Invoice (PDF Only)", key="chk_print_dup", on_change=on_print_dup_change)
                         with col_dup2: chk_overwrite = st.checkbox("Overwrite existing entry (Update History)", key="chk_overwrite", on_change=on_overwrite_change)
                         
-                    inv_num_input = st.text_input("Invoice No (New/Editable):", value=default_inv_num, key=f"inv_input_{mode}")
+                        # [FORCE REFRESH INPUT IF CHECKBOX CHANGED]
+                        # This ensures the Invoice Number field updates when you check "Overwrite"
+                        if st.session_state.chk_overwrite:
+                             default_inv_num = existing_inv_num
+                        elif not st.session_state.chk_overwrite:
+                             default_inv_num = next_sequential_inv
+
+                    inv_num_input = st.text_input("Invoice No (New/Editable):", value=default_inv_num, key=f"inv_input_{mode}_{st.session_state.chk_overwrite}")
                     st.caption(f"Ref Date: {c_ref_date}")
                     
                 with col2:
