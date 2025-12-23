@@ -257,12 +257,13 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
 
 # --- IMPROVED ROBUST UPDATE FUNCTION (DOUBLE LOCK) ---
 # [CRITICAL LOGIC FIX] Uses BOTH Serial No. and Original Invoice No.
+# DOES NOT CHECK DATE. This allows date changes.
 def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
     if sheet_obj is None: return False
     try:
         all_rows = sheet_obj.get_all_values()
         
-        # TARGET 1: Serial No (Must match exactly)
+        # TARGET 1: Serial No (Must match exactly - Static Anchor)
         target_serial = str(data_dict["Serial No."]).strip()
         
         # TARGET 2: Original Invoice (The one that was present BEFORE editing)
@@ -281,6 +282,7 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
             sheet_inv = str(row[1]).strip()
             
             # [LOGIC] Match BOTH Serial AND Old Invoice Number
+            # We explicitly ignore the Date column here so date changes don't break the match
             if sheet_serial == target_serial and sheet_inv == target_inv_search:
                 row_idx_to_update = idx + 1 
                 break
