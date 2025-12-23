@@ -39,8 +39,7 @@ def on_overwrite_change():
         st.session_state.chk_print_dup = False
 
 # --- CONNECT TO GOOGLE SHEETS (OPTIMIZED) ---
-# [CHANGED] Added @st.cache_resource. This ensures we authenticate only ONCE per session,
-# instead of every time you click a button.
+# [CHANGED] Added @st.cache_resource. This ensures we authenticate only ONCE per session.
 @st.cache_resource
 def get_google_sheet_client():
     """Connects to Google Sheets using the standard gspread library."""
@@ -143,8 +142,6 @@ def save_config_path(path, file_name):
     return path
 
 # [FIXED] ROBUST DOWNLOADER V3 - SESSION BASED (OPTIMIZED)
-# [CHANGED] Added @st.cache_data. Downloads from OneDrive/Sharepoint are slow. 
-# This caches the file content so refreshing the UI doesn't re-download the Excel file.
 @st.cache_data(show_spinner=False)
 def robust_file_downloader(url):
     session = requests.Session()
@@ -175,10 +172,10 @@ def robust_file_downloader(url):
 
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
-# [CHANGED] Added @st.cache_data with an underscore before sheet_obj. 
-# The underscore tells Streamlit not to hash the connection object (which causes errors), 
-# but to cache the resulting DataFrame. This is the biggest speed boost.
-@st.cache_data(show_spinner=False)
+# [CRITICAL CHANGE HERE] 
+# Added ttl=15. This keeps data in memory for only 15 seconds. 
+# After 15 seconds, if you perform an action, it checks Google Sheets again.
+@st.cache_data(show_spinner=False, ttl=15)
 def get_history_data(_sheet_obj):
     if _sheet_obj is None: return pd.DataFrame()
     try:
@@ -257,7 +254,7 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         ]
         sheet_obj.append_row(row_values)
         
-        # [CHANGED] Clear the history cache immediately so the user sees the new data on refresh
+        # [CRITICAL] Clear cache immediately after save
         get_history_data.clear()
         
         return True
@@ -269,29 +266,20 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
 def update_invoice_in_gsheet(data_dict, sheet_obj):
     if sheet_obj is None: return False
     try:
-        # Get all values from the sheet to ensure we match BOTH Serial No and Invoice No
         all_rows = sheet_obj.get_all_values()
-        
         target_inv = str(data_dict["Invoice Number"]).strip()
         target_serial = str(data_dict["Serial No."]).strip()
-        
         row_idx_to_update = None
         
-        # Iterate through rows to find the exact match
         for idx, row in enumerate(all_rows):
-            # idx is 0-based, row is a list of strings
-            if len(row) < 2: continue # Skip empty rows
-            
-            # Assuming Column 1 (index 0) is Serial No, Column 2 (index 1) is Invoice Number
-            # We clean the sheet data to handle potential "123.0" vs "123" issues
+            if len(row) < 2: continue 
             sheet_serial = str(row[0]).strip()
             try: sheet_serial = str(int(float(sheet_serial)))
             except: pass
-            
             sheet_inv = str(row[1]).strip()
             
             if sheet_serial == target_serial and sheet_inv == target_inv:
-                row_idx_to_update = idx + 1 # GSheet uses 1-based indexing
+                row_idx_to_update = idx + 1 
                 break
         
         if row_idx_to_update:
@@ -308,12 +296,12 @@ def update_invoice_in_gsheet(data_dict, sheet_obj):
             range_name = f"A{row_idx_to_update}:V{row_idx_to_update}"
             sheet_obj.update(range_name, [row_values])
 
-            # [CHANGED] Clear the history cache immediately so the user sees the update
+            # [CRITICAL] Clear cache immediately after update
             get_history_data.clear()
 
             return True
         else:
-            st.error(f"❌ Critical Error: Could not find original row with Serial '{target_serial}' AND Invoice '{target_inv}' to overwrite. Operation cancelled to prevent data corruption.")
+            st.error(f"❌ Critical Error: Could not find original row with Serial '{target_serial}' AND Invoice '{target_inv}' to overwrite.")
             return False
             
     except Exception as e:
@@ -323,7 +311,6 @@ def update_invoice_in_gsheet(data_dict, sheet_obj):
 def mark_service_ended(sheet_obj, invoice_number, end_date):
     if sheet_obj is None: return False, "No Sheet"
     try:
-        # Robust search (Target Column 2 specifically if possible)
         try:
              cell = sheet_obj.find(str(invoice_number).strip(), in_column=2)
         except:
@@ -331,11 +318,10 @@ def mark_service_ended(sheet_obj, invoice_number, end_date):
              
         if cell:
             end_time = end_date.strftime("%Y-%m-%d") + " " + datetime.datetime.now().strftime("%H:%M:%S")
-            # Update Column V (22nd column) using A1 notation for reliability
             range_name = f"V{cell.row}"
             sheet_obj.update(range_name, [[end_time]])
 
-            # [CHANGED] Clear the history cache immediately so the service disappears from active list
+            # [CRITICAL] Clear cache immediately after marking ended
             get_history_data.clear()
 
             return True, end_time
@@ -447,7 +433,6 @@ def construct_amount_html(row, billing_qty):
         return unit
 
     if is_per_visit:
-        # --- NEW LOGIC FOR PER VISIT ---
         paid_text = f"Paid for {billing_qty} {get_plural('Visit', billing_qty)}"
         if visits_needed > 1 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
         elif billing_qty >= visits_needed: billing_note = f"Paid for {visits_needed} Visits."
@@ -531,6 +516,14 @@ with st.sidebar:
     if sheet_obj: st.success("Connected to Google Sheets ✅")
     else: st.error("❌ Not Connected to Google Sheets")
     data_source = st.radio("Load Confirmed Sheet via:", ["Upload File", "OneDrive Link"])
+    
+    st.markdown("---")
+    # [CRITICAL ADDITION] Manual Refresh Button
+    if st.button("🔄 Refresh Data Cache"):
+        get_history_data.clear()
+        st.cache_data.clear()
+        st.success("Cache cleared! Reloading...")
+        st.rerun()
 
 raw_file_obj = None
 if data_source == "Upload File":
@@ -544,7 +537,6 @@ elif data_source == "OneDrive Link":
         st.rerun()
     if current_url:
         try: 
-            # [OPTIMIZED] Calls cached downloader
             raw_file_obj = robust_file_downloader(current_url)
             st.sidebar.success("✅ File Downloaded")
         except Exception as e: 
@@ -573,7 +565,7 @@ if raw_file_obj:
             if missing: st.error(f"Missing columns: {missing}"); st.stop()
             st.success("✅ Data Loaded")
 
-            # [OPTIMIZED] Calls cached data fetcher
+            # [OPTIMIZED] Calls cached data fetcher (now with TTL=15s)
             df_history = get_history_data(sheet_obj)
 
             # === SHARED GENERATOR FUNCTION ===
@@ -588,9 +580,7 @@ if raw_file_obj:
                 
                 if enable_date_filter:
                     with filter_col2:
-                        # --- MODIFICATION: Range Logic (Selected Date AND Selected Date + 1 Day) ---
                         selected_date_filter = st.date_input("Show customers for Selected Date & +1 Day:", value=datetime.date.today(), key=f"filt_date_{mode}")
-                        
                         d_start = selected_date_filter 
                         d_end = selected_date_filter + datetime.timedelta(days=1)
                 
@@ -600,7 +590,6 @@ if raw_file_obj:
                         hist_data = df_history.copy()
                         if enable_date_filter and 'Date' in hist_data.columns:
                              hist_data['DateObj'] = pd.to_datetime(hist_data['Date'], errors='coerce').dt.date
-                             # --- MODIFICATION: Apply Range Filter ---
                              hist_data = hist_data[(hist_data['DateObj'] >= d_start) & (hist_data['DateObj'] <= d_end)]
                         
                         hist_names = hist_data['Customer Name'].unique()
@@ -613,7 +602,6 @@ if raw_file_obj:
                     # Standard Mode
                     if enable_date_filter and not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
                           df_history['DateObj'] = pd.to_datetime(df_history['Date'], errors='coerce').dt.date
-                          # --- MODIFICATION: Apply Range Filter ---
                           filtered_hist = df_history[(df_history['DateObj'] >= d_start) & (df_history['DateObj'] <= d_end)]
                           
                           valid_names = filtered_hist['Customer Name'].unique()
@@ -664,7 +652,6 @@ if raw_file_obj:
                     p_raw = str(row.get('Period', '')).strip()
                     shift_raw = str(row.get('Shift', '')).strip() 
                     
-                    # --- MODIFIED LABEL LOGIC ---
                     if "per visit" in shift_raw.lower():
                         bill_label = "Visits"
                     elif "month" in p_raw.lower():
@@ -674,7 +661,6 @@ if raw_file_obj:
                     else:
                         bill_label = "Days"
                     
-                    # --- FIXED: ADDED LABEL TO KEY TO FORCE RESET ---
                     billing_qty = st.number_input(f"Paid for how many {bill_label}?", min_value=1, value=default_qty, step=1, key=f"qty_{mode}_{selected_label}")
                     
                     existing_record = get_record_by_serial(df_history, c_serial)
@@ -698,7 +684,6 @@ if raw_file_obj:
                         if is_duplicate: default_inv_num = existing_inv_num
                         else: default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
                     
-                    # Checkboxes
                     chk_print_dup = False
                     chk_overwrite = False
                     if mode == "standard" and is_duplicate:
@@ -718,7 +703,6 @@ if raw_file_obj:
                 st.text(", ".join(inc_def))
                 final_notes = st.text_area("Notes:", value=c_notes_raw, key=f"notes_{mode}")
                 
-                # HTML Constructions
                 desc_col_html = construct_description_html(row) 
                 amount_col_html = construct_amount_html(row, billing_qty)
                 
@@ -744,10 +728,7 @@ if raw_file_obj:
                         unit_rate_val = safe_float(row.get('Unit Rate', 0))
                         total_billed_amount = unit_rate_val * billing_qty
                         
-                        # --- LOGIC TO DETERMINE UNIT LABEL FOR HISTORY SAVING ---
                         unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
-                        
-                        # FORCE VISIT IF DETECTED
                         if "per visit" in shift_raw.lower():
                              unit_label_for_details = "Visit"
 
@@ -992,12 +973,9 @@ if raw_file_obj:
                             """
                             components.html(html_template, height=1000, scrolling=True)
                             
-                            # --- OFFLINE PDF ENGINE TEMPLATE (SIMPLE HTML) ---
-                            # --- FIX FOR PDF ENGINE VISITS DISPLAY ---
+                            # --- OFFLINE PDF ENGINE TEMPLATE ---
                             pdf_unit_label = unit_label_for_details
-                            
                             pdf_desc_html = f"<b>{clean_plan}</b><br/><br/>{str(row.get('Shift',''))}<br/><i>{str(row.get('Period',''))}</i>"
-                            
                             pdf_amount_html = f"""
                             <div align="right">
                                 {str(row.get('Shift',''))} / {str(row.get('Period',''))} = <b>Rs. {unit_rate_val:.0f}</b><br/>
@@ -1010,7 +988,6 @@ if raw_file_obj:
                             
                             simple_inc_html = "".join([f"<li>{item}</li>" for item in inc_def])
                             simple_exc_html = "".join([f"<li>{item}</li>" for item in final_exc])
-                            
                             simple_notes = ""
                             if final_notes:
                                 simple_notes = f"""
@@ -1054,7 +1031,6 @@ if raw_file_obj:
                                         </td>
                                     </tr>
                                 </table>
-
                                 <table class="bill-to">
                                     <tr>
                                         <td width="50%">
@@ -1068,7 +1044,6 @@ if raw_file_obj:
                                         </td>
                                     </tr>
                                 </table>
-
                                 <table style="margin-bottom: 20px;">
                                     <thead>
                                         <tr>
@@ -1083,7 +1058,6 @@ if raw_file_obj:
                                         </tr>
                                     </tbody>
                                 </table>
-
                                 <table>
                                     <tr>
                                         <td width="50%" valign="top">
@@ -1096,13 +1070,10 @@ if raw_file_obj:
                                         </td>
                                     </tr>
                                 </table>
-
                                 {simple_notes}
-
                                 <div style="text-align: center; margin-top: 40px; color: #999; font-style: italic;">
                                     Thank you for choosing Vesak Care Foundation!
                                 </div>
-
                                 <div class="footer">
                                     <table width="100%">
                                         <tr>
@@ -1120,7 +1091,6 @@ if raw_file_obj:
                             </html>
                             """
                             
-                            # --- GENERATE PDF FROM SIMPLE HTML ---
                             if abs_logo_path:
                                 pdf_bytes = convert_html_to_pdf(pdf_html_content)
                                 if pdf_bytes:
@@ -1138,13 +1108,10 @@ if raw_file_obj:
         if df is not None:
              render_invoice_ui(mode="force_new")
 
-    # === TAB 3: MANAGE SERVICES (UPDATED WITH DATE FILTER) ===
+    # === TAB 3: MANAGE SERVICES ===
     with tab3:
         st.header("🛑 Manage Active Services")
-
-        # [OPTIMIZED] Calls cached data fetcher
         df_hist = get_history_data(sheet_obj)
-
         if not df_hist.empty:
             df_hist = df_hist.fillna("")
             if 'Service Ended' not in df_hist.columns:
@@ -1152,25 +1119,19 @@ if raw_file_obj:
             else:
                 active_services = df_hist[df_hist['Service Ended'].astype(str).str.strip() == ""]
                 
-                # --- NEW: DATE FILTER LOGIC ---
                 col_m1, col_m2 = st.columns([1, 2])
                 with col_m1:
                     use_filter = st.checkbox("Filter by Invoice Date", key="man_use_filter")
                 
                 if use_filter:
                     with col_m2:
-                        # --- MODIFICATION: Range Logic (Selected Date AND Selected Date + 1 Day) ---
                         filter_date_manage = st.date_input("Show services started on Selected Date & +1 Day:", value=datetime.date.today(), key="man_filter_date")
-                    
                         d_start_manage = filter_date_manage
                         d_end_manage = filter_date_manage + datetime.timedelta(days=1)
                     
                     if not active_services.empty and 'Date' in active_services.columns:
-                        # Convert string date to object for comparison (robust method)
                         active_services['DateObj'] = pd.to_datetime(active_services['Date'], errors='coerce').dt.date
-                        # --- MODIFICATION: Apply Range Filter ---
                         active_services = active_services[(active_services['DateObj'] >= d_start_manage) & (active_services['DateObj'] <= d_end_manage)]
-                # -----------------------------
 
                 if not active_services.empty:
                     active_services['Display'] = (
