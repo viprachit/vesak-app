@@ -255,16 +255,17 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         st.error(f"Error saving to Google Sheet: {e}")
         return False
 
-# --- IMPROVED ROBUST UPDATE FUNCTION (FIXED LOGIC) ---
-# [CRITICAL FIX] Uses BOTH Serial No. and Original Invoice No. to find the row.
+# --- IMPROVED ROBUST UPDATE FUNCTION (DOUBLE LOCK) ---
+# [CRITICAL LOGIC FIX] Uses BOTH Serial No. and Original Invoice No.
 def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
     if sheet_obj is None: return False
     try:
         all_rows = sheet_obj.get_all_values()
         
-        # TARGET 1: Serial No (Static, must match)
+        # TARGET 1: Serial No (Must match exactly)
         target_serial = str(data_dict["Serial No."]).strip()
-        # TARGET 2: Original Invoice (The one before editing)
+        
+        # TARGET 2: Original Invoice (The one that was present BEFORE editing)
         target_inv_search = str(original_inv_to_find).strip()
         
         row_idx_to_update = None
@@ -279,7 +280,7 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
             
             sheet_inv = str(row[1]).strip()
             
-            # [LOGIC] Match BOTH
+            # [LOGIC] Match BOTH Serial AND Old Invoice Number
             if sheet_serial == target_serial and sheet_inv == target_inv_search:
                 row_idx_to_update = idx + 1 
                 break
@@ -300,7 +301,7 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
             get_history_data.clear()
             return True
         else:
-            st.error(f"❌ Critical Error: Could not find row with Serial '{target_serial}' AND Invoice '{target_inv_search}'.")
+            st.error(f"❌ Critical Error: Could not find original row with Serial '{target_serial}' AND Invoice '{target_inv_search}'. The row might have been deleted or the Serial No doesn't match.")
             return False
             
     except Exception as e:
@@ -493,10 +494,12 @@ def convert_html_to_pdf(source_html):
 # ==========================================
 st.title("🏥 Vesak Care - Invoice Generator")
 
+# Absolute paths for PDF engine
 abs_logo_path = get_absolute_path(LOGO_FILE)
 abs_ig_path = get_absolute_path("icon-ig.png")
 abs_fb_path = get_absolute_path("icon-fb.png")
 
+# Base64 for Web Preview
 logo_b64 = get_clean_image_base64(LOGO_FILE)
 ig_b64 = get_clean_image_base64("icon-ig.png")
 fb_b64 = get_clean_image_base64("icon-fb.png")
