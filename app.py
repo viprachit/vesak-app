@@ -38,7 +38,10 @@ def on_overwrite_change():
     if st.session_state.chk_overwrite:
         st.session_state.chk_print_dup = False
 
-# --- CONNECT TO GOOGLE SHEETS ---
+# --- CONNECT TO GOOGLE SHEETS (OPTIMIZED) ---
+# [CHANGED] Added @st.cache_resource. This ensures we authenticate only ONCE per session,
+# instead of every time you click a button.
+@st.cache_resource
 def get_google_sheet_client():
     """Connects to Google Sheets using the standard gspread library."""
     scopes = [
@@ -70,7 +73,9 @@ def get_google_sheet_client():
         st.error(f"Connection Error: {e}")
     return None
 
-# --- AUTO-DOWNLOAD ICONS ---
+# --- AUTO-DOWNLOAD ICONS (OPTIMIZED) ---
+# [CHANGED] Added @st.cache_resource. Prevents redundant network checks.
+@st.cache_resource
 def download_and_save_icon(url, filename):
     if not os.path.exists(filename):
         try:
@@ -137,7 +142,10 @@ def save_config_path(path, file_name):
     with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
     return path
 
-# [FIXED] ROBUST DOWNLOADER V3 - SESSION BASED
+# [FIXED] ROBUST DOWNLOADER V3 - SESSION BASED (OPTIMIZED)
+# [CHANGED] Added @st.cache_data. Downloads from OneDrive/Sharepoint are slow. 
+# This caches the file content so refreshing the UI doesn't re-download the Excel file.
+@st.cache_data(show_spinner=False)
 def robust_file_downloader(url):
     session = requests.Session()
     session.headers.update({
@@ -167,10 +175,14 @@ def robust_file_downloader(url):
 
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
-def get_history_data(sheet_obj):
-    if sheet_obj is None: return pd.DataFrame()
+# [CHANGED] Added @st.cache_data with an underscore before sheet_obj. 
+# The underscore tells Streamlit not to hash the connection object (which causes errors), 
+# but to cache the resulting DataFrame. This is the biggest speed boost.
+@st.cache_data(show_spinner=False)
+def get_history_data(_sheet_obj):
+    if _sheet_obj is None: return pd.DataFrame()
     try:
-        data = sheet_obj.get_all_records()
+        data = _sheet_obj.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
         return pd.DataFrame()
@@ -244,6 +256,10 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
             data_dict.get("Service Ended", "")
         ]
         sheet_obj.append_row(row_values)
+        
+        # [CHANGED] Clear the history cache immediately so the user sees the new data on refresh
+        get_history_data.clear()
+        
         return True
     except Exception as e:
         st.error(f"Error saving to Google Sheet: {e}")
@@ -291,6 +307,10 @@ def update_invoice_in_gsheet(data_dict, sheet_obj):
             ]
             range_name = f"A{row_idx_to_update}:V{row_idx_to_update}"
             sheet_obj.update(range_name, [row_values])
+
+            # [CHANGED] Clear the history cache immediately so the user sees the update
+            get_history_data.clear()
+
             return True
         else:
             st.error(f"❌ Critical Error: Could not find original row with Serial '{target_serial}' AND Invoice '{target_inv}' to overwrite. Operation cancelled to prevent data corruption.")
@@ -314,6 +334,10 @@ def mark_service_ended(sheet_obj, invoice_number, end_date):
             # Update Column V (22nd column) using A1 notation for reliability
             range_name = f"V{cell.row}"
             sheet_obj.update(range_name, [[end_time]])
+
+            # [CHANGED] Clear the history cache immediately so the service disappears from active list
+            get_history_data.clear()
+
             return True, end_time
         return False, "Invoice not found"
     except Exception as e:
@@ -520,6 +544,7 @@ elif data_source == "OneDrive Link":
         st.rerun()
     if current_url:
         try: 
+            # [OPTIMIZED] Calls cached downloader
             raw_file_obj = robust_file_downloader(current_url)
             st.sidebar.success("✅ File Downloaded")
         except Exception as e: 
@@ -547,6 +572,8 @@ if raw_file_obj:
             missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required', 'Unit Rate'] if k not in df.columns]
             if missing: st.error(f"Missing columns: {missing}"); st.stop()
             st.success("✅ Data Loaded")
+
+            # [OPTIMIZED] Calls cached data fetcher
             df_history = get_history_data(sheet_obj)
 
             # === SHARED GENERATOR FUNCTION ===
@@ -1114,7 +1141,10 @@ if raw_file_obj:
     # === TAB 3: MANAGE SERVICES (UPDATED WITH DATE FILTER) ===
     with tab3:
         st.header("🛑 Manage Active Services")
+
+        # [OPTIMIZED] Calls cached data fetcher
         df_hist = get_history_data(sheet_obj)
+
         if not df_hist.empty:
             df_hist = df_hist.fillna("")
             if 'Service Ended' not in df_hist.columns:
@@ -1170,4 +1200,3 @@ if raw_file_obj:
                         st.info("No active services found (All rows have End Dates).")
         else:
             st.info("History sheet is empty.")
-
