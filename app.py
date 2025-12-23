@@ -38,8 +38,7 @@ def on_overwrite_change():
     if st.session_state.chk_overwrite:
         st.session_state.chk_print_dup = False
 
-# --- CONNECT TO GOOGLE SHEETS (CACHED FOR SPEED) ---
-@st.cache_resource(show_spinner=False)
+# --- CONNECT TO GOOGLE SHEETS ---
 def get_google_sheet_client():
     """Connects to Google Sheets using the standard gspread library."""
     scopes = [
@@ -71,40 +70,32 @@ def get_google_sheet_client():
         st.error(f"Connection Error: {e}")
     return None
 
-# --- AUTO-DOWNLOAD ICONS (CACHED) ---
-@st.cache_resource(show_spinner=False)
-def setup_icons():
-    """Downloads icons once and caches the result so it doesn't run every time."""
-    
-    def download_and_save_icon(url, filename):
-        if not os.path.exists(filename):
-            try:
-                headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(url, headers=headers)
-                if response.status_code == 200:
-                    img = Image.open(BytesIO(response.content)).convert("RGBA")
-                    if "logo" in filename:
-                        img.thumbnail((200, 200)) 
-                    else:
-                        img = img.resize((32, 32)) 
-                    img.save(filename, format="PNG")
-                    return True
-            except:
-                return False
-        return True
-
-    # URLs
-    IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
-    FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
-    LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
-
-    download_and_save_icon(IG_URL, "icon-ig.png")
-    download_and_save_icon(FB_URL, "icon-fb.png")
-    download_and_save_icon(LOGO_URL, "logo.png") 
+# --- AUTO-DOWNLOAD ICONS ---
+def download_and_save_icon(url, filename):
+    if not os.path.exists(filename):
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                img = Image.open(BytesIO(response.content)).convert("RGBA")
+                if "logo" in filename:
+                    img.thumbnail((200, 200)) 
+                else:
+                    img = img.resize((32, 32)) 
+                img.save(filename, format="PNG")
+                return True
+        except:
+            return False
     return True
 
-# Initialize Icons
-setup_icons()
+# URLs
+IG_URL = "https://cdn-icons-png.flaticon.com/512/2111/2111463.png" 
+FB_URL = "https://cdn-icons-png.flaticon.com/512/5968/5968764.png" 
+LOGO_URL = "https://cdn-icons-png.flaticon.com/512/2966/2966327.png" 
+
+download_and_save_icon(IG_URL, "icon-ig.png")
+download_and_save_icon(FB_URL, "icon-fb.png")
+download_and_save_icon(LOGO_URL, "logo.png") 
 
 # ==========================================
 # 2. HELPER FUNCTIONS
@@ -173,15 +164,6 @@ def robust_file_downloader(url):
         raise Exception(f"Status Code: {response.status_code}")
     except Exception as e:
         raise Exception(f"Download failed: {e}. Ensure the OneDrive link is set to 'Anyone with the link'.")
-
-# --- CACHED DATA LOADING ---
-@st.cache_data(ttl=600) # Caches the excel file for 10 minutes to prevent re-downloading on every click
-def load_excel_from_url_cached(url):
-    try:
-        file_content = robust_file_downloader(url)
-        return pd.read_excel(file_content, sheet_name=None) # Read all sheets
-    except Exception as e:
-        return None
 
 # --- GOOGLE SHEETS DATABASE FUNCTIONS ---
 
@@ -526,600 +508,597 @@ with st.sidebar:
     else: st.error("❌ Not Connected to Google Sheets")
     data_source = st.radio("Load Confirmed Sheet via:", ["Upload File", "OneDrive Link"])
 
-df = None
+raw_file_obj = None
 if data_source == "Upload File":
     uploaded_file = st.sidebar.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
-    if uploaded_file:
-        try:
-            xl = pd.ExcelFile(uploaded_file)
-            sheet_names = xl.sheet_names
-            default_ix = sheet_names.index('Confirmed') if 'Confirmed' in sheet_names else 0
-            selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
-            df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
-        except Exception as e:
-            st.error(f"Error loading file: {e}")
-
+    if uploaded_file: raw_file_obj = uploaded_file
 elif data_source == "OneDrive Link":
     current_url = load_config_path(URL_CONFIG_FILE)
     url_input = st.sidebar.text_input("Paste OneDrive/Sharepoint Link:", value=current_url)
     if st.sidebar.button("Load from Link"):
         save_config_path(url_input, URL_CONFIG_FILE) 
         st.rerun()
-    
     if current_url:
-        # USE CACHED LOADER HERE
-        all_sheets_dict = load_excel_from_url_cached(current_url)
-        
-        if all_sheets_dict:
-            st.sidebar.success("✅ File Downloaded (Cached)")
-            sheet_names = list(all_sheets_dict.keys())
-            default_ix = sheet_names.index('Confirmed') if 'Confirmed' in sheet_names else 0
-            selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
-            df = all_sheets_dict[selected_sheet]
-        else:
-            st.sidebar.error("Link Error or File is empty.")
+        try: 
+            raw_file_obj = robust_file_downloader(current_url)
+            st.sidebar.success("✅ File Downloaded")
+        except Exception as e: 
+            st.sidebar.error(f"Link Error: {e}")
 
 # --- TABS ---
 tab1, tab2, tab3 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "🛑 Manage Services"])
 
-if df is not None:
+if raw_file_obj:
+    df = None
     try:
-        df = normalize_columns(df, COLUMN_ALIASES)
-        missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required', 'Unit Rate'] if k not in df.columns]
-        if missing: st.error(f"Missing columns: {missing}"); st.stop()
-        st.success("✅ Data Loaded")
-        df_history = get_history_data(sheet_obj)
+        if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
+        xl = pd.ExcelFile(raw_file_obj)
+        sheet_names = xl.sheet_names
+        default_ix = sheet_names.index('Confirmed') if 'Confirmed' in sheet_names else 0
+        selected_sheet = st.sidebar.selectbox("Select Sheet:", sheet_names, index=default_ix)
+        df = pd.read_excel(raw_file_obj, sheet_name=selected_sheet)
+    except Exception as e_excel:
+        st.error(f"❌ Excel Read Error: {e_excel}")
+        st.info("ℹ️ File seems corrupted or password protected.")
 
-        # === SHARED GENERATOR FUNCTION ===
-        def render_invoice_ui(mode="standard"):
-            # --- FILTER LOGIC ---
-            filter_col1, filter_col2 = st.columns([1, 2])
-            with filter_col1:
-                enable_date_filter = st.checkbox("Filter Customer List by Date", key=f"filt_chk_{mode}")
-            
-            selected_date_filter = None
-            unique_labels = []
-            
-            if enable_date_filter:
-                with filter_col2:
-                    # --- MODIFICATION: Range Logic (Selected Date AND Selected Date + 1 Day) ---
-                    selected_date_filter = st.date_input("Show customers for Selected Date & +1 Day:", value=datetime.date.today(), key=f"filt_date_{mode}")
-                    
-                    d_start = selected_date_filter 
-                    d_end = selected_date_filter + datetime.timedelta(days=1)
-            
-            # --- LOGIC TO POPULATE LIST BASED ON MODE ---
-            if mode == "force_new":
-                if not df_history.empty and 'Customer Name' in df_history.columns:
-                    hist_data = df_history.copy()
-                    if enable_date_filter and 'Date' in hist_data.columns:
-                            hist_data['DateObj'] = pd.to_datetime(hist_data['Date'], errors='coerce').dt.date
-                            # --- MODIFICATION: Apply Range Filter ---
-                            hist_data = hist_data[(hist_data['DateObj'] >= d_start) & (hist_data['DateObj'] <= d_end)]
+    if df is not None:
+        try:
+            df = normalize_columns(df, COLUMN_ALIASES)
+            missing = [k for k in ['Name', 'Mobile', 'Final Rate', 'Service Required', 'Unit Rate'] if k not in df.columns]
+            if missing: st.error(f"Missing columns: {missing}"); st.stop()
+            st.success("✅ Data Loaded")
+            df_history = get_history_data(sheet_obj)
+
+            # === SHARED GENERATOR FUNCTION ===
+            def render_invoice_ui(mode="standard"):
+                # --- FILTER LOGIC ---
+                filter_col1, filter_col2 = st.columns([1, 2])
+                with filter_col1:
+                    enable_date_filter = st.checkbox("Filter Customer List by Date", key=f"filt_chk_{mode}")
+                
+                selected_date_filter = None
+                unique_labels = []
+                
+                if enable_date_filter:
+                    with filter_col2:
+                        # --- MODIFICATION: Range Logic (Selected Date AND Selected Date + 1 Day) ---
+                        selected_date_filter = st.date_input("Show customers for Selected Date & +1 Day:", value=datetime.date.today(), key=f"filt_date_{mode}")
                         
-                    hist_names = hist_data['Customer Name'].unique()
-                    df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
-                    df_filtered = df[df['Name'].isin(hist_names)]
-                    unique_labels = [""] + list(df_filtered['Label'].unique())
-                else:
-                    unique_labels = [""]
-            else:
-                # Standard Mode
-                if enable_date_filter and not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
-                        df_history['DateObj'] = pd.to_datetime(df_history['Date'], errors='coerce').dt.date
-                        # --- MODIFICATION: Apply Range Filter ---
-                        filtered_hist = df_history[(df_history['DateObj'] >= d_start) & (df_history['DateObj'] <= d_end)]
-                        
-                        valid_names = filtered_hist['Customer Name'].unique()
-                        df_filtered = df[df['Name'].isin(valid_names)]
-                        if df_filtered.empty:
-                            st.warning(f"No customers found between {d_start} and {d_end}.")
-                            df_filtered = df 
-                        df_filtered['Label'] = df_filtered['Name'].astype(str) + " (" + df_filtered['Mobile'].astype(str) + ")"
-                        unique_labels = [""] + list(df_filtered['Label'].unique())
-                else:
-                    df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
-                    unique_labels = [""] + list(df['Label'].unique())
-
-            selected_label = st.selectbox(f"Select Customer ({mode}):", unique_labels, key=f"sel_{mode}")
-            
-            if not selected_label:
-                st.info("👈 Please select a customer to proceed.")
-                return
-
-            row = df[df['Label'] == selected_label].iloc[0]
-            
-            # Data Prep
-            c_serial_raw = row.get('Serial No.', '')
-            try: c_serial = str(int(float(c_serial_raw)))
-            except: c_serial = str(c_serial_raw)
-            c_plan = row.get('Service Required', '')
-            c_sub = row.get('Sub Service', '')
-            c_ref_date = format_date_with_suffix(row.get('Call Date', 'N/A'))
-            c_notes_raw = str(row.get('Notes', '')) if not pd.isna(row.get('Notes', '')) else ""
-            c_name = row.get('Name', '')
-            c_gender = row.get('Gender', '')
-            raw_age = row.get('Age', '')
-            try: c_age = str(int(float(raw_age))) if not pd.isna(raw_age) and raw_age != '' else ""
-            except: c_age = str(raw_age)
-            c_addr = row.get('Address', '')
-            c_location = row.get('Location', c_addr) 
-            c_mob = row.get('Mobile', '')
-            inc_def, exc_def = get_base_lists(c_plan, c_sub)
-            
-            st.divider()
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.info(f"**Plan:** {PLAN_DISPLAY_NAMES.get(c_plan, c_plan)}")
-                inv_date = st.date_input("Date:", value=datetime.date.today(), key=f"date_{mode}")
-                fmt_date = format_date_with_suffix(inv_date)
-                default_qty = get_last_billing_qty(df_history, c_name, c_mob)
-                p_raw = str(row.get('Period', '')).strip()
-                shift_raw = str(row.get('Shift', '')).strip() 
+                        d_start = selected_date_filter 
+                        d_end = selected_date_filter + datetime.timedelta(days=1)
                 
-                # --- MODIFIED LABEL LOGIC ---
-                if "per visit" in shift_raw.lower():
-                    bill_label = "Visits"
-                elif "month" in p_raw.lower():
-                    bill_label = "Months"
-                elif "week" in p_raw.lower():
-                    bill_label = "Weeks"
-                else:
-                    bill_label = "Days"
-                
-                # --- FIXED: ADDED LABEL TO KEY TO FORCE RESET ---
-                billing_qty = st.number_input(f"Paid for how many {bill_label}?", min_value=1, value=default_qty, step=1, key=f"qty_{mode}_{selected_label}")
-                
-                existing_record = get_record_by_serial(df_history, c_serial)
-                is_duplicate = False
-                existing_inv_num = ""
-                default_inv_num = "" 
-
-                if existing_record is not None:
-                    existing_inv_num = existing_record['Invoice Number']
-                    if existing_record['Date'] == fmt_date:
-                        is_duplicate = True
-                        if mode == "standard": st.warning(f"⚠️ Invoice already exists for today! (Inv: {existing_inv_num})")
-                    else:
-                        if mode == "standard":
-                            st.info(f"ℹ️ Previous Invoice Found: {existing_inv_num} (Re-billing)")
-                
+                # --- LOGIC TO POPULATE LIST BASED ON MODE ---
                 if mode == "force_new":
-                    default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
-                    st.warning("⚠ You are about to generate a NEW invoice for an existing client.")
-                else:
-                    if is_duplicate: default_inv_num = existing_inv_num
-                    else: default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
-                
-                # Checkboxes
-                chk_print_dup = False
-                chk_overwrite = False
-                if mode == "standard" and is_duplicate:
-                    col_dup1, col_dup2 = st.columns(2)
-                    with col_dup1: chk_print_dup = st.checkbox("Generate Duplicate Invoice (PDF Only)", key="chk_print_dup", on_change=on_print_dup_change)
-                    with col_dup2: chk_overwrite = st.checkbox("Overwrite existing entry (Update History)", key="chk_overwrite", on_change=on_overwrite_change)
-                    
-                inv_num_input = st.text_input("Invoice No (New/Editable):", value=default_inv_num, key=f"inv_input_{mode}")
-                st.caption(f"Ref Date: {c_ref_date}")
-                
-            with col2:
-                generated_by_input = st.text_input("Invoice Generated By:", placeholder="", key=f"gen_by_{mode}")
-                generated_by = generated_by_input if generated_by_input else "Vesak Patient Care"
-                final_exc = st.multiselect("Excluded (Editable):", options=exc_def + ["Others"], default=exc_def, key=f"exc_{mode}")
-                
-            st.write("**Included Services:**")
-            st.text(", ".join(inc_def))
-            final_notes = st.text_area("Notes:", value=c_notes_raw, key=f"notes_{mode}")
-            
-            # HTML Constructions
-            desc_col_html = construct_description_html(row) 
-            amount_col_html = construct_amount_html(row, billing_qty)
-            
-            btn_label = "Generate & Save Invoice"
-            if mode == "force_new": btn_label = "⚠ Force Generate New Invoice"
-            elif chk_print_dup: btn_label = "Generate Duplicate Copy"
-            elif chk_overwrite: btn_label = "⚠ Update/Overwrite Invoice"
-            
-            if st.button(btn_label, key=f"btn_{mode}"):
-                proceed = True
-                if mode == "standard" and not chk_print_dup and is_duplicate and not chk_overwrite:
-                    st.error("❌ Invoice exists! Select 'Generate Duplicate' or 'Overwrite'.")
-                    proceed = False
-                
-                if proceed:
-                    clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
-                    inv_num = inv_num_input
-                    
-                    def safe_float(val):
-                        try: return float(val) if not pd.isna(val) else 0.0
-                        except: return 0.0
-                    
-                    unit_rate_val = safe_float(row.get('Unit Rate', 0))
-                    total_billed_amount = unit_rate_val * billing_qty
-                    
-                    # --- LOGIC TO DETERMINE UNIT LABEL FOR HISTORY SAVING ---
-                    unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
-                    
-                    # FORCE VISIT IF DETECTED
-                    if "per visit" in shift_raw.lower():
-                            unit_label_for_details = "Visit"
-
-                    def get_plural_save(unit, qty):
-                            if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
-                            if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
-                            if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
-                            if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit"
-                            return unit
-                    
-                    details_text = f"Paid for {billing_qty} {get_plural_save(unit_label_for_details, billing_qty)}"
-                    if mode == "force_new":
-                        details_text += " (New)"
-
-                    success = False
-                    
-                    if not chk_print_dup:
-                        try: visits_val = int(safe_float(row.get('Visits', 0)))
-                        except: visits_val = 0
-                        period_val = str(row.get('Period', ''))
-                        generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-                        invoice_record = {
-                            "Serial No.": str(c_serial), "Invoice Number": str(inv_num), "Date": str(fmt_date),
-                            "Generated At": generated_at_ts, "Customer Name": str(c_name), "Age": str(c_age),
-                            "Gender": str(c_gender), "Location": str(c_location), "Address": str(c_addr),
-                            "Mobile": str(c_mob), "Plan": str(clean_plan), "Shift": str(row.get('Shift', '')),
-                            "Recurring Service": str(row.get('Recurring', '')), "Period": period_val, 
-                            "Visits": int(visits_val), "Amount": float(unit_rate_val), "Notes / Remarks": str(final_notes),  
-                            "Generated By": str(generated_by), "Amount Paid": float(total_billed_amount), 
-                            "Details": details_text, "Service Started": generated_at_ts, "Service Ended": ""
-                        }
+                    if not df_history.empty and 'Customer Name' in df_history.columns:
+                        hist_data = df_history.copy()
+                        if enable_date_filter and 'Date' in hist_data.columns:
+                             hist_data['DateObj'] = pd.to_datetime(hist_data['Date'], errors='coerce').dt.date
+                             # --- MODIFICATION: Apply Range Filter ---
+                             hist_data = hist_data[(hist_data['DateObj'] >= d_start) & (hist_data['DateObj'] <= d_end)]
                         
-                        if mode == "standard" and chk_overwrite:
-                            if update_invoice_in_gsheet(invoice_record, sheet_obj):
-                                st.success(f"✅ Invoice {inv_num} UPDATED!")
-                                success = True
-                        elif mode == "standard" and not is_duplicate:
-                            if save_invoice_to_gsheet(invoice_record, sheet_obj):
-                                st.success(f"✅ Invoice {inv_num} SAVED!")
-                                success = True
-                        elif mode == "force_new":
-                            prev_active_inv = get_active_invoice_number(df_history, c_name)
-                            if prev_active_inv:
-                                success_end, end_ts = mark_service_ended(sheet_obj, prev_active_inv, inv_date)
-                                if success_end:
-                                    st.info(f"ℹ️ Previous Invoice {prev_active_inv} marked as Ended at {end_ts}")
-                            
-                            if save_invoice_to_gsheet(invoice_record, sheet_obj):
-                                st.success(f"✅ New Invoice {inv_num} CREATED!")
-                                success = True
+                        hist_names = hist_data['Customer Name'].unique()
+                        df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
+                        df_filtered = df[df['Name'].isin(hist_names)]
+                        unique_labels = [""] + list(df_filtered['Label'].unique())
                     else:
-                        st.info("ℹ️ Generating Duplicate Copy (No DB Change).")
-                        success = True
+                        unique_labels = [""]
+                else:
+                    # Standard Mode
+                    if enable_date_filter and not df_history.empty and 'Date' in df_history.columns and 'Customer Name' in df_history.columns:
+                          df_history['DateObj'] = pd.to_datetime(df_history['Date'], errors='coerce').dt.date
+                          # --- MODIFICATION: Apply Range Filter ---
+                          filtered_hist = df_history[(df_history['DateObj'] >= d_start) & (df_history['DateObj'] <= d_end)]
+                          
+                          valid_names = filtered_hist['Customer Name'].unique()
+                          df_filtered = df[df['Name'].isin(valid_names)]
+                          if df_filtered.empty:
+                              st.warning(f"No customers found between {d_start} and {d_end}.")
+                              df_filtered = df 
+                          df_filtered['Label'] = df_filtered['Name'].astype(str) + " (" + df_filtered['Mobile'].astype(str) + ")"
+                          unique_labels = [""] + list(df_filtered['Label'].unique())
+                    else:
+                        df['Label'] = df['Name'].astype(str) + " (" + df['Mobile'].astype(str) + ")"
+                        unique_labels = [""] + list(df['Label'].unique())
 
-                    if success:
-                        inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
-                        exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
+                selected_label = st.selectbox(f"Select Customer ({mode}):", unique_labels, key=f"sel_{mode}")
+                
+                if not selected_label:
+                    st.info("👈 Please select a customer to proceed.")
+                    return
+
+                row = df[df['Label'] == selected_label].iloc[0]
+                
+                # Data Prep
+                c_serial_raw = row.get('Serial No.', '')
+                try: c_serial = str(int(float(c_serial_raw)))
+                except: c_serial = str(c_serial_raw)
+                c_plan = row.get('Service Required', '')
+                c_sub = row.get('Sub Service', '')
+                c_ref_date = format_date_with_suffix(row.get('Call Date', 'N/A'))
+                c_notes_raw = str(row.get('Notes', '')) if not pd.isna(row.get('Notes', '')) else ""
+                c_name = row.get('Name', '')
+                c_gender = row.get('Gender', '')
+                raw_age = row.get('Age', '')
+                try: c_age = str(int(float(raw_age))) if not pd.isna(raw_age) and raw_age != '' else ""
+                except: c_age = str(raw_age)
+                c_addr = row.get('Address', '')
+                c_location = row.get('Location', c_addr) 
+                c_mob = row.get('Mobile', '')
+                inc_def, exc_def = get_base_lists(c_plan, c_sub)
+                
+                st.divider()
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.info(f"**Plan:** {PLAN_DISPLAY_NAMES.get(c_plan, c_plan)}")
+                    inv_date = st.date_input("Date:", value=datetime.date.today(), key=f"date_{mode}")
+                    fmt_date = format_date_with_suffix(inv_date)
+                    default_qty = get_last_billing_qty(df_history, c_name, c_mob)
+                    p_raw = str(row.get('Period', '')).strip()
+                    shift_raw = str(row.get('Shift', '')).strip() 
+                    
+                    # --- MODIFIED LABEL LOGIC ---
+                    if "per visit" in shift_raw.lower():
+                        bill_label = "Visits"
+                    elif "month" in p_raw.lower():
+                        bill_label = "Months"
+                    elif "week" in p_raw.lower():
+                        bill_label = "Weeks"
+                    else:
+                        bill_label = "Days"
+                    
+                    # --- FIXED: ADDED LABEL TO KEY TO FORCE RESET ---
+                    billing_qty = st.number_input(f"Paid for how many {bill_label}?", min_value=1, value=default_qty, step=1, key=f"qty_{mode}_{selected_label}")
+                    
+                    existing_record = get_record_by_serial(df_history, c_serial)
+                    is_duplicate = False
+                    existing_inv_num = ""
+                    default_inv_num = "" 
+
+                    if existing_record is not None:
+                        existing_inv_num = existing_record['Invoice Number']
+                        if existing_record['Date'] == fmt_date:
+                            is_duplicate = True
+                            if mode == "standard": st.warning(f"⚠️ Invoice already exists for today! (Inv: {existing_inv_num})")
+                        else:
+                            if mode == "standard":
+                                st.info(f"ℹ️ Previous Invoice Found: {existing_inv_num} (Re-billing)")
+                    
+                    if mode == "force_new":
+                        default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
+                        st.warning("⚠ You are about to generate a NEW invoice for an existing client.")
+                    else:
+                        if is_duplicate: default_inv_num = existing_inv_num
+                        else: default_inv_num = get_next_invoice_number_gsheet(inv_date, df_history)
+                    
+                    # Checkboxes
+                    chk_print_dup = False
+                    chk_overwrite = False
+                    if mode == "standard" and is_duplicate:
+                        col_dup1, col_dup2 = st.columns(2)
+                        with col_dup1: chk_print_dup = st.checkbox("Generate Duplicate Invoice (PDF Only)", key="chk_print_dup", on_change=on_print_dup_change)
+                        with col_dup2: chk_overwrite = st.checkbox("Overwrite existing entry (Update History)", key="chk_overwrite", on_change=on_overwrite_change)
                         
-                        notes_section = ""
-                        if final_notes:
-                            notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
+                    inv_num_input = st.text_input("Invoice No (New/Editable):", value=default_inv_num, key=f"inv_input_{mode}")
+                    st.caption(f"Ref Date: {c_ref_date}")
+                    
+                with col2:
+                    generated_by_input = st.text_input("Invoice Generated By:", placeholder="", key=f"gen_by_{mode}")
+                    generated_by = generated_by_input if generated_by_input else "Vesak Patient Care"
+                    final_exc = st.multiselect("Excluded (Editable):", options=exc_def + ["Others"], default=exc_def, key=f"exc_{mode}")
+                    
+                st.write("**Included Services:**")
+                st.text(", ".join(inc_def))
+                final_notes = st.text_area("Notes:", value=c_notes_raw, key=f"notes_{mode}")
+                
+                # HTML Constructions
+                desc_col_html = construct_description_html(row) 
+                amount_col_html = construct_amount_html(row, billing_qty)
+                
+                btn_label = "Generate & Save Invoice"
+                if mode == "force_new": btn_label = "⚠ Force Generate New Invoice"
+                elif chk_print_dup: btn_label = "Generate Duplicate Copy"
+                elif chk_overwrite: btn_label = "⚠ Update/Overwrite Invoice"
+                
+                if st.button(btn_label, key=f"btn_{mode}"):
+                    proceed = True
+                    if mode == "standard" and not chk_print_dup and is_duplicate and not chk_overwrite:
+                        st.error("❌ Invoice exists! Select 'Generate Duplicate' or 'Overwrite'.")
+                        proceed = False
+                    
+                    if proceed:
+                        clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
+                        inv_num = inv_num_input
+                        
+                        def safe_float(val):
+                            try: return float(val) if not pd.isna(val) else 0.0
+                            except: return 0.0
+                        
+                        unit_rate_val = safe_float(row.get('Unit Rate', 0))
+                        total_billed_amount = unit_rate_val * billing_qty
+                        
+                        # --- LOGIC TO DETERMINE UNIT LABEL FOR HISTORY SAVING ---
+                        unit_label_for_details = "Month" if "month" in p_raw.lower() else "Week" if "week" in p_raw.lower() else "Day"
+                        
+                        # FORCE VISIT IF DETECTED
+                        if "per visit" in shift_raw.lower():
+                             unit_label_for_details = "Visit"
 
-                        # --- WEB PREVIEW TEMPLATE ---
-                        html_template = f"""
-                        <!DOCTYPE html>
-                        <html lang="en">
-                        <head>
-                            <meta charset="UTF-8">
-                            <title>Invoice</title>
-                            <script src="https://cdn.tailwindcss.com"></script>
-                            <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-                            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-                            <script>
-                                tailwind.config = {{
-                                    theme: {{
-                                        extend: {{
-                                            colors: {{ vesak: {{ navy: '#002147', gold: '#C5A065', orange: '#CC4E00' }} }},
-                                            fontFamily: {{ serif: ['"Playfair Display"', 'serif'], sans: ['"Lato"', 'sans-serif'] }}
+                        def get_plural_save(unit, qty):
+                                if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
+                                if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
+                                if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
+                                if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit"
+                                return unit
+                        
+                        details_text = f"Paid for {billing_qty} {get_plural_save(unit_label_for_details, billing_qty)}"
+                        if mode == "force_new":
+                            details_text += " (New)"
+
+                        success = False
+                        
+                        if not chk_print_dup:
+                            try: visits_val = int(safe_float(row.get('Visits', 0)))
+                            except: visits_val = 0
+                            period_val = str(row.get('Period', ''))
+                            generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+                            invoice_record = {
+                                "Serial No.": str(c_serial), "Invoice Number": str(inv_num), "Date": str(fmt_date),
+                                "Generated At": generated_at_ts, "Customer Name": str(c_name), "Age": str(c_age),
+                                "Gender": str(c_gender), "Location": str(c_location), "Address": str(c_addr),
+                                "Mobile": str(c_mob), "Plan": str(clean_plan), "Shift": str(row.get('Shift', '')),
+                                "Recurring Service": str(row.get('Recurring', '')), "Period": period_val, 
+                                "Visits": int(visits_val), "Amount": float(unit_rate_val), "Notes / Remarks": str(final_notes),  
+                                "Generated By": str(generated_by), "Amount Paid": float(total_billed_amount), 
+                                "Details": details_text, "Service Started": generated_at_ts, "Service Ended": ""
+                            }
+                            
+                            if mode == "standard" and chk_overwrite:
+                                if update_invoice_in_gsheet(invoice_record, sheet_obj):
+                                    st.success(f"✅ Invoice {inv_num} UPDATED!")
+                                    success = True
+                            elif mode == "standard" and not is_duplicate:
+                                if save_invoice_to_gsheet(invoice_record, sheet_obj):
+                                    st.success(f"✅ Invoice {inv_num} SAVED!")
+                                    success = True
+                            elif mode == "force_new":
+                                prev_active_inv = get_active_invoice_number(df_history, c_name)
+                                if prev_active_inv:
+                                    success_end, end_ts = mark_service_ended(sheet_obj, prev_active_inv, inv_date)
+                                    if success_end:
+                                        st.info(f"ℹ️ Previous Invoice {prev_active_inv} marked as Ended at {end_ts}")
+                                
+                                if save_invoice_to_gsheet(invoice_record, sheet_obj):
+                                    st.success(f"✅ New Invoice {inv_num} CREATED!")
+                                    success = True
+                        else:
+                            st.info("ℹ️ Generating Duplicate Copy (No DB Change).")
+                            success = True
+
+                        if success:
+                            inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
+                            exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
+                            
+                            notes_section = ""
+                            if final_notes:
+                                notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
+
+                            # --- WEB PREVIEW TEMPLATE ---
+                            html_template = f"""
+                            <!DOCTYPE html>
+                            <html lang="en">
+                            <head>
+                                <meta charset="UTF-8">
+                                <title>Invoice</title>
+                                <script src="https://cdn.tailwindcss.com"></script>
+                                <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+                                <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+                                <script>
+                                    tailwind.config = {{
+                                        theme: {{
+                                            extend: {{
+                                                colors: {{ vesak: {{ navy: '#002147', gold: '#C5A065', orange: '#CC4E00' }} }},
+                                                fontFamily: {{ serif: ['"Playfair Display"', 'serif'], sans: ['"Lato"', 'sans-serif'] }}
+                                            }}
                                         }}
                                     }}
-                                }}
-                            </script>
-                            <style>
-                                @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
-                                body {{ font-family: 'Lato', sans-serif; background: #f0f0f0; }}
-                                .invoice-page {{
-                                    background: white; width: 210mm; min-height: 297mm;
-                                    margin: 20px auto; padding: 40px; position: relative;
-                                    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); display: flex; flex-direction: column;
-                                }}
-                                .watermark-container {{
-                                    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                                    display: flex; flex-direction: column; align-items: center;
-                                    opacity: 0.03; pointer-events: none; z-index: 0;
-                                }}
-                                .watermark-text {{
-                                    font-family: 'Playfair Display', serif; font-size: 80px;
-                                    font-weight: 700; color: #002147; letter-spacing: 0.3em;
-                                }}
-                                @media print {{
-                                    body {{ background: white; -webkit-print-color-adjust: exact; }}
-                                    .invoice-page {{ margin: 0; box-shadow: none; width: 100%; height: 100%; padding: 40px; }}
-                                    .no-print {{ display: none !important; }}
-                                    .watermark-container {{ opacity: 0.015 !important; }}
-                                }}
-                            </style>
-                        </head>
-                        <body class="py-10">
-                            <div class="max-w-[210mm] mx-auto mb-6 flex justify-end no-print px-4">
-                                <button onclick="generatePDF()" class="bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition font-bold text-xs uppercase tracking-widest">
-                                    <i class="fas fa-download mr-2"></i> Download PDF
-                                </button>
-                            </div>
-
-                            <div class="invoice-page" id="invoice-content">
-                                <div class="watermark-container">
-                                    <img src="data:image/png;base64,{logo_b64}" style="width: 300px; opacity: 0.3;">
-                                    <div class="watermark-text mt-4">VESAK</div>
+                                </script>
+                                <style>
+                                    @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
+                                    body {{ font-family: 'Lato', sans-serif; background: #f0f0f0; }}
+                                    .invoice-page {{
+                                        background: white; width: 210mm; min-height: 297mm;
+                                        margin: 20px auto; padding: 40px; position: relative;
+                                        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); display: flex; flex-direction: column;
+                                    }}
+                                    .watermark-container {{
+                                        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                                        display: flex; flex-direction: column; align-items: center;
+                                        opacity: 0.03; pointer-events: none; z-index: 0;
+                                    }}
+                                    .watermark-text {{
+                                        font-family: 'Playfair Display', serif; font-size: 80px;
+                                        font-weight: 700; color: #002147; letter-spacing: 0.3em;
+                                    }}
+                                    @media print {{
+                                        body {{ background: white; -webkit-print-color-adjust: exact; }}
+                                        .invoice-page {{ margin: 0; box-shadow: none; width: 100%; height: 100%; padding: 40px; }}
+                                        .no-print {{ display: none !important; }}
+                                        .watermark-container {{ opacity: 0.015 !important; }}
+                                    }}
+                                </style>
+                            </head>
+                            <body class="py-10">
+                                <div class="max-w-[210mm] mx-auto mb-6 flex justify-end no-print px-4">
+                                    <button onclick="generatePDF()" class="bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition font-bold text-xs uppercase tracking-widest">
+                                        <i class="fas fa-download mr-2"></i> Download PDF
+                                    </button>
                                 </div>
 
-                                <header class="relative z-10 w-full mb-10">
-                                    <div class="flex justify-between items-start border-b border-gray-100 pb-6">
-                                        <div class="flex items-center gap-5">
-                                            <img src="data:image/png;base64,{logo_b64}" class="w-20 h-auto">
-                                            <div>
-                                                <h1 class="font-serif text-2xl font-bold text-vesak-navy tracking-wide leading-none mb-2">
-                                                    Vesak Care <span class="text-vesak-gold font-normal">Foundation</span>
-                                                </h1>
-                                                <div class="flex flex-col text-xs text-gray-500 font-light tracking-wide space-y-0.5">
-                                                    <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Web</span> vesakcare.com</span>
-                                                    <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Email</span> vesakcare@gmail.com</span>
-                                                    <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Phone</span> +91 7777 000 878</span>
+                                <div class="invoice-page" id="invoice-content">
+                                    <div class="watermark-container">
+                                        <img src="data:image/png;base64,{logo_b64}" style="width: 300px; opacity: 0.3;">
+                                        <div class="watermark-text mt-4">VESAK</div>
+                                    </div>
+
+                                    <header class="relative z-10 w-full mb-10">
+                                        <div class="flex justify-between items-start border-b border-gray-100 pb-6">
+                                            <div class="flex items-center gap-5">
+                                                <img src="data:image/png;base64,{logo_b64}" class="w-20 h-auto">
+                                                <div>
+                                                    <h1 class="font-serif text-2xl font-bold text-vesak-navy tracking-wide leading-none mb-2">
+                                                        Vesak Care <span class="text-vesak-gold font-normal">Foundation</span>
+                                                    </h1>
+                                                    <div class="flex flex-col text-xs text-gray-500 font-light tracking-wide space-y-0.5">
+                                                        <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Web</span> vesakcare.com</span>
+                                                        <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Email</span> vesakcare@gmail.com</span>
+                                                        <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Phone</span> +91 7777 000 878</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="text-right">
+                                                <span class="block font-serif text-3xl text-gray-200 tracking-widest mb-2">INVOICE</span>
+                                                <div class="text-xs text-vesak-navy">
+                                                    <div class="mb-1"><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">Date</span> <b>{fmt_date}</b></div>
+                                                    <div><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">No.</span> <b>{inv_num}</b></div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="text-right">
-                                            <span class="block font-serif text-3xl text-gray-200 tracking-widest mb-2">INVOICE</span>
-                                            <div class="text-xs text-vesak-navy">
-                                                <div class="mb-1"><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">Date</span> <b>{fmt_date}</b></div>
-                                                <div><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">No.</span> <b>{inv_num}</b></div>
+                                    </header>
+
+                                    <main class="flex-grow relative z-10">
+                                        
+                                        <div class="flex mb-10 bg-gray-50 border-l-4 border-vesak-navy">
+                                            <div class="w-1/2 p-4 border-r border-gray-200">
+                                                <div class="text-[10px] font-bold text-vesak-gold uppercase mb-1">Billed To</div>
+                                                <div class="text-lg font-bold text-vesak-navy">{c_name}</div>
+                                                <div class="flex gap-4 mt-2 text-xs text-gray-600">
+                                                    <div class="flex items-center gap-1"><i class="fas fa-user text-vesak-gold"></i> {c_gender}</div>
+                                                    <div class="flex items-center gap-1"><i class="fas fa-birthday-cake text-vesak-gold"></i> {c_age} Yrs</div>
+                                                </div>
+                                            </div>
+                                            <div class="w-1/2 p-4 flex flex-col justify-center">
+                                                <div class="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                                                    <i class="fas fa-phone-alt text-vesak-gold w-4"></i> {c_mob}
+                                                </div>
+                                                <div class="flex items-start gap-2 text-xs text-gray-600">
+                                                    <i class="fas fa-map-marker-alt text-vesak-gold w-4 mt-0.5"></i> 
+                                                    <span class="leading-tight">{c_addr}</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </header>
 
-                                <main class="flex-grow relative z-10">
-                                    
-                                    <div class="flex mb-10 bg-gray-50 border-l-4 border-vesak-navy">
-                                        <div class="w-1/2 p-4 border-r border-gray-200">
-                                            <div class="text-[10px] font-bold text-vesak-gold uppercase mb-1">Billed To</div>
-                                            <div class="text-lg font-bold text-vesak-navy">{c_name}</div>
-                                            <div class="flex gap-4 mt-2 text-xs text-gray-600">
-                                                <div class="flex items-center gap-1"><i class="fas fa-user text-vesak-gold"></i> {c_gender}</div>
-                                                <div class="flex items-center gap-1"><i class="fas fa-birthday-cake text-vesak-gold"></i> {c_age} Yrs</div>
+                                        <table class="w-full mb-8">
+                                            <thead>
+                                                <tr class="bg-vesak-navy text-white text-xs uppercase tracking-wider text-left">
+                                                    <th class="p-3 w-3/5">Description</th>
+                                                    <th class="p-3 w-2/5 text-right">Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr class="border-b border-gray-100">
+                                                    <td class="p-4 align-top">
+                                                        <div class="font-bold text-sm text-gray-800">{clean_plan}</div>
+                                                        {desc_col_html}
+                                                    </td>
+                                                    <td class="p-4 text-right font-bold text-sm text-gray-800 align-top">
+                                                        {amount_col_html}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+
+                                        <div class="grid grid-cols-2 gap-8">
+                                            <div>
+                                                <h4 class="text-xs font-bold text-vesak-navy uppercase border-b border-vesak-gold pb-1 mb-3">Services Included</h4>
+                                                <ul class="list-disc pl-4 space-y-1">{inc_html}</ul>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 pb-1 mb-3">Services Not Included</h4>
+                                                <ul class="columns-1 text-[10px] text-gray-400 space-y-1">{exc_html}</ul>
                                             </div>
                                         </div>
-                                        <div class="w-1/2 p-4 flex flex-col justify-center">
-                                            <div class="flex items-center gap-2 text-xs text-gray-600 mb-2">
-                                                <i class="fas fa-phone-alt text-vesak-gold w-4"></i> {c_mob}
+
+                                        {notes_section}
+
+                                        <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">
+                                            Thank you for choosing Vesak Care Foundation!
+                                        </div>
+                                    </main>
+
+                                    <footer class="relative z-10 mt-auto w-full">
+                                        <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
+                                        <div class="flex justify-between items-end text-xs text-gray-500">
+                                            <div>
+                                                <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
+                                                <div class="flex gap-2">
+                                                    <span>Pune</span><span class="text-vesak-gold">•</span>
+                                                    <span>Mumbai</span><span class="text-vesak-gold">•</span>
+                                                    <span>Kolhapur</span>
+                                                </div>
                                             </div>
-                                            <div class="flex items-start gap-2 text-xs text-gray-600">
-                                                <i class="fas fa-map-marker-alt text-vesak-gold w-4 mt-0.5"></i> 
-                                                <span class="leading-tight">{c_addr}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <table class="w-full mb-8">
-                                        <thead>
-                                            <tr class="bg-vesak-navy text-white text-xs uppercase tracking-wider text-left">
-                                                <th class="p-3 w-3/5">Description</th>
-                                                <th class="p-3 w-2/5 text-right">Amount</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr class="border-b border-gray-100">
-                                                <td class="p-4 align-top">
-                                                    <div class="font-bold text-sm text-gray-800">{clean_plan}</div>
-                                                    {desc_col_html}
-                                                </td>
-                                                <td class="p-4 text-right font-bold text-sm text-gray-800 align-top">
-                                                    {amount_col_html}
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-
-                                    <div class="grid grid-cols-2 gap-8">
-                                        <div>
-                                            <h4 class="text-xs font-bold text-vesak-navy uppercase border-b border-vesak-gold pb-1 mb-3">Services Included</h4>
-                                            <ul class="list-disc pl-4 space-y-1">{inc_html}</ul>
-                                        </div>
-                                        <div>
-                                            <h4 class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 pb-1 mb-3">Services Not Included</h4>
-                                            <ul class="columns-1 text-[10px] text-gray-400 space-y-1">{exc_html}</ul>
-                                        </div>
-                                    </div>
-
-                                    {notes_section}
-
-                                    <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">
-                                        Thank you for choosing Vesak Care Foundation!
-                                    </div>
-                                </main>
-
-                                <footer class="relative z-10 mt-auto w-full">
-                                    <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
-                                    <div class="flex justify-between items-end text-xs text-gray-500">
-                                        <div>
-                                            <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
-                                            <div class="flex gap-2">
-                                                <span>Pune</span><span class="text-vesak-gold">•</span>
-                                                <span>Mumbai</span><span class="text-vesak-gold">•</span>
-                                                <span>Kolhapur</span>
+                                            <div class="flex flex-col items-end gap-1">
+                                                <span class="flex items-center gap-2"><img src="data:image/png;base64,{ig_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
+                                                <span class="flex items-center gap-2"><img src="data:image/png;base64,{fb_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
                                             </div>
                                         </div>
-                                        <div class="flex flex-col items-end gap-1">
-                                            <span class="flex items-center gap-2"><img src="data:image/png;base64,{ig_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
-                                            <span class="flex items-center gap-2"><img src="data:image/png;base64,{fb_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
-                                        </div>
-                                    </div>
-                                    <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
-                                </footer>
-                            </div>
+                                        <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
+                                    </footer>
+                                </div>
 
-                            <script>
-                                function generatePDF() {{
-                                    const element = document.getElementById('invoice-content');
-                                    const opt = {{
-                                        margin: 0,
-                                        filename: 'Invoice_{c_name}.pdf',
-                                        image: {{ type: 'jpeg', quality: 0.98 }},
-                                        html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
-                                        jsPDF: {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
-                                    }};
-                                    html2pdf().set(opt).from(element).save();
-                                }}
-                            </script>
-                        </body>
-                        </html>
-                        """
-                        components.html(html_template, height=1000, scrolling=True)
-                        
-                        # --- OFFLINE PDF ENGINE TEMPLATE (SIMPLE HTML) ---
-                        # --- FIX FOR PDF ENGINE VISITS DISPLAY ---
-                        pdf_unit_label = unit_label_for_details
-                        
-                        pdf_desc_html = f"<b>{clean_plan}</b><br/><br/>{str(row.get('Shift',''))}<br/><i>{str(row.get('Period',''))}</i>"
-                        
-                        pdf_amount_html = f"""
-                        <div align="right">
-                            {str(row.get('Shift',''))} / {str(row.get('Period',''))} = <b>Rs. {unit_rate_val:.0f}</b><br/>
-                            <font color="#CC4E00"><b>X</b></font><br/>
-                            Paid for {billing_qty} {pdf_unit_label}<br/>
-                            <hr/>
-                            <b>TOTAL - Rs. {total_billed_amount:.0f}</b>
-                        </div>
-                        """
-                        
-                        simple_inc_html = "".join([f"<li>{item}</li>" for item in inc_def])
-                        simple_exc_html = "".join([f"<li>{item}</li>" for item in final_exc])
-                        
-                        simple_notes = ""
-                        if final_notes:
-                            simple_notes = f"""
-                            <div style="background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; margin-top: 20px;">
-                                <b>NOTES:</b><br/>{final_notes}
+                                <script>
+                                    function generatePDF() {{
+                                        const element = document.getElementById('invoice-content');
+                                        const opt = {{
+                                            margin: 0,
+                                            filename: 'Invoice_{c_name}.pdf',
+                                            image: {{ type: 'jpeg', quality: 0.98 }},
+                                            html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
+                                            jsPDF: {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
+                                        }};
+                                        html2pdf().set(opt).from(element).save();
+                                    }}
+                                </script>
+                            </body>
+                            </html>
+                            """
+                            components.html(html_template, height=1000, scrolling=True)
+                            
+                            # --- OFFLINE PDF ENGINE TEMPLATE (SIMPLE HTML) ---
+                            # --- FIX FOR PDF ENGINE VISITS DISPLAY ---
+                            pdf_unit_label = unit_label_for_details
+                            
+                            pdf_desc_html = f"<b>{clean_plan}</b><br/><br/>{str(row.get('Shift',''))}<br/><i>{str(row.get('Period',''))}</i>"
+                            
+                            pdf_amount_html = f"""
+                            <div align="right">
+                                {str(row.get('Shift',''))} / {str(row.get('Period',''))} = <b>Rs. {unit_rate_val:.0f}</b><br/>
+                                <font color="#CC4E00"><b>X</b></font><br/>
+                                Paid for {billing_qty} {pdf_unit_label}<br/>
+                                <hr/>
+                                <b>TOTAL - Rs. {total_billed_amount:.0f}</b>
                             </div>
                             """
+                            
+                            simple_inc_html = "".join([f"<li>{item}</li>" for item in inc_def])
+                            simple_exc_html = "".join([f"<li>{item}</li>" for item in final_exc])
+                            
+                            simple_notes = ""
+                            if final_notes:
+                                simple_notes = f"""
+                                <div style="background-color: #f9f9f9; padding: 10px; border: 1px solid #ddd; margin-top: 20px;">
+                                    <b>NOTES:</b><br/>{final_notes}
+                                </div>
+                                """
 
-                        pdf_html_content = f"""
-                        <html>
-                        <head>
-                            <style>
-                                body {{ font-family: Helvetica, sans-serif; font-size: 12px; color: #333; }}
-                                .header {{ width: 100%; border-bottom: 1px solid #ddd; padding-bottom: 20px; margin-bottom: 20px; }}
-                                .logo {{ width: 80px; height: auto; }}
-                                .title {{ font-size: 24px; color: #002147; font-weight: bold; }}
-                                .subtitle {{ font-size: 10px; color: #666; }}
-                                .invoice-details {{ text-align: right; }}
-                                .bill-to {{ width: 100%; background-color: #f0f4f8; padding: 15px; margin-bottom: 20px; border-left: 5px solid #002147; }}
-                                table {{ width: 100%; border-collapse: collapse; }}
-                                th {{ background-color: #002147; color: white; padding: 8px; text-align: left; text-transform: uppercase; font-size: 10px; }}
-                                td {{ padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }}
-                                .footer {{ margin-top: 50px; border-top: 1px solid #eee; padding-top: 10px; font-size: 10px; color: #777; }}
-                            </style>
-                        </head>
-                        <body>
-                            <table class="header">
-                                <tr>
-                                    <td width="60%">
-                                        <img src="{abs_logo_path}" class="logo" /><br/>
-                                        <span class="title">Vesak Care Foundation</span><br/>
-                                        <span class="subtitle">
-                                            Web: vesakcare.com | Email: vesakcare@gmail.com<br/>
-                                            Phone: +91 7777 000 878
-                                        </span>
-                                    </td>
-                                    <td width="40%" class="invoice-details">
-                                        <h2 style="color: #ccc; letter-spacing: 5px;">INVOICE</h2>
-                                        <b>Date:</b> {fmt_date}<br/>
-                                        <b>No:</b> {inv_num}
-                                    </td>
-                                </tr>
-                            </table>
-
-                            <table class="bill-to">
-                                <tr>
-                                    <td width="50%">
-                                        <b style="color: #C5A065; font-size: 9px; text-transform: uppercase;">Billed To</b><br/>
-                                        <b style="font-size: 14px; color: #002147;">{c_name}</b><br/>
-                                        {c_gender} | {c_age} Yrs
-                                    </td>
-                                    <td width="50%">
-                                        <b>Phone:</b> {c_mob}<br/>
-                                        <b>Address:</b> {c_addr}
-                                    </td>
-                                </tr>
-                            </table>
-
-                            <table style="margin-bottom: 20px;">
-                                <thead>
+                            pdf_html_content = f"""
+                            <html>
+                            <head>
+                                <style>
+                                    body {{ font-family: Helvetica, sans-serif; font-size: 12px; color: #333; }}
+                                    .header {{ width: 100%; border-bottom: 1px solid #ddd; padding-bottom: 20px; margin-bottom: 20px; }}
+                                    .logo {{ width: 80px; height: auto; }}
+                                    .title {{ font-size: 24px; color: #002147; font-weight: bold; }}
+                                    .subtitle {{ font-size: 10px; color: #666; }}
+                                    .invoice-details {{ text-align: right; }}
+                                    .bill-to {{ width: 100%; background-color: #f0f4f8; padding: 15px; margin-bottom: 20px; border-left: 5px solid #002147; }}
+                                    table {{ width: 100%; border-collapse: collapse; }}
+                                    th {{ background-color: #002147; color: white; padding: 8px; text-align: left; text-transform: uppercase; font-size: 10px; }}
+                                    td {{ padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }}
+                                    .footer {{ margin-top: 50px; border-top: 1px solid #eee; padding-top: 10px; font-size: 10px; color: #777; }}
+                                </style>
+                            </head>
+                            <body>
+                                <table class="header">
                                     <tr>
-                                        <th width="60%">Description</th>
-                                        <th width="40%" align="right">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>{pdf_desc_html}</td>
-                                        <td align="right">{pdf_amount_html}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            <table>
-                                <tr>
-                                    <td width="50%" valign="top">
-                                        <b style="color: #002147; font-size: 10px; border-bottom: 1px solid #C5A065;">SERVICES INCLUDED</b>
-                                        <ul>{simple_inc_html}</ul>
-                                    </td>
-                                    <td width="50%" valign="top">
-                                        <b style="color: #999; font-size: 10px; border-bottom: 1px solid #eee;">SERVICES NOT INCLUDED</b>
-                                        <ul style="color: #777;">{simple_exc_html}</ul>
-                                    </td>
-                                </tr>
-                            </table>
-
-                            {simple_notes}
-
-                            <div style="text-align: center; margin-top: 40px; color: #999; font-style: italic;">
-                                Thank you for choosing Vesak Care Foundation!
-                            </div>
-
-                            <div class="footer">
-                                <table width="100%">
-                                    <tr>
-                                        <td>
-                                            <b>Our Offices</b><br/>
-                                            Pune • Mumbai • Kolhapur
+                                        <td width="60%">
+                                            <img src="{abs_logo_path}" class="logo" /><br/>
+                                            <span class="title">Vesak Care Foundation</span><br/>
+                                            <span class="subtitle">
+                                                Web: vesakcare.com | Email: vesakcare@gmail.com<br/>
+                                                Phone: +91 7777 000 878
+                                            </span>
                                         </td>
-                                        <td align="right">
-                                            @VesakCare
+                                        <td width="40%" class="invoice-details">
+                                            <h2 style="color: #ccc; letter-spacing: 5px;">INVOICE</h2>
+                                            <b>Date:</b> {fmt_date}<br/>
+                                            <b>No:</b> {inv_num}
                                         </td>
                                     </tr>
                                 </table>
-                            </div>
-                        </body>
-                        </html>
-                        """
-                        
-                        # --- GENERATE PDF FROM SIMPLE HTML ---
-                        if abs_logo_path:
-                            pdf_bytes = convert_html_to_pdf(pdf_html_content)
-                            if pdf_bytes:
-                                st.download_button(label="📄 Download PDF (Offline Engine)", data=pdf_bytes, file_name=f"Invoice_{c_name}.pdf", mime="application/pdf")
-    except Exception as e:
+
+                                <table class="bill-to">
+                                    <tr>
+                                        <td width="50%">
+                                            <b style="color: #C5A065; font-size: 9px; text-transform: uppercase;">Billed To</b><br/>
+                                            <b style="font-size: 14px; color: #002147;">{c_name}</b><br/>
+                                            {c_gender} | {c_age} Yrs
+                                        </td>
+                                        <td width="50%">
+                                            <b>Phone:</b> {c_mob}<br/>
+                                            <b>Address:</b> {c_addr}
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <table style="margin-bottom: 20px;">
+                                    <thead>
+                                        <tr>
+                                            <th width="60%">Description</th>
+                                            <th width="40%" align="right">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>{pdf_desc_html}</td>
+                                            <td align="right">{pdf_amount_html}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+
+                                <table>
+                                    <tr>
+                                        <td width="50%" valign="top">
+                                            <b style="color: #002147; font-size: 10px; border-bottom: 1px solid #C5A065;">SERVICES INCLUDED</b>
+                                            <ul>{simple_inc_html}</ul>
+                                        </td>
+                                        <td width="50%" valign="top">
+                                            <b style="color: #999; font-size: 10px; border-bottom: 1px solid #eee;">SERVICES NOT INCLUDED</b>
+                                            <ul style="color: #777;">{simple_exc_html}</ul>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                {simple_notes}
+
+                                <div style="text-align: center; margin-top: 40px; color: #999; font-style: italic;">
+                                    Thank you for choosing Vesak Care Foundation!
+                                </div>
+
+                                <div class="footer">
+                                    <table width="100%">
+                                        <tr>
+                                            <td>
+                                                <b>Our Offices</b><br/>
+                                                Pune • Mumbai • Kolhapur
+                                            </td>
+                                            <td align="right">
+                                                @VesakCare
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </body>
+                            </html>
+                            """
+                            
+                            # --- GENERATE PDF FROM SIMPLE HTML ---
+                            if abs_logo_path:
+                                pdf_bytes = convert_html_to_pdf(pdf_html_content)
+                                if pdf_bytes:
+                                    st.download_button(label="📄 Download PDF (Offline Engine)", data=pdf_bytes, file_name=f"Invoice_{c_name}.pdf", mime="application/pdf")
+        except Exception as e:
                 st.error(f"Error: {e}")
 
     # === TAB 1: GENERATE INVOICE ===
@@ -1191,5 +1170,3 @@ if df is not None:
                         st.info("No active services found (All rows have End Dates).")
         else:
             st.info("History sheet is empty.")
-
-
