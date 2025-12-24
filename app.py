@@ -178,6 +178,19 @@ def get_next_invoice_number_gsheet(date_obj, df_hist):
             except: pass
     return f"{date_str}-{next_seq:03d}"
 
+# --- NEW FUNCTION: GET NEXT SERIAL NUMBER (Step 2) ---
+def get_next_serial_number_gsheet(df_hist):
+    """Calculates the next Sequential Serial No based on History Sheet Column A"""
+    if df_hist.empty or 'Serial No.' not in df_hist.columns:
+        return 1
+    try:
+        # Convert to numeric, coercing errors to NaN, then fill with 0
+        serials = pd.to_numeric(df_hist['Serial No.'], errors='coerce').fillna(0)
+        max_serial = serials.max()
+        return int(max_serial) + 1
+    except:
+        return 1
+
 # --- UPDATED: GET RECORD BY REF NO & SERIAL NO (Active Check) ---
 def get_active_invoice_record(df_hist, ref_no):
     """Checks GS History for an ACTIVE invoice (Service Ended is Empty) for the given Ref. No."""
@@ -642,8 +655,8 @@ if raw_file_obj:
                 row = df_filtered_view[df_filtered_view['Label'] == selected_label].iloc[0]
                 
                 # Retrieve Data
-                c_serial = str(row.get('Serial No.', '')).strip() # New Sequential ID
-                c_ref_no = str(row.get('Ref. No.', '')).strip() # Old Serial/Ref ID
+                c_serial_input = str(row.get('Serial No.', '')).strip() # Input File Serial (Used for nothing in history now)
+                c_ref_no = str(row.get('Ref. No.', '')).strip() # Old Serial/Ref ID (Static)
                 c_plan = row.get('Service Required', '')
                 c_sub = row.get('Sub Service', '')
                 c_ref_date = format_date_with_suffix(row.get('Call Date', 'N/A'))
@@ -663,8 +676,11 @@ if raw_file_obj:
                 
                 with col1:
                     st.info(f"**Plan:** {PLAN_DISPLAY_NAMES.get(c_plan, c_plan)}")
-                    st.write(f"**Ref No:** {c_ref_no} | **Serial No:** {c_serial}")
-                    inv_date = st.date_input("Date:", value=datetime.date.today(), key=f"date_{mode}")
+                    st.write(f"**Ref No:** {c_ref_no}")
+                    
+                    # --- STEP 1: Date Reset Logic ---
+                    # Using key with selected_label forces a new widget (and default value) on customer change
+                    inv_date = st.date_input("Date:", value=datetime.date.today(), key=f"date_{mode}_{selected_label}")
                     fmt_date = format_date_with_suffix(inv_date)
                     default_qty = get_last_billing_qty(df_history, c_name, c_mob)
                     p_raw = str(row.get('Period', '')).strip()
@@ -677,7 +693,7 @@ if raw_file_obj:
                     
                     billing_qty = st.number_input(f"Paid for how many {bill_label}?", min_value=1, value=default_qty, step=1, key=f"qty_{mode}_{selected_label}")
                     
-                    # --- CRITICAL LOGIC STEP 5 ---
+                    # --- CRITICAL LOGIC STEP 5 & STEP 2 (Sequential) ---
                     # Check if client has ACTIVE invoice (Service Ended is Empty)
                     active_record = get_active_invoice_record(df_history, c_ref_no)
                     
@@ -685,8 +701,11 @@ if raw_file_obj:
                     default_inv_num = "" 
                     conflict_exists = False
                     
-                    # Calculate next sequential number (Fresh Calculation)
+                    # Calculate next sequential numbers (Fresh Calculation)
                     next_sequential_inv = get_next_invoice_number_gsheet(inv_date, df_history)
+                    next_serial_hist = get_next_serial_number_gsheet(df_history) # Step 2: New Serial for History
+
+                    final_serial_no = "" # Placeholder
 
                     if mode == "standard":
                         if active_record is not None:
@@ -695,14 +714,20 @@ if raw_file_obj:
                             conflict_exists = True
                             st.warning(f"⚠️ Active Invoice Found: {existing_inv_num}. You must Overwrite to update.")
                             default_inv_num = existing_inv_num
+                            # Step 2 Logic: If overwrite, keep existing Serial No
+                            final_serial_no = str(active_record.get('Serial No.', ''))
                         else:
                             # STEP 5.b: No Active Service -> New Invoice
                             st.info(f"ℹ️ Generating New Invoice No: {next_sequential_inv}")
                             default_inv_num = next_sequential_inv
+                            # Step 2 Logic: New Invoice = New Serial No
+                            final_serial_no = str(next_serial_hist)
                     elif mode == "force_new":
                         # Always new for force new
                         default_inv_num = next_sequential_inv
                         st.warning("⚠ You are about to generate a NEW invoice for an existing client.")
+                        # Step 2 Logic: Force New = New Serial No
+                        final_serial_no = str(next_serial_hist)
 
                     if mode == "standard" and conflict_exists:
                              chk_overwrite = st.checkbox("Overwrite Existing Entry", key=f"chk_over_{mode}")
@@ -773,8 +798,8 @@ if raw_file_obj:
                         generated_at_ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                         invoice_record = {
-                            "Serial No.": str(c_serial), # New Serial
-                            "Ref. No.": str(c_ref_no),   # Old Serial
+                            "Serial No.": str(final_serial_no), # Step 2: Uses History Sequential
+                            "Ref. No.": str(c_ref_no),   # Old Serial / Static Ref
                             "Invoice Number": str(inv_num), "Date": str(fmt_date),
                             "Generated At": generated_at_ts, "Customer Name": str(c_name), "Age": str(c_age),
                             "Gender": str(c_gender), "Location": str(c_location), "Address": str(c_addr),
