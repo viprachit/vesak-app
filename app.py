@@ -1061,27 +1061,13 @@ if raw_file_obj:
                                 st.info(f"No active services found starting between {d_start_manage} and {d_end_manage}.")
                             else:
                                 st.info("No active services found (All rows have End Dates).")
-                            
-                    
                 else:
-                                
                     st.info("History sheet is empty.")
-                
-                                else:                
-                                # Fallback if df is None              
-                                st.warning("⚠ Please upload a file or load from URL to view content.")
+    else:
+        # Fallback if df is None
+        st.warning("⚠ Please upload a file or load from URL to view content.")
 
     except Exception as e:
         import traceback
         st.error(f"Error: {e}")
         st.code(traceback.format_exc())
-
-
-
-
-
-
-
-
-
-
