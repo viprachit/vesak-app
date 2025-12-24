@@ -13,6 +13,7 @@ from xhtml2pdf import pisa
 import gspread
 from google.oauth2.service_account import Credentials
 import numpy as np
+import traceback
 
 # --- CRITICAL FIX FOR BROKEN IMAGES ---
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -554,54 +555,7 @@ def convert_html_to_pdf(source_html):
     if pisa_status.err: return None
     return result.getvalue()
 
-# ==========================================
-# 4. UI & LOGIC
-# ==========================================
-st.title("🏥 Vesak Care - Invoice Generator")
-
-abs_logo_path = get_absolute_path(LOGO_FILE)
-abs_ig_path = get_absolute_path("icon-ig.png")
-abs_fb_path = get_absolute_path("icon-fb.png")
-logo_b64 = get_clean_image_base64(LOGO_FILE)
-ig_b64 = get_clean_image_base64("icon-ig.png")
-fb_b64 = get_clean_image_base64("icon-fb.png")
-
-sheet_obj = get_google_sheet_client()
-
-with st.sidebar:
-    st.header("📂 Data Source")
-    if sheet_obj: st.success("Connected to Google Sheets ✅")
-    else: st.error("❌ Not Connected to Google Sheets")
-    data_source = st.radio("Load Confirmed Sheet via:", ["Upload File", "OneDrive Link"])
-    
-    st.markdown("---")
-    if st.button("🔄 Refresh Data Cache"):
-        get_history_data.clear()
-        st.cache_data.clear()
-        st.success("Cache cleared! Reloading...")
-        st.rerun()
-
-raw_file_obj = None
-if data_source == "Upload File":
-    uploaded_file = st.sidebar.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
-    if uploaded_file: raw_file_obj = uploaded_file
-elif data_source == "OneDrive Link":
-    current_url = load_config_path(URL_CONFIG_FILE)
-    url_input = st.sidebar.text_input("Paste OneDrive/Sharepoint Link:", value=current_url)
-    if st.sidebar.button("Load from Link"):
-        save_config_path(url_input, URL_CONFIG_FILE) 
-        st.rerun()
-    if current_url:
-        try: 
-            raw_file_obj = robust_file_downloader(current_url)
-            st.sidebar.success("✅ File Downloaded")
-        except Exception as e: 
-            st.sidebar.error(f"Link Error: {e}")
-
-# --- TABS ---
-tab1, tab2, tab3, tab4 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "📄 Duplicate Invoice (Reprint)", "🛑 Manage Services"])
-
-# [CRITICAL FIX] Define function globally or outside the conditional block
+# --- DEFINED RENDER FUNCTION BEFORE USAGE ---
 def render_invoice_ui(df_main, df_history_data, mode="standard"):
     chk_overwrite = False
     
@@ -877,6 +831,9 @@ def render_invoice_ui(df_main, df_history_data, mode="standard"):
                 """
                 components.html(html_template, height=1000, scrolling=True)
 
+# ==========================================
+# 4. UI & LOGIC
+# ==========================================
 if raw_file_obj:
     df = None
     try:
@@ -997,7 +954,7 @@ if raw_file_obj:
                                 </body>
                                 </html>
                             """
-                            components.html(html_rep, height=1000, scrolling=True)
+                            components.html(html_template, height=1000, scrolling=True)
 
             # === TAB 4: MANAGE SERVICES (UPDATED WITH DATE FILTER) ===
             with tab4:
@@ -1063,13 +1020,10 @@ if raw_file_obj:
                                 st.info("No active services found (All rows have End Dates).")
                 else:
                     st.info("History sheet is empty.")
-        else:
-            # Fallback if df is None
-            st.warning("⚠ Please upload a file or load from URL to view content.")
+    else:
+        # Fallback if df is None
+        st.warning("⚠ Please upload a file or load from URL to view content.")
 
-    except Exception as e:
-        import traceback
-        st.error(f"Error: {e}")
-        st.code(traceback.format_exc())
-
-
+except Exception as e:
+    st.error(f"Error: {e}")
+    st.code(traceback.format_exc())
