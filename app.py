@@ -1072,9 +1072,4 @@ if raw_file_obj:
 else:
     # Fallback if raw_file_obj is None (No file uploaded)
     st.warning("⚠ Please upload a file or load from URL to view content.")
-
-    except Exception as e:
-        import traceback
-        st.error(f"Error: {e}")
-        st.code(traceback.format_exc())
-
+    
