@@ -1017,9 +1017,10 @@ try:
                                     st.info(f"No active services found starting between {d_start_manage} and {d_end_manage}.")
                                 else:
                                     st.info("No active services found (All rows have End Dates).")
-                                else:
-                                    st.info("History sheet is empty.")
-                    except Exception as e_proc:
+                    else:
+                        st.info("History sheet is empty.")
+                    
+            except Exception as e_proc:
                          st.error(f"Processing Error: {e_proc}")
                          st.code(traceback.format_exc())
     else:
@@ -1028,6 +1029,7 @@ try:
 except Exception as e:
     st.error(f"App Error: {e}")
     st.code(traceback.format_exc())
+
 
 
 
