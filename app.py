@@ -1063,11 +1063,18 @@ if raw_file_obj:
                                 st.info("No active services found (All rows have End Dates).")
                 else:
                     st.info("History sheet is empty.")
-    else:
-        # Fallback if df is None
-        st.warning("⚠ Please upload a file or load from URL to view content.")
+
+        except Exception as e:
+            import traceback
+            st.error(f"Error: {e}")
+            st.code(traceback.format_exc())
+
+else:
+    # Fallback if raw_file_obj is None (No file uploaded)
+    st.warning("⚠ Please upload a file or load from URL to view content.")
 
     except Exception as e:
         import traceback
         st.error(f"Error: {e}")
         st.code(traceback.format_exc())
+
