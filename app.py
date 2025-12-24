@@ -1062,7 +1062,7 @@ if raw_file_obj:
                             else:
                                 st.info("No active services found (All rows have End Dates).")
                             
-                    else:
+                else:
                     st.info("History sheet is empty.")
                 
     else:
@@ -1073,4 +1073,5 @@ if raw_file_obj:
         import traceback
         st.error(f"Error: {e}")
         st.code(traceback.format_exc())
+
 
