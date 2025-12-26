@@ -13,6 +13,7 @@ from xhtml2pdf import pisa
 import gspread
 from google.oauth2.service_account import Credentials
 import numpy as np
+import traceback
 
 # --- CRITICAL FIX FOR BROKEN IMAGES ---
 ImageFile.LOAD_TRUNCATED_IMAGES = True
@@ -1072,3 +1073,4 @@ if raw_file_obj:
 else:
     # Fallback if raw_file_obj is None (No file uploaded)
     st.warning("⚠ Please upload a file or load from URL to view content.")
+
