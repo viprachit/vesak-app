@@ -163,28 +163,49 @@ def get_history_data(_sheet_obj):
     except Exception as e:
         return pd.DataFrame()
 
-# --- STEP 5: UPDATED INVOICE NUMBER FORMAT (YYYYMM-XXX) ---
-def get_next_invoice_number_gsheet(date_obj, df_hist):
-    # Format: YYYYMM-001 (e.g., 202501-001)
-    prefix_str = date_obj.strftime('%Y%m') + "-"
+# --- STEP 5: UPDATED INVOICE NUMBER FORMAT (LOC-YYMMDD-XXX) ---
+# --- MODIFIED FUNCTION START ---
+def get_next_invoice_number_gsheet(date_obj, df_hist, location_str):
+    # 1. Determine Location Abbreviation
+    # Format: [Location]-[YMD]-[###] -> PUN-251226-001
+    
+    loc_clean = str(location_str).strip().lower()
+    
+    if "mumbai" in loc_clean:
+        loc_code = "MUM"
+    elif "kolhapur" in loc_clean:
+        loc_code = "KOP"
+    else:
+        # Default to PUN (Pune) if location is Pune or unspecified
+        loc_code = "PUN"
+
+    # 2. Determine Date Part (YYMMDD)
+    # %y = 2 digit year (25), %m = month (12), %d = date (26)
+    date_part = date_obj.strftime('%y%m%d')
+
+    # 3. Form Prefix: PUN-251226-
+    prefix_str = f"{loc_code}-{date_part}-"
+
     next_seq = 1
     
     if not df_hist.empty and 'Invoice Number' in df_hist.columns:
         df_hist['Invoice Number'] = df_hist['Invoice Number'].astype(str)
-        # Filter for invoices starting with YYYYMM-
-        month_inv = df_hist[df_hist['Invoice Number'].str.startswith(prefix_str)]
+        # Filter for invoices starting with this specific prefix
+        day_loc_inv = df_hist[df_hist['Invoice Number'].str.startswith(prefix_str)]
         
-        if not month_inv.empty:
+        if not day_loc_inv.empty:
             # Sort to find the true last one based on sequence
             try:
-                # Extract sequence number after dash
-                month_inv['Seq'] = month_inv['Invoice Number'].apply(lambda x: int(x.split('-')[-1]) if '-' in x else 0)
-                month_inv = month_inv.sort_values('Seq')
-                last_seq = month_inv['Seq'].iloc[-1]
+                # Extract sequence number after the last dash
+                day_loc_inv['Seq'] = day_loc_inv['Invoice Number'].apply(lambda x: int(x.split('-')[-1]) if '-' in x else 0)
+                # Find max sequence
+                last_seq = day_loc_inv['Seq'].max()
                 next_seq = last_seq + 1
             except: pass
             
+    # Return format LOC-YYMMDD-001
     return f"{prefix_str}{next_seq:03d}"
+# --- MODIFIED FUNCTION END ---
 
 # --- STEP 4: UID GENERATION (0001, 0002...) ---
 def get_next_uid_gsheet(df_hist):
@@ -703,8 +724,11 @@ def render_invoice_ui(df_main, df_history_data, mode="standard"):
         default_inv_num = "" 
         conflict_exists = False
         
-        # Calculate next numbers
-        next_sequential_inv = get_next_invoice_number_gsheet(inv_date, df_history_data) # Step 5
+        # --- MODIFIED CALL SITE START ---
+        # Added c_location to the arguments
+        next_sequential_inv = get_next_invoice_number_gsheet(inv_date, df_history_data, c_location) # Step 5
+        # --- MODIFIED CALL SITE END ---
+
         next_uid = get_next_uid_gsheet(df_history_data) # Step 4
 
         final_uid = ""
