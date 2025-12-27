@@ -185,7 +185,7 @@ def get_next_invoice_number_gsheet(date_obj, df_hist, location_str):
 
     # 3. Form Prefix: PUN-251226-
     prefix_str = f"{loc_code}-{date_part}-"
-
+    
     next_seq = 1
     
     if not df_hist.empty and 'Invoice Number' in df_hist.columns:
@@ -1097,4 +1097,3 @@ if raw_file_obj:
 else:
     # Fallback if raw_file_obj is None (No file uploaded)
     st.warning("⚠ Please upload a file or load from URL to view content.")
-
