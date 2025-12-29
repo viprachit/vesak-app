@@ -12,6 +12,8 @@ import streamlit.components.v1 as components
 from xhtml2pdf import pisa 
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 import numpy as np
 import traceback
 
@@ -31,38 +33,117 @@ if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = Fal
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
 if 'active_tab_simulation' not in st.session_state: st.session_state.active_tab_simulation = "Generate"
 
-# --- CONNECT TO GOOGLE SHEETS (OPTIMIZED) ---
+# --- CREDENTIALS HANDLING ---
 @st.cache_resource
-def get_google_sheet_client():
-    """Connects to Google Sheets using the standard gspread library."""
+def get_credentials():
+    """Returns the Credentials object from secrets."""
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
+    if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        s_info = st.secrets["connections"]["gsheets"]
+        creds_dict = {
+            "type": s_info["type"],
+            "project_id": s_info["project_id"],
+            "private_key_id": s_info["private_key_id"],
+            "private_key": s_info["private_key"],
+            "client_email": s_info["client_email"],
+            "client_id": s_info["client_id"],
+            "auth_uri": s_info["auth_uri"],
+            "token_uri": s_info["token_uri"],
+            "auth_provider_x509_cert_url": s_info["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": s_info["client_x509_cert_url"],
+        }
+        return Credentials.from_service_account_info(creds_dict, scopes=scopes)
+    return None
+
+# --- CONNECT TO GOOGLE SHEETS ---
+@st.cache_resource
+def get_google_sheet_client():
     try:
-        if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-            s_info = st.secrets["connections"]["gsheets"]
-            creds_dict = {
-                "type": s_info["type"],
-                "project_id": s_info["project_id"],
-                "private_key_id": s_info["private_key_id"],
-                "private_key": s_info["private_key"],
-                "client_email": s_info["client_email"],
-                "client_id": s_info["client_id"],
-                "auth_uri": s_info["auth_uri"],
-                "token_uri": s_info["token_uri"],
-                "auth_provider_x509_cert_url": s_info["auth_provider_x509_cert_url"],
-                "client_x509_cert_url": s_info["client_x509_cert_url"],
-            }
-            credentials = Credentials.from_service_account_info(creds_dict, scopes=scopes)
-            client = gspread.authorize(credentials)
-            sheet = client.open_by_url(s_info["spreadsheet"])
+        creds = get_credentials()
+        if creds:
+            client = gspread.authorize(creds)
+            # Assuming 'spreadsheet' key exists in secrets
+            url = st.secrets["connections"]["gsheets"]["spreadsheet"]
+            sheet = client.open_by_url(url)
             return sheet.sheet1 
     except Exception as e:
         st.error(f"Connection Error: {e}")
     return None
 
-# --- AUTO-DOWNLOAD ICONS (OPTIMIZED) ---
+# --- CONNECT TO GOOGLE DRIVE ---
+@st.cache_resource
+def get_drive_service():
+    try:
+        creds = get_credentials()
+        if creds:
+            service = build('drive', 'v3', credentials=creds)
+            return service
+    except Exception as e:
+        st.error(f"Drive Connection Error: {e}")
+    return None
+
+# --- DRIVE FOLDER LOGIC ---
+def get_or_create_folder(service, folder_name, parent_id=None):
+    """Finds a folder by name (and parent) or creates it if missing."""
+    query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}' and trashed=false"
+    if parent_id:
+        query += f" and '{parent_id}' in parents"
+    
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    files = results.get('files', [])
+    
+    if files:
+        return files[0]['id']
+    else:
+        file_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        if parent_id:
+            file_metadata['parents'] = [parent_id]
+        file = service.files().create(body=file_metadata, fields='id').execute()
+        return file.get('id')
+
+def manage_drive_folders(service, doc_type, date_obj):
+    """
+    Implements the hierarchy:
+    Vesak Agreements -> Vesak-YY -> [DocType] Agreement YY -> Mmm-YY
+    """
+    # 1. Root: Vesak Agreements
+    root_id = get_or_create_folder(service, "Vesak Agreements")
+    
+    # Formats
+    yy = date_obj.strftime("%y") # 26
+    mmm_yy = date_obj.strftime("%b-%y") # Jan-26
+    
+    # 2. Year Folder: Vesak-YY
+    year_folder_name = f"Vesak-{yy}"
+    year_id = get_or_create_folder(service, year_folder_name, parent_id=root_id)
+    
+    # 3. Category Folder: [Nurse/Patient] Agreement YY
+    # doc_type should be "Nurse" or "Patient"
+    cat_folder_name = f"{doc_type} Agreement {yy}"
+    cat_id = get_or_create_folder(service, cat_folder_name, parent_id=year_id)
+    
+    # 4. Month Folder: Mmm-YY
+    month_id = get_or_create_folder(service, mmm_yy, parent_id=cat_id)
+    
+    return month_id, f"{year_folder_name}/{cat_folder_name}/{mmm_yy}"
+
+def upload_to_drive(service, folder_id, file_name, file_content_bytes):
+    """Uploads bytes to specific folder."""
+    file_metadata = {
+        'name': file_name,
+        'parents': [folder_id]
+    }
+    media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    return file.get('id')
+
+# --- AUTO-DOWNLOAD ICONS ---
 @st.cache_resource
 def download_and_save_icon(url, filename):
     if not os.path.exists(filename):
@@ -164,7 +245,7 @@ def get_history_data(_sheet_obj):
     except Exception as e:
         return pd.DataFrame()
 
-# --- INVOICE NUMBER FORMAT (LOC-YYMMDD-XXX) ---
+# --- INVOICE NUMBER FORMAT ---
 def get_next_invoice_number_gsheet(date_obj, df_hist, location_str):
     loc_clean = str(location_str).strip().lower()
     
@@ -304,15 +385,14 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         st.error(f"Error saving to Google Sheet: {e}")
         return False
 
-# --- UPDATE INVOICE (OVERWRITE - STEP 2) ---
+# --- UPDATE INVOICE ---
 def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
     if sheet_obj is None: return False
     try:
         all_rows = sheet_obj.get_all_values()
         
-        # STEP 2 CRITICAL: Match "Serial No." (Col B) AND "Ref. No." (Col C) AND "Invoice No." (Col D)
         target_inv_search = str(original_inv_to_find).strip()
-        #target_serial = str(data_dict.get("Serial No.", "")).strip()
+        target_serial = str(data_dict.get("Serial No.", "")).strip()
         target_ref = str(data_dict.get("Ref. No.", "")).strip()
         
         row_idx_to_update = None
@@ -325,17 +405,14 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
             sheet_ref = str(row[2]).strip()
             sheet_inv = str(row[3]).strip()
             
-            # STRICT MATCHING OF ALL 3
             if sheet_inv == target_inv_search and sheet_serial == target_serial and sheet_ref == target_ref:
                 row_idx_to_update = idx + 1 
                 current_uid = str(row[0]).strip()
                 break
         
         if row_idx_to_update:
-            # Preserve UID if exists
             uid_to_save = current_uid if current_uid else data_dict.get("UID", "")
             
-            # Construct row (update A through X)
             row_values = [
                 uid_to_save, 
                 data_dict.get("Serial No.", ""), 
@@ -582,11 +659,16 @@ ig_b64 = get_clean_image_base64("icon-ig.png")
 fb_b64 = get_clean_image_base64("icon-fb.png")
 
 sheet_obj = get_google_sheet_client()
+drive_service = get_drive_service() # DRIVE SERVICE
 
 with st.sidebar:
     st.header("📂 Data Source")
     if sheet_obj: st.success("Connected to Google Sheets ✅")
     else: st.error("❌ Not Connected to Google Sheets")
+    
+    if drive_service: st.success("Connected to Google Drive ✅")
+    else: st.error("❌ Not Connected to Google Drive")
+
     data_source = st.radio("Load Confirmed Sheet via:", ["Upload File", "OneDrive Link"])
     
     st.markdown("---")
@@ -773,17 +855,12 @@ def render_invoice_ui(df_main, df_history_data, mode="standard"):
     # --- STEP 1 & 2: BUTTON LOGIC OVERHAUL ---
     st.markdown("---")
     
-    # Define Button States
-    # State 1: New Client (No Conflict) -> New: Active, Agreements: Active, Duplicate: Blocked
-    # State 2: Existing (Conflict, No Overwrite) -> New/Over: Blocked, Agreements: Blocked, Duplicate: Active
-    # State 3: Existing (Conflict, Overwrite Checked) -> Overwrite: Active, Agreements: Active, Duplicate: Blocked
-    
     # Default states
     btn_new_disabled = False
-    btn_over_disabled = True # Only active in State 3
+    btn_over_disabled = True 
     btn_agreements_disabled = False
     btn_dup_disabled = True 
-    show_overwrite_btn = False # Show New by default
+    show_overwrite_btn = False 
     
     if mode == "standard":
         if conflict_exists:
@@ -911,11 +988,12 @@ def render_invoice_ui(df_main, df_history_data, mode="standard"):
                 success = True
                 st.rerun()
 
-    # 2 & 3. AGREEMENTS
+    # 2 & 3. AGREEMENTS WITH DRIVE UPLOAD
     if btn_nurse_agg or btn_pat_agg:
-        doc_type = "NURSE AGREEMENT" if btn_nurse_agg else "PATIENT AGREEMENT"
+        doc_type = "Nurse" if btn_nurse_agg else "Patient"
+        display_type = "NURSE AGREEMENT" if btn_nurse_agg else "PATIENT AGREEMENT"
         
-        # Placeholder Content with Watermark
+        # HTML Content
         html_agreement = f"""
         <!DOCTYPE html>
         <html>
@@ -941,14 +1019,14 @@ def render_invoice_ui(df_main, df_history_data, mode="standard"):
                     <img src="data:image/png;base64,{logo_b64}" width="100">
                     <h2>Vesak Care Foundation</h2>
                 </div>
-                <div class="title">{doc_type}</div>
+                <div class="title">{display_type}</div>
                 <br>
                 <div class="content">
                     <p><strong>Date:</strong> {fmt_date}</p>
                     <p><strong>Ref No:</strong> {c_ref_no}</p>
                     <p><strong>Client Name:</strong> {c_name}</p>
                     <br>
-                    <p>This is a placeholder for the {doc_type.title()}. Content will be updated later.</p>
+                    <p>This is a placeholder for the {display_type.title()}. Content will be updated later.</p>
                     <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
                     <br><br><br>
                     <p>__________________________<br>Authorized Signatory</p>
@@ -957,7 +1035,26 @@ def render_invoice_ui(df_main, df_history_data, mode="standard"):
         </body>
         </html>
         """
+        
+        # Display
         components.html(html_agreement, height=600, scrolling=True)
+        
+        # Save to Drive
+        with st.spinner(f"Saving {display_type} to Google Drive..."):
+            pdf_bytes = convert_html_to_pdf(html_agreement)
+            if pdf_bytes and drive_service:
+                folder_id, path_str = manage_drive_folders(drive_service, doc_type, inv_date)
+                
+                # File Name Format: INV-NAME.pdf (e.g. PUN-251226-001-SAM-HUMAN.pdf)
+                # Cleaning name to be safe
+                clean_c_name = re.sub(r'[^a-zA-Z0-9]', '-', c_name).upper()
+                file_name = f"{inv_num_input}-{clean_c_name}.pdf"
+                
+                try:
+                    upload_to_drive(drive_service, folder_id, file_name, pdf_bytes)
+                    st.success(f"✅ Saved to Drive: {path_str}/{file_name}")
+                except Exception as e:
+                    st.error(f"Failed to upload to Drive: {e}")
 
 if raw_file_obj:
     df = None
@@ -1098,9 +1195,11 @@ if raw_file_obj:
                                 """
                                 components.html(html_rep, height=1000, scrolling=True)
 
-                            # 2 & 3. GENERATE DUPLICATE AGREEMENTS (Watermarked)
+                            # 2 & 3. GENERATE DUPLICATE AGREEMENTS (Watermarked) WITH DRIVE UPLOAD
                             if show_dup_nurse or show_dup_pat:
+                                doc_type = "Nurse" if show_dup_nurse else "Patient"
                                 d_doc_type = "DUPLICATE NURSE AGREEMENT" if show_dup_nurse else "DUPLICATE PATIENT AGREEMENT"
+                                
                                 html_dup_agg = f"""
                                 <!DOCTYPE html>
                                 <html>
@@ -1143,6 +1242,23 @@ if raw_file_obj:
                                 </html>
                                 """
                                 components.html(html_dup_agg, height=600, scrolling=True)
+                                
+                                # Drive Upload Logic for Duplicate
+                                with st.spinner(f"Saving Duplicate {doc_type} Agreement to Drive..."):
+                                    pdf_bytes_dup = convert_html_to_pdf(html_dup_agg)
+                                    if pdf_bytes_dup and drive_service:
+                                        # Use the date from the invoice record
+                                        date_obj_rep = pd.to_datetime(row_data['Date'])
+                                        folder_id, path_str = manage_drive_folders(drive_service, doc_type, date_obj_rep)
+                                        
+                                        clean_c_name = re.sub(r'[^a-zA-Z0-9]', '-', c_name_rep).upper()
+                                        file_name = f"{inv_num_rep}-{clean_c_name}-DUP.pdf"
+                                        
+                                        try:
+                                            upload_to_drive(drive_service, folder_id, file_name, pdf_bytes_dup)
+                                            st.success(f"✅ Saved to Drive: {path_str}/{file_name}")
+                                        except Exception as e:
+                                            st.error(f"Failed to upload to Drive: {e}")
 
             # === TAB 4: MANAGE SERVICES ===
             with tab4:
@@ -1253,4 +1369,3 @@ if raw_file_obj:
 
 else:
     st.warning("⚠ Please upload a file or load from URL to view content.")
-
