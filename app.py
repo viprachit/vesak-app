@@ -41,19 +41,25 @@ def get_credentials():
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive",
     ]
+    
+    # Check if the secrets exist
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+        # Retrieve the nested dictionary
         s_info = st.secrets["connections"]["gsheets"]
+        
+        # Construct the dictionary exactly as required by google-auth
+        # We access keys directly from s_info which is a dict-like object
         creds_dict = {
-            "type": s_info["type"],
-            "project_id": s_info["project_id"],
-            "private_key_id": s_info["private_key_id"],
-            "private_key": s_info["private_key"],
-            "client_email": s_info["client_email"],
-            "client_id": s_info["client_id"],
-            "auth_uri": s_info["auth_uri"],
-            "token_uri": s_info["token_uri"],
-            "auth_provider_x509_cert_url": s_info["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": s_info["client_x509_cert_url"],
+            "type": s_info.get("type"),
+            "project_id": s_info.get("project_id"),
+            "private_key_id": s_info.get("private_key_id"),
+            "private_key": s_info.get("private_key"),
+            "client_email": s_info.get("client_email"),
+            "client_id": s_info.get("client_id"),
+            "auth_uri": s_info.get("auth_uri"),
+            "token_uri": s_info.get("token_uri"),
+            "auth_provider_x509_cert_url": s_info.get("auth_provider_x509_cert_url"),
+            "client_x509_cert_url": s_info.get("client_x509_cert_url"),
         }
         return Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return None
@@ -65,7 +71,7 @@ def get_google_sheet_client():
         creds = get_credentials()
         if creds:
             client = gspread.authorize(creds)
-            # Assuming 'spreadsheet' key exists in secrets
+            # Assuming 'spreadsheet' key exists in secrets["connections"]["gsheets"]
             url = st.secrets["connections"]["gsheets"]["spreadsheet"]
             sheet = client.open_by_url(url)
             return sheet.sheet1 
@@ -88,7 +94,9 @@ def get_drive_service():
 # --- DRIVE FOLDER LOGIC ---
 def get_or_create_folder(service, folder_name, parent_id=None):
     """Finds a folder by name (and parent) or creates it if missing."""
-    query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}' and trashed=false"
+    # Escape single quotes in folder names to prevent query errors
+    safe_name = folder_name.replace("'", "\\'")
+    query = f"mimeType='application/vnd.google-apps.folder' and name='{safe_name}' and trashed=false"
     if parent_id:
         query += f" and '{parent_id}' in parents"
     
@@ -113,6 +121,7 @@ def manage_drive_folders(service, doc_type, date_obj):
     Vesak Agreements -> Vesak-YY -> [DocType] Agreement YY -> Mmm-YY
     """
     # 1. Root: Vesak Agreements
+    # Note: If Option A is used, this finds the shared folder in the user's drive.
     root_id = get_or_create_folder(service, "Vesak Agreements")
     
     # Formats
@@ -245,7 +254,7 @@ def get_history_data(_sheet_obj):
     except Exception as e:
         return pd.DataFrame()
 
-# --- INVOICE NUMBER FORMAT ---
+# --- INVOICE NUMBER FORMAT (LOC-YYMMDD-XXX) ---
 def get_next_invoice_number_gsheet(date_obj, df_hist, location_str):
     loc_clean = str(location_str).strip().lower()
     
