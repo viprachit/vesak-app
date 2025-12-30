@@ -1,9 +1,9 @@
 streamlit
 pandas
-openpyxl
-requests
-Pillow
 xhtml2pdf
-reportlab
 gspread
 google-auth
+google-api-python-client
+numpy
+requests
+Pillow
