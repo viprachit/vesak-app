@@ -524,7 +524,7 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
         st.error(f"Error updating Google Sheet: {e}")
         return False
 
-# --- UPDATE NURSE PAYMENT (CRITICAL FIX FOR FORMULAS & EXTRACTION) ---
+# --- UPDATE NURSE PAYMENT (UPDATED LOGIC) ---
 def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
     if sheet_obj is None: return False
     try:
@@ -534,8 +534,6 @@ def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
             row_idx = cell.row
             
             # 1. Fetch "Details" from Column V (Index 22)
-            # Note: gspread uses 1-based indexing for row/col access usually, but let's be safe.
-            # cell(row, col)
             details_val = sheet_obj.cell(row_idx, 22).value
             
             # 2. Extract Number from "Paid for X ..."
@@ -545,28 +543,16 @@ def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
                 if match:
                     qty = int(match.group(1))
             
-            # 3. Construct the update range for columns AC, AD, AE
-            # AC is col 29, AD is 30, AE is 31
-            # We will batch update this to ensure FORMULAS are treated correctly (USER_ENTERED)
-            
-            formula_earnings = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
-            
-            # Range: AC{row}:AE{row}
-            # AC is the 29th column. Convert to letter if needed, or just update cell by cell using proper option.
-            
-            # Updating Column AC (Nurse Payment) - Col 29
-            sheet_obj.update_cell(row_idx, 29, payment_amount)
-            
-            # Updating Column AD (Paid for / Qty) - Col 30
+            # 3. Update Column AD (Index 30) with Qty
             sheet_obj.update_cell(row_idx, 30, qty)
             
-            # Updating Column AE (Earnings Formula) - Col 31
-            # IMPORTANT: update_cell might treat formula as string in some gspread versions depending on config.
-            # Ideally we use update() with range.
+            # 4. Update Column AC (Index 29) with Payment Amount
+            sheet_obj.update_cell(row_idx, 29, payment_amount)
             
-            # Let's use range update for the formula to be safe:
-            range_notation = f"AE{row_idx}"
-            sheet_obj.update(range_notation, [[formula_earnings]], value_input_option='USER_ENTERED')
+            # 5. Update Column AE (Index 31) with Formula
+            # Formula: =AB{row}-(AC{row}*AD{row})
+            formula_earnings = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
+            sheet_obj.update_cell(row_idx, 31, formula_earnings)
             
             return True
         return False
