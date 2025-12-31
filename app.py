@@ -801,14 +801,43 @@ fb_b64 = get_clean_image_base64("icon-fb.png")
 # INITIALIZE DRIVE SERVICE FIRST
 drive_service = get_drive_service() 
 
-# INITIALIZE SHEET OBJECT (Placeholder, will be set dynamically based on date)
+# INITIALIZE SHEET OBJECT
 sheet_obj = None 
 
 with st.sidebar:
     st.header("📂 Data Source")
     
-    if drive_service: st.success("Connected to Google Drive ✅")
-    else: st.error("❌ Not Connected to Google Drive")
+    if drive_service: 
+        st.success("Connected to Google Drive ✅")
+        
+        # --- NEW: STORAGE DIAGNOSTIC TOOL ---
+        with st.expander("🤖 Bot Storage Status"):
+            try:
+                # 1. Get Quota
+                about = drive_service.about().get(fields="storageQuota").execute()
+                usage_bytes = int(about['storageQuota']['usage'])
+                limit_bytes = int(about['storageQuota']['limit'])
+                usage_gb = usage_bytes / (1024**3)
+                limit_gb = limit_bytes / (1024**3)
+                
+                # 2. Display Bar
+                pct_used = min(usage_bytes / limit_bytes, 1.0)
+                if pct_used > 0.9:
+                    st.error(f"⚠️ Critical: {usage_gb:.2f} / {limit_gb:.0f} GB")
+                else:
+                    st.progress(pct_used)
+                    st.caption(f"Used: {usage_gb:.2f} GB / {limit_gb:.0f} GB")
+
+                # 3. Empty Trash Button
+                if st.button("🗑️ Force Empty Trash"):
+                    with st.spinner("Emptying Trash..."):
+                        drive_service.files().emptyTrash().execute()
+                    st.success("Trash Emptied!")
+                    st.rerun()
+            except Exception as e:
+                st.warning("Cannot read storage quota.")
+    else: 
+        st.error("❌ Not Connected to Google Drive")
     
     # We display connection status dynamically later
 
@@ -1483,3 +1512,4 @@ if raw_file_obj:
 
         except Exception as e:
             st.error(f"Error processing sheet: {e}")
+
