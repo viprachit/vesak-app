@@ -50,7 +50,7 @@ if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = Fal
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
 if 'active_tab_simulation' not in st.session_state: st.session_state.active_tab_simulation = "Generate"
 
-# --- CREDENTIALS HANDLING ---
+# --- CREDENTIALS HANDLING (FIXED) ---
 @st.cache_resource
 def get_credentials():
     """Returns the Credentials object from secrets."""
@@ -63,11 +63,16 @@ def get_credentials():
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
         s_info = st.secrets["connections"]["gsheets"]
         
+        # CRITICAL FIX: Handle newlines in private key
+        private_key = s_info.get("private_key")
+        if private_key:
+            private_key = private_key.replace("\\n", "\n")
+
         creds_dict = {
             "type": s_info.get("type"),
             "project_id": s_info.get("project_id"),
             "private_key_id": s_info.get("private_key_id"),
-            "private_key": s_info.get("private_key"),
+            "private_key": private_key,
             "client_email": s_info.get("client_email"),
             "client_id": s_info.get("client_id"),
             "auth_uri": s_info.get("auth_uri"),
