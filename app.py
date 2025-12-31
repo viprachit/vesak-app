@@ -35,7 +35,6 @@ HISTORY_FOLDER_ID = "1e5iNxAwO8ly3_iAs2ONCyZO1CgQeFQhr"
 AGREEMENTS_ROOT_ID = "16QWhwkhWS4S5nRWkPuusJ9UjQzf-2TKl"
 
 # --- HEADERS FOR NEW SHEETS ---
-# Critical: Updated to include "Paid for" at AD (30) and shift "Earnings" to AE (31)
 SHEET_HEADERS = [
     "UID", "Serial No.", "Ref. No.", "Invoice Number", "Date", "Generated At",
     "Customer Name", "Age", "Gender", "Location", "Address", "Mobile",
@@ -50,7 +49,7 @@ if 'chk_print_dup' not in st.session_state: st.session_state.chk_print_dup = Fal
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
 if 'active_tab_simulation' not in st.session_state: st.session_state.active_tab_simulation = "Generate"
 
-# --- CREDENTIALS HANDLING (FIXED) ---
+# --- CREDENTIALS HANDLING ---
 @st.cache_resource
 def get_credentials():
     """Returns the Credentials object from secrets."""
@@ -63,7 +62,7 @@ def get_credentials():
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
         s_info = st.secrets["connections"]["gsheets"]
         
-        # CRITICAL FIX: Handle newlines in private key
+        # Handle newlines in private key
         private_key = s_info.get("private_key")
         if private_key:
             private_key = private_key.replace("\\n", "\n")
@@ -148,7 +147,7 @@ def manage_drive_folders(service, doc_type, date_obj):
     # Formats
     yy = date_obj.strftime("%y") # 26
     mmm_yy = date_obj.strftime("%b-%y") # Jan-26
-    if mmm_yy.startswith("Jan") and mmm_yy[3] != '-': # Fix for Windows/Linux naming consistency
+    if mmm_yy.startswith("Jan") and mmm_yy[3] != '-': 
          mmm_yy = date_obj.strftime("%b-%y")
 
     # 2. Category Folder: [Nurse/Patient] Agreement YY
@@ -160,20 +159,29 @@ def manage_drive_folders(service, doc_type, date_obj):
     
     return month_id, f"Vesak Agreements/{cat_folder_name}/{mmm_yy}"
 
+# --- REFINED UPLOAD FUNCTION (POINT 4 FIX) ---
 def upload_to_drive(service, folder_id, file_name, file_content_bytes):
-    """Uploads bytes to specific folder."""
+    """Uploads bytes to specific folder with Auto-Trash-Emptying."""
     file_metadata = {
         'name': file_name,
         'parents': [folder_id]
     }
     media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
+    
     try:
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return file.get('id')
     except Exception as e:
         if "storage quota" in str(e).lower():
-            st.error("🚨 CRITICAL: Google Drive Storage is FULL. Cannot upload PDF.")
-            return None
+            st.warning("⚠️ Storage full. Attempting to empty trash...")
+            try:
+                service.files().emptyTrash().execute()
+                # Retry upload once
+                file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                return file.get('id')
+            except:
+                st.error("🚨 CRITICAL: Service Account Storage is FULL even after emptying trash. You must delete old files using the Sidebar Tool.")
+                return None
         raise e
 
 # --- CONNECT TO GOOGLE SHEETS ---
@@ -211,7 +219,7 @@ def get_active_sheet_client(drive_service, date_obj):
                 except: pass
             except Exception as e:
                 if "storage quota" in str(e).lower():
-                    st.error(f"🚨 CRITICAL ERROR: Google Drive Storage Full. Cannot create new workbook '{wb_name}'. Please clear space.")
+                    st.error(f"🚨 CRITICAL ERROR: Google Drive Storage Full. Cannot create new workbook '{wb_name}'. Use sidebar tools.")
                     return None
                 raise e
 
@@ -420,20 +428,16 @@ def get_last_billing_qty(df_hist, customer_name, mobile):
         if match: return int(match.group(1))
     return 1
 
-# --- SAVE TO GSHEET (UPDATED COLUMNS) ---
+# --- SAVE TO GSHEET ---
 def save_invoice_to_gsheet(data_dict, sheet_obj):
     if sheet_obj is None: return False
     try:
         all_vals = sheet_obj.get_all_values()
         next_row_num = len(all_vals) + 1
 
-        # Updated Formula: AE = AB - (AC * AD)
-        # AB = Col 28, AC = Col 29, AD = Col 30, AE = Col 31
         formula_net_amount = f"=U{next_row_num}-AA{next_row_num}"
         formula_earnings = f"=AB{next_row_num}-(AC{next_row_num}*AD{next_row_num})"
 
-        # Extract quantity from Details string for the "Paid for" column (AD)
-        # "Paid for X ..."
         details_txt = data_dict.get("Details", "")
         qty_extracted = 1
         match = re.search(r'Paid for (\d+)', details_txt)
@@ -441,37 +445,37 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
             qty_extracted = int(match.group(1))
 
         row_values = [
-            data_dict.get("UID", ""),              
-            data_dict.get("Serial No.", ""),       
-            data_dict.get("Ref. No.", ""),        
-            data_dict.get("Invoice Number", ""),  
-            data_dict.get("Date", ""),            
-            data_dict.get("Generated At", ""),    
-            data_dict.get("Customer Name", ""),    
-            data_dict.get("Age", ""),              
-            data_dict.get("Gender", ""),           
-            data_dict.get("Location", ""),        
-            data_dict.get("Address", ""),          
-            data_dict.get("Mobile", ""),           
-            data_dict.get("Plan", ""),             
-            data_dict.get("Shift", ""),            
+            data_dict.get("UID", ""),               
+            data_dict.get("Serial No.", ""),        
+            data_dict.get("Ref. No.", ""),          
+            data_dict.get("Invoice Number", ""),    
+            data_dict.get("Date", ""),              
+            data_dict.get("Generated At", ""),      
+            data_dict.get("Customer Name", ""),     
+            data_dict.get("Age", ""),               
+            data_dict.get("Gender", ""),            
+            data_dict.get("Location", ""),          
+            data_dict.get("Address", ""),           
+            data_dict.get("Mobile", ""),            
+            data_dict.get("Plan", ""),              
+            data_dict.get("Shift", ""),             
             data_dict.get("Recurring Service", ""), 
-            data_dict.get("Period", ""),           
-            data_dict.get("Visits", ""),           
-            data_dict.get("Amount", ""),           
+            data_dict.get("Period", ""),            
+            data_dict.get("Visits", ""),            
+            data_dict.get("Amount", ""),            
             data_dict.get("Notes / Remarks", ""), 
-            data_dict.get("Generated By", ""),    
-            data_dict.get("Amount Paid", ""),      
-            data_dict.get("Details", ""),          
+            data_dict.get("Generated By", ""),      
+            data_dict.get("Amount Paid", ""),       
+            data_dict.get("Details", ""),           
             data_dict.get("Service Started", ""), 
-            data_dict.get("Service Ended", ""),    
-            data_dict.get("Referral Code", ""),    
-            data_dict.get("Referral Name", ""),    
+            data_dict.get("Service Ended", ""),     
+            data_dict.get("Referral Code", ""),     
+            data_dict.get("Referral Name", ""),     
             data_dict.get("Referral Credit", ""), 
-            formula_net_amount,                    
+            formula_net_amount,                     
             "", # Nurse Payment (AC)
             qty_extracted, # Paid for (AD)
-            formula_earnings # Earnings (AE)                       
+            formula_earnings # Earnings (AE)                        
         ]
         
         sheet_obj.append_row(row_values, value_input_option='USER_ENTERED')
@@ -546,7 +550,7 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
         st.error(f"Error updating Google Sheet: {e}")
         return False
 
-# --- UPDATE NURSE PAYMENT (CRITICAL FIX FOR FORMULAS & EXTRACTION) ---
+# --- UPDATE NURSE PAYMENT ---
 def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
     if sheet_obj is None: return False
     try:
@@ -555,27 +559,16 @@ def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
         if cell:
             row_idx = cell.row
             
-            # 1. Fetch "Details" from Column V (Index 22)
-            # Note: gspread uses 1-based indexing for row/col access usually, but let's be safe.
-            # cell(row, col)
             details_val = sheet_obj.cell(row_idx, 22).value
             
-            # 2. Extract Number from "Paid for X ..."
             qty = 1
             if details_val:
                 match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
                 if match:
                     qty = int(match.group(1))
             
-            # 3. Construct the update formula for AE
             formula_earnings = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
             
-            # 4. Perform Updates
-            # Updating Column AC (Nurse Payment) - Col 29
-            # Updating Column AD (Paid for / Qty) - Col 30
-            # Updating Column AE (Earnings Formula) - Col 31
-            
-            # Batch update is safer for formulas
             range_notation = f"AC{row_idx}:AE{row_idx}"
             sheet_obj.update(range_notation, [[payment_amount, qty, formula_earnings]], value_input_option='USER_ENTERED')
             
@@ -789,38 +782,68 @@ with st.sidebar:
     if drive_service: 
         st.success("Connected to Google Drive ✅")
         
-        # --- NEW: STORAGE DIAGNOSTIC TOOL ---
-        # Fixed Placement: Now properly inside the main sidebar UI block
-        with st.expander("🤖 Bot Storage Status"):
+        # --- NEW: SERVICE ACCOUNT MAINTENANCE TOOL (OPTION A) ---
+        with st.expander("🤖 Service Account Maintenance", expanded=True):
+            st.info("The Bot has its own storage separate from yours.")
+            
+            # Safe Quota Check (Issue 1 Fix)
             try:
-                # 1. Get Quota
                 about = drive_service.about().get(fields="storageQuota").execute()
                 usage_bytes = int(about['storageQuota']['usage'])
                 limit_bytes = int(about['storageQuota']['limit'])
                 usage_gb = usage_bytes / (1024**3)
                 limit_gb = limit_bytes / (1024**3)
-                
-                # 2. Display Bar
                 pct_used = min(usage_bytes / limit_bytes, 1.0)
+                
                 if pct_used > 0.9:
                     st.error(f"⚠️ Critical: {usage_gb:.2f} / {limit_gb:.0f} GB")
                 else:
                     st.progress(pct_used)
                     st.caption(f"Used: {usage_gb:.2f} GB / {limit_gb:.0f} GB")
-
-                # 3. Empty Trash Button (RENAMED as requested)
-                if st.button("🗑️ Empty the Storage"):
-                    with st.spinner("Deleting Trash..."):
-                        drive_service.files().emptyTrash().execute()
-                    st.success("Storage Cleared!")
-                    st.rerun()
             except Exception as e:
-                st.warning("Cannot read storage quota.")
+                st.warning("Could not fetch storage details.")
+
+            # 1. EMPTY TRASH BUTTON
+            if st.button("🗑️ FORCE EMPTY TRASH"):
+                try:
+                    with st.spinner("Emptying Service Account Trash..."):
+                        drive_service.files().emptyTrash().execute()
+                    st.success("Trash Emptied! Storage should be free now.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error emptying trash: {e}")
+
+            # 2. LIST LARGEST FILES
+            if st.button("🔍 Scan Large Files"):
+                try:
+                    # Query for files owned by 'me' (the service account) and not in trash
+                    query = "trashed = false and 'me' in owners"
+                    results = drive_service.files().list(
+                        q=query, 
+                        pageSize=10, 
+                        fields="files(id, name, size, quotaBytesUsed)",
+                        orderBy="quotaBytesUsed desc"
+                    ).execute()
+                    items = results.get('files', [])
+                    
+                    if not items:
+                        st.write("No files found owned by Service Account.")
+                    else:
+                        st.write("Top storage consumers (Owned by Bot):")
+                        for item in items:
+                            size_mb = int(item.get('size', 0)) / (1024 * 1024)
+                            st.text(f"{item.get('name')} - {size_mb:.2f} MB")
+                            # Add delete button for specific files
+                            if st.button(f"Delete {item.get('name')}", key=item.get('id')):
+                                drive_service.files().delete(fileId=item.get('id')).execute()
+                                st.warning(f"Deleted {item.get('name')}")
+                                st.rerun()
+                except Exception as e:
+                    st.error(f"Scan failed: {e}")
+
     else: 
         st.error("❌ Not Connected to Google Drive")
     
-    # We display connection status dynamically later
-
     data_source = st.radio("Load Confirmed Sheet via:", ["Upload File", "OneDrive Link"])
     
     st.markdown("---")
