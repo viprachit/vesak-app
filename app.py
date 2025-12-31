@@ -104,14 +104,19 @@ def get_or_create_folder(service, folder_name, parent_id=None):
     if files:
         return files[0]['id']
     else:
-        file_metadata = {
-            'name': folder_name,
-            'mimeType': 'application/vnd.google-apps.folder'
-        }
-        if parent_id:
-            file_metadata['parents'] = [parent_id]
-        file = service.files().create(body=file_metadata, fields='id').execute()
-        return file.get('id')
+        try:
+            file_metadata = {
+                'name': folder_name,
+                'mimeType': 'application/vnd.google-apps.folder'
+            }
+            if parent_id:
+                file_metadata['parents'] = [parent_id]
+            file = service.files().create(body=file_metadata, fields='id').execute()
+            return file.get('id')
+        except Exception as e:
+            if "storage quota" in str(e).lower():
+                st.error("🚨 CRITICAL: Google Drive Storage is FULL. Cannot create folders.")
+            raise e
 
 def move_file_to_folder(service, file_id, folder_id):
     """Moves a file from root (or current location) to a specific folder."""
@@ -157,8 +162,14 @@ def upload_to_drive(service, folder_id, file_name, file_content_bytes):
         'parents': [folder_id]
     }
     media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    return file.get('id')
+    try:
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        return file.get('id')
+    except Exception as e:
+        if "storage quota" in str(e).lower():
+            st.error("🚨 CRITICAL: Google Drive Storage is FULL. Cannot upload PDF.")
+            return None
+        raise e
 
 # --- CONNECT TO GOOGLE SHEETS ---
 def get_active_sheet_client(drive_service, date_obj):
@@ -185,13 +196,19 @@ def get_active_sheet_client(drive_service, date_obj):
             wb_id = files[0]['id']
             spreadsheet = client.open_by_key(wb_id)
         else:
-            spreadsheet = client.create(wb_name)
-            move_file_to_folder(drive_service, spreadsheet.id, HISTORY_FOLDER_ID)
             try:
-                sheet1 = spreadsheet.sheet1
-                if not sheet1.get_all_values():
-                    sheet1.append_row(SHEET_HEADERS)
-            except: pass
+                spreadsheet = client.create(wb_name)
+                move_file_to_folder(drive_service, spreadsheet.id, HISTORY_FOLDER_ID)
+                try:
+                    sheet1 = spreadsheet.sheet1
+                    if not sheet1.get_all_values():
+                        sheet1.append_row(SHEET_HEADERS)
+                except: pass
+            except Exception as e:
+                if "storage quota" in str(e).lower():
+                    st.error(f"🚨 CRITICAL ERROR: Google Drive Storage Full. Cannot create new workbook '{wb_name}'. Please clear space.")
+                    return None
+                raise e
 
         # Check for Monthly Sheet (Tab)
         try:
