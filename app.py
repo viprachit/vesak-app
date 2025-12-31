@@ -104,19 +104,14 @@ def get_or_create_folder(service, folder_name, parent_id=None):
     if files:
         return files[0]['id']
     else:
-        try:
-            file_metadata = {
-                'name': folder_name,
-                'mimeType': 'application/vnd.google-apps.folder'
-            }
-            if parent_id:
-                file_metadata['parents'] = [parent_id]
-            file = service.files().create(body=file_metadata, fields='id').execute()
-            return file.get('id')
-        except Exception as e:
-            if "storage quota" in str(e).lower():
-                st.error("🚨 CRITICAL: Google Drive Storage is FULL. Cannot create folders.")
-            raise e
+        file_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        if parent_id:
+            file_metadata['parents'] = [parent_id]
+        file = service.files().create(body=file_metadata, fields='id').execute()
+        return file.get('id')
 
 def move_file_to_folder(service, file_id, folder_id):
     """Moves a file from root (or current location) to a specific folder."""
@@ -162,14 +157,8 @@ def upload_to_drive(service, folder_id, file_name, file_content_bytes):
         'parents': [folder_id]
     }
     media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
-    try:
-        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-        return file.get('id')
-    except Exception as e:
-        if "storage quota" in str(e).lower():
-            st.error("🚨 CRITICAL: Google Drive Storage is FULL. Cannot upload PDF.")
-            return None
-        raise e
+    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    return file.get('id')
 
 # --- CONNECT TO GOOGLE SHEETS ---
 def get_active_sheet_client(drive_service, date_obj):
@@ -196,19 +185,13 @@ def get_active_sheet_client(drive_service, date_obj):
             wb_id = files[0]['id']
             spreadsheet = client.open_by_key(wb_id)
         else:
+            spreadsheet = client.create(wb_name)
+            move_file_to_folder(drive_service, spreadsheet.id, HISTORY_FOLDER_ID)
             try:
-                spreadsheet = client.create(wb_name)
-                move_file_to_folder(drive_service, spreadsheet.id, HISTORY_FOLDER_ID)
-                try:
-                    sheet1 = spreadsheet.sheet1
-                    if not sheet1.get_all_values():
-                        sheet1.append_row(SHEET_HEADERS)
-                except: pass
-            except Exception as e:
-                if "storage quota" in str(e).lower():
-                    st.error(f"🚨 CRITICAL ERROR: Google Drive Storage Full. Cannot create new workbook '{wb_name}'. Please clear space.")
-                    return None
-                raise e
+                sheet1 = spreadsheet.sheet1
+                if not sheet1.get_all_values():
+                    sheet1.append_row(SHEET_HEADERS)
+            except: pass
 
         # Check for Monthly Sheet (Tab)
         try:
@@ -558,21 +541,32 @@ def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
             # 2. Extract Number from "Paid for X ..."
             qty = 1
             if details_val:
-                match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
+                match = re.search(r'Paid for (\d+)', str(details_val))
                 if match:
                     qty = int(match.group(1))
             
-            # 3. Construct the update formula for AE
+            # 3. Construct the update range for columns AC, AD, AE
+            # AC is col 29, AD is 30, AE is 31
+            # We will batch update this to ensure FORMULAS are treated correctly (USER_ENTERED)
+            
             formula_earnings = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
             
-            # 4. Perform Updates
-            # Updating Column AC (Nurse Payment) - Col 29
-            # Updating Column AD (Paid for / Qty) - Col 30
-            # Updating Column AE (Earnings Formula) - Col 31
+            # Range: AC{row}:AE{row}
+            # AC is the 29th column. Convert to letter if needed, or just update cell by cell using proper option.
             
-            # Batch update is safer for formulas
-            range_notation = f"AC{row_idx}:AE{row_idx}"
-            sheet_obj.update(range_notation, [[payment_amount, qty, formula_earnings]], value_input_option='USER_ENTERED')
+            # Updating Column AC (Nurse Payment) - Col 29
+            sheet_obj.update_cell(row_idx, 29, payment_amount)
+            
+            # Updating Column AD (Paid for / Qty) - Col 30
+            sheet_obj.update_cell(row_idx, 30, qty)
+            
+            # Updating Column AE (Earnings Formula) - Col 31
+            # IMPORTANT: update_cell might treat formula as string in some gspread versions depending on config.
+            # Ideally we use update() with range.
+            
+            # Let's use range update for the formula to be safe:
+            range_notation = f"AE{row_idx}"
+            sheet_obj.update(range_notation, [[formula_earnings]], value_input_option='USER_ENTERED')
             
             return True
         return False
@@ -797,22 +791,7 @@ with st.sidebar:
 raw_file_obj = None
 if data_source == "Upload File":
     uploaded_file = st.sidebar.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
-    if uploaded_file:
-        try:
-            # CHECK EXTENSION
-            if uploaded_file.name.endswith('.csv'):
-                 raw_file_obj = uploaded_file
-            else:
-                 # Check for openpyxl
-                 import importlib.util
-                 if importlib.util.find_spec("openpyxl") is None:
-                     st.sidebar.error("❌ Critical: 'openpyxl' library missing for .xlsx files.")
-                     st.sidebar.info("💡 Please save your file as .CSV and upload again.")
-                 else:
-                     raw_file_obj = uploaded_file
-        except:
-             raw_file_obj = uploaded_file
-
+    if uploaded_file: raw_file_obj = uploaded_file
 elif data_source == "OneDrive Link":
     current_url = load_config_path(URL_CONFIG_FILE)
     url_input = st.sidebar.text_input("Paste OneDrive/Sharepoint Link:", value=current_url)
