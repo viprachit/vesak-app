@@ -558,7 +558,7 @@ def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
             # 2. Extract Number from "Paid for X ..."
             qty = 1
             if details_val:
-                match = re.search(r'Paid for (\d+)', str(details_val))
+                match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
                 if match:
                     qty = int(match.group(1))
             
@@ -567,15 +567,12 @@ def update_nurse_payment(sheet_obj, invoice_number, payment_amount):
             
             # 4. Perform Updates
             # Updating Column AC (Nurse Payment) - Col 29
-            sheet_obj.update_cell(row_idx, 29, payment_amount)
-            
             # Updating Column AD (Paid for / Qty) - Col 30
-            sheet_obj.update_cell(row_idx, 30, qty)
-            
             # Updating Column AE (Earnings Formula) - Col 31
-            # USING RANGE UPDATE TO FORCE FORMULA INTERPRETATION
-            range_notation = f"AE{row_idx}"
-            sheet_obj.update(range_notation, [[formula_earnings]], value_input_option='USER_ENTERED')
+            
+            # Batch update is safer for formulas
+            range_notation = f"AC{row_idx}:AE{row_idx}"
+            sheet_obj.update(range_notation, [[payment_amount, qty, formula_earnings]], value_input_option='USER_ENTERED')
             
             return True
         return False
@@ -800,7 +797,22 @@ with st.sidebar:
 raw_file_obj = None
 if data_source == "Upload File":
     uploaded_file = st.sidebar.file_uploader("Upload Excel/CSV", type=['xlsx', 'csv'])
-    if uploaded_file: raw_file_obj = uploaded_file
+    if uploaded_file:
+        try:
+            # CHECK EXTENSION
+            if uploaded_file.name.endswith('.csv'):
+                 raw_file_obj = uploaded_file
+            else:
+                 # Check for openpyxl
+                 import importlib.util
+                 if importlib.util.find_spec("openpyxl") is None:
+                     st.sidebar.error("❌ Critical: 'openpyxl' library missing for .xlsx files.")
+                     st.sidebar.info("💡 Please save your file as .CSV and upload again.")
+                 else:
+                     raw_file_obj = uploaded_file
+        except:
+             raw_file_obj = uploaded_file
+
 elif data_source == "OneDrive Link":
     current_url = load_config_path(URL_CONFIG_FILE)
     url_input = st.sidebar.text_input("Paste OneDrive/Sharepoint Link:", value=current_url)
