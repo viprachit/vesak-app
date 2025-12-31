@@ -32,8 +32,8 @@ URL_CONFIG_FILE = "url_config.txt"
 HISTORY_FOLDER_ID = "1e5iNxAwO8ly3_iAs2ONCyZO1CgQeFQhr"
 AGREEMENTS_ROOT_ID = "16QWhwkhWS4S5nRWkPuusJ9UjQzf-2TKl"
 
-# --- CRITICAL: HARDCODED SHEET ID FOR 2025 (User Provided) ---
-# This forces the app to use your existing file instead of creating a new one.
+# --- CRITICAL: HARDCODED SHEET ID FOR 2025 ---
+# Only used when the Invoice Date is in 2025
 MANUAL_SHEET_ID_25 = "1aBhZrgqtdD-bLE28Ujaq6lODou211wMnIIL8wxuPK5Q"
 
 # --- HEADERS FOR NEW SHEETS ---
@@ -81,6 +81,13 @@ def get_credentials():
         }
         return Credentials.from_service_account_info(creds_dict, scopes=scopes)
     return None
+
+def get_bot_email():
+    """Helper to display bot email for sharing."""
+    try:
+        return st.secrets["connections"]["gsheets"]["client_email"]
+    except:
+        return "Unknown"
 
 # --- CONNECT TO GOOGLE DRIVE ---
 @st.cache_resource
@@ -154,40 +161,44 @@ def upload_to_drive(service, folder_id, file_name, file_content_bytes):
                 return None
         raise e
 
-# --- CRITICAL FIX: FORCE USE EXISTING SHEET ---
+# --- SMART SHEET CONNECTION (Year & Month Automation) ---
 def get_active_sheet_client(drive_service, date_obj):
     try:
         creds = get_credentials()
         if not creds: return None
         client = gspread.authorize(creds)
         
-        yy = date_obj.strftime("%y") # 25
-        mmm_yy = date_obj.strftime("%b-%y").capitalize() # Jan-25
-        wb_name = f"Vesak_Invoice_{yy}"
+        yy = date_obj.strftime("%y") # e.g., "26"
+        mmm_yy = date_obj.strftime("%b-%y").capitalize() # e.g., "Feb-26"
         
+        wb_name = f"Vesak_Invoice_{yy}"
         spreadsheet = None
 
-        # STRATEGY 1: CHECK HARDCODED ID FIRST (For 2025)
+        # 1. 2025 RESCUE MODE (Hardcoded)
         if yy == "25" and MANUAL_SHEET_ID_25:
             try:
                 spreadsheet = client.open_by_key(MANUAL_SHEET_ID_25)
-                # st.success("Opened via Hardcoded ID (Rescue Mode)") # Debug
             except Exception as e:
-                # If ID fails, it might be a permission issue
                 if "403" in str(e):
-                    st.error(f"🚨 PERMISSION ERROR: The Bot cannot open the file with ID {MANUAL_SHEET_ID_25}. You must Share it with the Bot's email.")
+                    st.error(f"🚨 PERMISSION ERROR: Bot cannot access {wb_name} (ID: {MANUAL_SHEET_ID_25}). Share it with the Bot Email in sidebar.")
                     return None
-        
-        # STRATEGY 2: OPEN BY NAME (If Strategy 1 failed or wrong year)
+
+        # 2. FUTURE YEARS (Dynamic Search)
         if spreadsheet is None:
             try:
+                # Try opening by name
                 spreadsheet = client.open(wb_name)
             except gspread.exceptions.SpreadsheetNotFound:
-                # STRATEGY 3: CREATE (Only if completely missing)
-                # This block will likely fail if storage is full, but Strat 1 & 2 should catch your existing file.
+                # Not found. Two possibilities:
+                # A) It doesn't exist -> We try to create it.
+                # B) It exists but User didn't share it -> We warn the user.
+                
+                st.warning(f"⚠️ Could not find '{wb_name}'. If you created it manually, please SHARE it with the Bot Email (see sidebar).")
+                st.info(f"ℹ️ Attempting to create '{wb_name}' automatically...")
+                
                 try:
                     spreadsheet = client.create(wb_name)
-                    # Attempt move
+                    # Move to History Folder
                     try:
                         file = drive_service.files().get(fileId=spreadsheet.id, fields='parents').execute()
                         prev_parents = ",".join(file.get('parents'))
@@ -196,31 +207,35 @@ def get_active_sheet_client(drive_service, date_obj):
                             addParents=HISTORY_FOLDER_ID,
                             removeParents=prev_parents
                         ).execute()
+                        st.success(f"✅ Created new workbook: {wb_name}")
                     except: pass
                     
+                    # Add Headers
                     try:
                         sheet1 = spreadsheet.sheet1
-                        if not sheet1.get_all_values():
-                            sheet1.append_row(SHEET_HEADERS)
+                        if not sheet1.get_all_values(): sheet1.append_row(SHEET_HEADERS)
                     except: pass
+                    
                 except Exception as e:
                     if "storage quota" in str(e).lower():
-                        st.error(f"🚨 STORAGE ERROR: The Bot cannot create '{wb_name}'. Ensure you shared the EXISTING file with the bot.")
+                        st.error(f"🚨 STORAGE FULL: Cannot create '{wb_name}'. Clean up space or create file manually and SHARE with Bot.")
                         return None
                     raise e
 
-        # Check/Create Monthly Tab
+        # 3. MONTH TAB AUTOMATION
+        # Checks if "Feb-26" exists. If not, creates it automatically.
         try:
             worksheet = spreadsheet.worksheet(mmm_yy)
         except gspread.exceptions.WorksheetNotFound:
+            # Create the tab silently
             worksheet = spreadsheet.add_worksheet(title=mmm_yy, rows="1000", cols="30")
             worksheet.append_row(SHEET_HEADERS)
+            st.toast(f"🎉 Created new tab: {mmm_yy}")
             
         return worksheet
 
     except Exception as e:
         st.error(f"Google Sheet Error: {e}")
-        st.write(traceback.format_exc())
         return None
 
 # --- AUTO-DOWNLOAD ICONS ---
@@ -647,9 +662,18 @@ sheet_obj = None
 
 with st.sidebar:
     st.header("📂 Data Source")
+    
     if drive_service: 
         st.success("Connected to Google Drive ✅")
-        with st.expander("🤖 Service Account Maintenance", expanded=True):
+        
+        # --- NEW: BOT IDENTITY CARD ---
+        with st.expander("🤖 Bot Identity (For Sharing)", expanded=True):
+            bot_email = get_bot_email()
+            st.caption("If you create a new file manually, please SHARE it with this email as an Editor:")
+            st.code(bot_email, language="text")
+            
+        # --- SERVICE ACCOUNT MAINTENANCE ---
+        with st.expander("⚙️ Storage Tools", expanded=False):
             st.info("The Bot has its own storage separate from yours.")
             try:
                 about = drive_service.about().get(fields="storageQuota").execute()
