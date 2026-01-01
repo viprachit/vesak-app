@@ -754,11 +754,19 @@ def render_invoice_ui(df_main, mode="standard"):
 
 if raw_file_obj:
     try:
-        # --- CRITICAL FIX 1: HANDLE BYTESIO NAME ATTRIBUTE ---
+        # 1. Determine Filename/Type
         filename = getattr(raw_file_obj, "name", "downloaded_data.xlsx")
         
-        if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
-        df = pd.read_excel(raw_file_obj) if filename.endswith('.xlsx') else pd.read_csv(raw_file_obj)
+        # 2. Reset Pointer
+        if hasattr(raw_file_obj, 'seek'):
+            raw_file_obj.seek(0)
+            
+        # 3. Read File with Explicit Engine for Excel
+        if filename.endswith('.xlsx'):
+            df = pd.read_excel(raw_file_obj, engine='openpyxl')
+        else:
+            df = pd.read_csv(raw_file_obj)
+
         df = normalize_columns(df, COLUMN_ALIASES)
         
         # TAB 1: GENERATE INVOICE
@@ -767,7 +775,7 @@ if raw_file_obj:
         # TAB 2: FORCE NEW
         with tab2: render_invoice_ui(df, mode="force_new")
 
-        # --- CRITICAL FIX 2: REINTEGRATED TAB 3 (DUPLICATE) ---
+        # TAB 3: DUPLICATE
         with tab3:
             st.header("©️ Duplicate Invoice from History")
             dup_date = st.date_input("New Invoice Date:", value=datetime.date.today(), key="dup_date")
@@ -790,12 +798,11 @@ if raw_file_obj:
                         st.write("Confirm details below and Click Generate")
                     
                     if st.button("Generate Duplicate Invoice"):
-                        # Logic to save duplicate would go here (similar to save_invoice_to_gsheet)
                         st.warning("Feature logic placeholder - Ensure mapping matches save function.")
             else:
                 st.warning("No History Found to duplicate from.")
 
-        # --- CRITICAL FIX 2: REINTEGRATED TAB 4 (MANAGE SERVICES) ---
+        # TAB 4: MANAGE SERVICES
         with tab4:
             st.header("🛠 Service Manager & Calculator")
             st.write("Check included/excluded items for specific plans.")
