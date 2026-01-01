@@ -191,7 +191,6 @@ def generate_filename(doc_type, invoice_no, customer_name):
 
 def format_worksheet_header(ws):
     try:
-        # 1. Format Header Row (A1:AE1) - Light Green #93c47d
         ws.format("A1:AE1", {
             "backgroundColor": {"red": 0.576, "green": 0.768, "blue": 0.49},
             "textFormat": {
@@ -200,13 +199,11 @@ def format_worksheet_header(ws):
             },
             "horizontalAlignment": "CENTER", "verticalAlignment": "MIDDLE", "wrapStrategy": "WRAP"
         })
-        # 2. Format "Service Ended" Column (X2 down to X1000) - Red #ea9999
         ws.format("X2:X1000", {
              "backgroundColor": {"red": 0.917, "green": 0.6, "blue": 0.6},
              "textFormat": {"foregroundColor": {"red": 0.0, "green": 0.0, "blue": 0.0}, "bold": False}
         })
         ws.freeze(rows=1)
-        # 3. Explicit Column Widths
         widths = [50, 50, 100, 120, 100, 120, 180, 50, 60, 100, 200, 100, 120, 100, 80, 80, 60, 80, 150, 100, 100, 200, 100, 100, 100, 120, 80, 100, 100, 80, 100]
         for i, width in enumerate(widths):
             ws.set_column_width(i, width)
@@ -318,14 +315,52 @@ def save_config_path(path, file_name):
     with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
     return path
 
+# [FIXED] ROBUST DOWNLOADER V3 - SESSION BASED
 @st.cache_data(show_spinner=False)
 def robust_file_downloader(url):
+    """
+    Downloads file using a session to persist cookies through redirects.
+    This fixes 403 errors and HTML preview pages on public OneDrive links.
+    """
     session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': 'https://www.google.com/'
+    })
+
+    download_url = url
+    
+    # 1. Clean the URL (Remove existing parameters)
+    if "?" in url:
+        base_url = url.split("?")[0]
+    else:
+        base_url = url
+
+    # 2. Append download command
+    if "1drv.ms" in url or "sharepoint" in url or "onedrive" in url:
+        download_url = base_url + "?download=1"
+    
     try:
-        response = session.get(url, verify=False, allow_redirects=True)
-        if response.status_code == 200: return BytesIO(response.content)
-        raise Exception(f"Status: {response.status_code}")
-    except Exception as e: raise Exception(f"Download failed: {e}")
+        # Attempt download
+        response = session.get(download_url, verify=False, allow_redirects=True)
+        
+        # Check if successful
+        if response.status_code == 200:
+            # Verify we got a file (Excel/CSV usually) and not a HTML login page
+            content_type = response.headers.get('Content-Type', '').lower()
+            if 'text/html' in content_type and len(response.content) < 5000:
+                # If we got a small HTML page, it might be a login redirect.
+                # Try the original URL without modification as a last resort
+                response = session.get(url, verify=False, allow_redirects=True)
+            
+            return BytesIO(response.content)
+            
+        raise Exception(f"Status Code: {response.status_code}")
+        
+    except Exception as e:
+        raise Exception(f"Download failed: {e}. Ensure the OneDrive link is set to 'Anyone with the link'.")
 
 # --- DATABASE HELPERS ---
 def get_next_invoice_number_gsheet(date_obj, df_hist, location_str):
@@ -754,19 +789,22 @@ def render_invoice_ui(df_main, mode="standard"):
 
 if raw_file_obj:
     try:
-        # 1. Determine Filename/Type
-        filename = getattr(raw_file_obj, "name", "downloaded_data.xlsx")
+        if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
         
-        # 2. Reset Pointer
-        if hasattr(raw_file_obj, 'seek'):
-            raw_file_obj.seek(0)
+        # --- FIXED FILE READING LOGIC ---
+        # 1. Identify if it looks like an Excel file (either by name or robust downloader source)
+        is_excel = False
+        if hasattr(raw_file_obj, 'name') and raw_file_obj.name.endswith('.xlsx'):
+            is_excel = True
+        elif isinstance(raw_file_obj, BytesIO):
+            # If it's a raw BytesIO from downloader, we assume Excel because CSV would text-like
+            is_excel = True
             
-        # 3. Read File with Explicit Engine for Excel
-        if filename.endswith('.xlsx'):
+        if is_excel:
             df = pd.read_excel(raw_file_obj, engine='openpyxl')
         else:
             df = pd.read_csv(raw_file_obj)
-
+            
         df = normalize_columns(df, COLUMN_ALIASES)
         
         # TAB 1: GENERATE INVOICE
