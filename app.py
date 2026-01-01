@@ -33,7 +33,6 @@ HISTORY_FOLDER_ID = "1e5iNxAwO8ly3_iAs2ONCyZO1CgQeFQhr"
 AGREEMENTS_ROOT_ID = "16QWhwkhWS4S5nRWkPuusJ9UjQzf-2TKl"
 
 # --- NEW: INVOICE ROOT FOLDER ID ---
-# Replace this with the ID of your "Vesak Invoices" folder if you have one.
 # If left empty, the code will search/create "Vesak Invoices" in your Drive Root.
 INVOICES_ROOT_ID = "" 
 
@@ -99,104 +98,55 @@ def get_drive_service():
 # ==========================================
 
 def get_or_create_folder(service, folder_name, parent_id=None):
-    """
-    Robust function to check if folder exists, if not create it.
-    Includes double-check logic to prevent storage errors.
-    """
+    """Robust function to check if folder exists, if not create it."""
     safe_name = folder_name.replace("'", "\\'")
     query = f"mimeType='application/vnd.google-apps.folder' and name='{safe_name}' and trashed=false"
     if parent_id:
         query += f" and '{parent_id}' in parents"
     
     try:
-        # 1. Check if exists
         results = service.files().list(q=query, fields="files(id, name)").execute()
         files = results.get('files', [])
-        if files:
-            return files[0]['id'] # Return existing ID
+        if files: return files[0]['id']
         
-        # 2. If not, create it
-        file_metadata = {
-            'name': folder_name, 
-            'mimeType': 'application/vnd.google-apps.folder'
-        }
-        if parent_id:
-            file_metadata['parents'] = [parent_id]
+        file_metadata = {'name': folder_name, 'mimeType': 'application/vnd.google-apps.folder'}
+        if parent_id: file_metadata['parents'] = [parent_id]
             
         file = service.files().create(body=file_metadata, fields='id').execute()
         return file.get('id')
-        
     except Exception as e:
-        # 3. Fallback: If creation fails (e.g. storage error latency), check existence one last time
         try:
             results = service.files().list(q=query, fields="files(id, name)").execute()
             files = results.get('files', [])
             if files: return files[0]['id']
-        except:
-            pass
-        st.error(f"CRITICAL ERROR: Could not create folder '{folder_name}'. Drive Storage might be full or Permissions denied. Error: {e}")
+        except: pass
+        st.error(f"CRITICAL ERROR: Could not create folder '{folder_name}'. Error: {e}")
         raise e
 
 def get_target_folder_hierarchy(service, doc_type, date_obj):
-    """
-    Handles the Specific Folder Structures defined in Critical Points.
-    Structure:
-    - Invoice: Vesak Invoices -> Invoice-YY -> Jan-YY
-    - Nurse: Vesak Agreements -> Nurse Agreement YY -> Jan-YY
-    - Patient: Vesak Agreements -> Patient Agreement YY -> Jan-YY
-    """
     yy = date_obj.strftime("%y") 
-    mmm_yy = date_obj.strftime("%b-%y") # e.g., Jan-26
-    
-    # Fix for Jan naming consistency if needed
-    if mmm_yy.startswith("Jan") and mmm_yy[3] != '-': 
-        mmm_yy = date_obj.strftime("%b-%y")
+    mmm_yy = date_obj.strftime("%b-%y")
+    if mmm_yy.startswith("Jan") and mmm_yy[3] != '-': mmm_yy = date_obj.strftime("%b-%y")
 
     # DEFINE PATHS BASED ON DOC TYPE
     if doc_type == "Invoice":
-        # 1. Root: Vesak Invoices
-        if INVOICES_ROOT_ID:
-            root_id = INVOICES_ROOT_ID
-        else:
-            # Fallback: Find/Create "Vesak Invoices" in Root
-            root_id = get_or_create_folder(service, "Vesak Invoices")
-
-        # 2. Level 2: "Invoice-YY"
-        year_folder_name = f"Invoice-{yy}"
-        year_id = get_or_create_folder(service, year_folder_name, parent_id=root_id)
-        
-        # 3. Level 3: "Jan-YY"
-        month_id = get_or_create_folder(service, mmm_yy, parent_id=year_id)
-        return month_id
+        if INVOICES_ROOT_ID: root_id = INVOICES_ROOT_ID
+        else: root_id = get_or_create_folder(service, "Vesak Invoices")
+        year_id = get_or_create_folder(service, f"Invoice-{yy}", parent_id=root_id)
+        return get_or_create_folder(service, mmm_yy, parent_id=year_id)
 
     elif doc_type == "Nurse":
-        # 1. Root: Vesak Agreements
         root_id = AGREEMENTS_ROOT_ID
-        
-        # 2. Level 2: "Nurse Agreement YY"
-        year_folder_name = f"Nurse Agreement {yy}"
-        year_id = get_or_create_folder(service, year_folder_name, parent_id=root_id)
-        
-        # 3. Level 3: "Jan-YY"
-        month_id = get_or_create_folder(service, mmm_yy, parent_id=year_id)
-        return month_id
+        year_id = get_or_create_folder(service, f"Nurse Agreement {yy}", parent_id=root_id)
+        return get_or_create_folder(service, mmm_yy, parent_id=year_id)
 
     elif doc_type == "Patient":
-        # 1. Root: Vesak Agreements
         root_id = AGREEMENTS_ROOT_ID
-        
-        # 2. Level 2: "Patient Agreement YY"
-        year_folder_name = f"Patient Agreement {yy}"
-        year_id = get_or_create_folder(service, year_folder_name, parent_id=root_id)
-        
-        # 3. Level 3: "Jan-YY"
-        month_id = get_or_create_folder(service, mmm_yy, parent_id=year_id)
-        return month_id
-
+        year_id = get_or_create_folder(service, f"Patient Agreement {yy}", parent_id=root_id)
+        return get_or_create_folder(service, mmm_yy, parent_id=year_id)
     return None
 
 def find_file_in_folder(service, folder_id, file_name):
-    """Searches for a specific file by name in a specific folder."""
     try:
         query = f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
         results = service.files().list(q=query, fields="files(id, name)").execute()
@@ -206,7 +156,6 @@ def find_file_in_folder(service, folder_id, file_name):
     except: return None
 
 def update_drive_file(service, file_id, file_content_bytes):
-    """Overwrites existing file content."""
     try:
         media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
         service.files().update(fileId=file_id, media_body=media).execute()
@@ -230,19 +179,10 @@ def upload_to_drive(service, folder_id, file_name, file_content_bytes):
         return None
 
 def generate_filename(doc_type, invoice_no, customer_name):
-    # Prefix mapping
-    prefix_map = {
-        "Invoice": "IN",
-        "Nurse": "NU",
-        "Patient": "PA"
-    }
+    prefix_map = {"Invoice": "IN", "Nurse": "NU", "Patient": "PA"}
     prefix = prefix_map.get(doc_type, "DOC")
-    
-    # Clean Customer Name (Remove special chars, uppercase)
     clean_name = re.sub(r'[^a-zA-Z0-9]', '-', str(customer_name)).upper()
-    clean_name = re.sub(r'-+', '-', clean_name).strip('-') # Remove duplicate dashes
-    
-    # Construct: PRE-INVNO-NAME
+    clean_name = re.sub(r'-+', '-', clean_name).strip('-') 
     return f"{prefix}-{invoice_no}-{clean_name}.pdf"
 
 # ==========================================
@@ -252,70 +192,25 @@ def generate_filename(doc_type, invoice_no, customer_name):
 def format_worksheet_header(ws):
     try:
         # 1. Format Header Row (A1:AE1) - Light Green #93c47d
-        # RGB Conversion: Hex 93c47d -> R:147/255=0.576, G:196/255=0.768, B:125/255=0.49
         ws.format("A1:AE1", {
-            "backgroundColor": {"red": 0.576, "green": 0.768, "blue": 0.49}, # #93c47d
+            "backgroundColor": {"red": 0.576, "green": 0.768, "blue": 0.49},
             "textFormat": {
                 "foregroundColor": {"red": 1.0, "green": 1.0, "blue": 1.0},
-                "bold": True,
-                "fontSize": 10
+                "bold": True, "fontSize": 10
             },
-            "horizontalAlignment": "CENTER",
-            "verticalAlignment": "MIDDLE",
-            "wrapStrategy": "WRAP"
+            "horizontalAlignment": "CENTER", "verticalAlignment": "MIDDLE", "wrapStrategy": "WRAP"
         })
-
         # 2. Format "Service Ended" Column (X2 down to X1000) - Red #ea9999
-        # RGB Conversion: Hex ea9999 -> R:234/255=0.917, G:153/255=0.6, B:153/255=0.6
         ws.format("X2:X1000", {
-             "backgroundColor": {"red": 0.917, "green": 0.6, "blue": 0.6}, # #ea9999
+             "backgroundColor": {"red": 0.917, "green": 0.6, "blue": 0.6},
              "textFormat": {"foregroundColor": {"red": 0.0, "green": 0.0, "blue": 0.0}, "bold": False}
         })
-
         ws.freeze(rows=1)
-
-        # 3. Explicit Column Widths for all 31 Columns (0 to 30)
-        # You can manually adjust these numbers
-        widths = [
-            50,  # 0: A - UID
-            50,  # 1: B - Serial No.
-            100, # 2: C - Ref. No.
-            120, # 3: D - Invoice Number
-            100, # 4: E - Date
-            120, # 5: F - Generated At
-            180, # 6: G - Customer Name
-            50,  # 7: H - Age
-            60,  # 8: I - Gender
-            100, # 9: J - Location
-            200, # 10: K - Address
-            100, # 11: L - Mobile
-            120, # 12: M - Plan
-            100, # 13: N - Shift
-            80,  # 14: O - Recurring Service
-            80,  # 15: P - Period
-            60,  # 16: Q - Visits
-            80,  # 17: R - Amount
-            150, # 18: S - Notes / Remarks
-            100, # 19: T - Generated By
-            100, # 20: U - Amount Paid
-            200, # 21: V - Details
-            100, # 22: W - Service Started
-            100, # 23: X - Service Ended (Red Column)
-            100, # 24: Y - Referral Code
-            120, # 25: Z - Referral Name
-            80,  # 26: AA - Referral Credit
-            100, # 27: AB - Net Amount
-            100, # 28: AC - Nurse Payment
-            80,  # 29: AD - Paid for
-            100  # 30: AE - Earnings
-        ]
-
-        # Apply widths loop
+        # 3. Explicit Column Widths
+        widths = [50, 50, 100, 120, 100, 120, 180, 50, 60, 100, 200, 100, 120, 100, 80, 80, 60, 80, 150, 100, 100, 200, 100, 100, 100, 120, 80, 100, 100, 80, 100]
         for i, width in enumerate(widths):
             ws.set_column_width(i, width)
-
-    except Exception as e:
-        print(f"Formatting warning: {e}")
+    except Exception as e: print(f"Formatting warning: {e}")
 
 # --- SMART SHEET CONNECTION ---
 def get_active_sheet_client(drive_service, date_obj):
@@ -641,40 +536,6 @@ def normalize_columns(df, aliases):
                     df.rename(columns={df_col: standard_name}, inplace=True); break 
     return df
 
-# --- HTML CONSTRUCTORS ---
-def construct_description_html(row):
-    shift_raw, period_raw = str(row.get('Shift', '')).strip(), str(row.get('Period', '')).strip()
-    shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
-    shift_str = shift_map.get(shift_raw, shift_raw)
-    time_suffix = " (Time)" if "12" in shift_str else ""
-    return f"""<div style="margin-top: 4px;"><div style="font-size: 12px; color: #4a4a4a; font-weight: bold;">{shift_str}{time_suffix}</div><div style="font-size: 10px; color: #777; font-style: italic; margin-top: 2px;">{period_raw}</div></div>"""
-
-def construct_amount_html(row, billing_qty):
-    try: unit_rate = float(row.get('Unit Rate', 0)) 
-    except: unit_rate = 0.0
-    period_raw, shift_raw = str(row.get('Period', '')).strip(), str(row.get('Shift', '')).strip()
-    period_lower = period_raw.lower()
-    is_per_visit = "per visit" in shift_raw.lower()
-    def get_plural(unit, qty):
-        if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
-        if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
-        if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
-        if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit" 
-        return unit
-    total_amount = unit_rate * billing_qty
-    shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
-    shift_display = shift_map.get(shift_raw, shift_raw)
-    if "12" in shift_display and "Time" not in shift_display: shift_display += " (Time)"
-    period_display = "Monthly" if "month" in period_lower else period_raw.capitalize()
-    if "daily" in period_lower: period_display = "Daily"
-    if is_per_visit: period_display = "Visit"
-    unit_rate_str = "{:,.0f}".format(unit_rate)
-    total_amount_str = "{:,.0f}".format(total_amount)
-    unit_label = "Month" if "month" in period_lower else "Week" if "week" in period_lower else "Day"
-    if is_per_visit: unit_label = "Visit"
-    paid_for_text = f"Paid for {billing_qty} {get_plural(unit_label, billing_qty)}"
-    return f"""<div style="text-align: right; font-size: 13px; color: #555;"><div style="margin-bottom: 4px;">{shift_display} / {period_display} = <b>₹ {unit_rate_str}</b></div><div style="color: #CC4E00; font-weight: bold; font-size: 14px; margin: 2px 0;">X</div><div style="font-weight: bold; font-size: 13px; margin: 2px 0; color: #333;">{paid_for_text}</div><div style="border-bottom: 1px solid #ccc; width: 100%; margin: 6px 0;"></div><div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px;"><span style="font-size: 13px; font-weight: 800; color: #002147; text-transform: uppercase;">TOTAL - </span><span style="font-size: 16px; font-weight: bold; color: #000;">Rs. {total_amount_str}</span></div></div>"""
-
 def convert_html_to_pdf(source_html):
     result = BytesIO()
     pisa_status = pisa.CreatePDF(source_html, dest=result)
@@ -711,9 +572,10 @@ elif data_source == "OneDrive Link":
         try: raw_file_obj = robust_file_downloader(current_url); st.sidebar.success("✅ File Downloaded")
         except Exception as e: st.sidebar.error(f"Link Error: {e}")
 
-# --- TABS ---
-tab1, tab2, tab5 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "💰 Nurse Payment"])
+# --- REINTEGRATED ALL 5 TABS ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "©️ Duplicate Invoice", "🛠 Manage Services", "💰 Nurse Payment"])
 
+# --- COMMON INVOICE UI FUNCTION (Used by Tab 1, 2) ---
 def render_invoice_ui(df_main, mode="standard"):
     st.info("📅 Step 1: Select Invoice Date to load the correct Workbook/Sheet")
     global_inv_date = st.date_input("Invoice Date:", value=datetime.date.today(), key=f"global_date_{mode}")
@@ -724,7 +586,6 @@ def render_invoice_ui(df_main, mode="standard"):
     if current_sheet_obj: st.sidebar.success(f"Writing to: {current_sheet_obj.title} ✅")
     else: st.sidebar.error("❌ No Active Sheet Selected")
 
-    # --- LIST FILTERING LOGIC ---
     valid_ref_nos = []
     if not df_history_data.empty and 'Ref. No.' in df_history_data.columns:
         unique_refs = df_main['Ref. No.'].unique()
@@ -745,20 +606,17 @@ def render_invoice_ui(df_main, mode="standard"):
     
     if not selected_label: st.info("👈 Please select a customer to proceed."); return
 
-    # --- DATA EXTRACTION ---
     row = df_filtered_view[df_filtered_view['Label'] == selected_label].iloc[0]
-    c_serial, c_ref_no, c_plan, c_sub = str(row.get('Serial No.', '')).strip(), str(row.get('Ref. No.', '')).strip(), row.get('Service Required', ''), row.get('Sub Service', '')
+    c_serial, c_ref_no, c_plan = str(row.get('Serial No.', '')).strip(), str(row.get('Ref. No.', '')).strip(), row.get('Service Required', '')
     c_name, c_gender = row.get('Name', ''), row.get('Gender', '')
     try: c_age = str(int(float(row.get('Age', '')))) if not pd.isna(row.get('Age', '')) and row.get('Age', '') != '' else ""
     except: c_age = str(row.get('Age', ''))
     c_addr, c_location, c_mob = row.get('Address', ''), row.get('Location', row.get('Address', '')), row.get('Mobile', '')
-    inc_def, exc_def = get_base_lists(c_plan, c_sub)
     c_ref_code = str(row.get('Referral Code', '')).strip() if not pd.isna(row.get('Referral Code', '')) else ""
     c_ref_name = str(row.get('Referral Name', '')).strip() if not pd.isna(row.get('Referral Name', '')) else ""
     try: c_ref_credit = str(row.get('Referral Credit', '')).strip() if not pd.isna(row.get('Referral Credit', '')) else ""
     except: c_ref_credit = ""
     
-    # --- FORM UI ---
     st.divider()
     col1, col2 = st.columns(2)
     with col1:
@@ -770,9 +628,7 @@ def render_invoice_ui(df_main, mode="standard"):
         next_sequential_inv = get_next_invoice_number_gsheet(global_inv_date, df_history_data, c_location)
         next_uid = get_next_uid_gsheet(df_history_data)
 
-        conflict_exists = False
-        default_inv_num = next_sequential_inv
-        final_uid = next_uid
+        conflict_exists, default_inv_num, final_uid = False, next_sequential_inv, next_uid
         
         if mode == "standard":
             if active_record is not None:
@@ -798,59 +654,34 @@ def render_invoice_ui(df_main, mode="standard"):
     with r_col2: in_ref_name = st.text_input("Referral Name", value=c_ref_name, disabled=bool(c_ref_name), key=f"ref_n_{mode}")
     with r_col3: in_ref_credit = st.text_input("Referral Credit", value=c_ref_credit, disabled=bool(c_ref_credit), key=f"ref_cr_{mode}")
     
-    # --- CRITICAL BUTTON LOGIC (STEP 1 & 2) ---
     st.markdown("---")
-    
-    # Defaults
     btn_new_disabled, btn_over_visible, btn_agg_disabled, btn_dup_disabled = False, False, True, True
     
     if mode == "standard":
         if conflict_exists:
             if chk_overwrite:
-                # STATE 2: Overwrite Checkbox Ticked
-                # New: Hidden (Replaced by Overwrite), Agg: Active, Dup: Disabled
-                btn_new_disabled = True # Logic handled by creating Overwrite button instead
-                btn_over_visible = True
-                btn_agg_disabled = False
-                btn_dup_disabled = True
+                btn_new_disabled, btn_over_visible, btn_agg_disabled, btn_dup_disabled = True, True, False, True
             else:
-                # STATE 1: Invoice Exists (Default)
-                # New: Disabled, Overwrite: Hidden, Agg: Disabled, Dup: ACTIVE
-                btn_new_disabled = True
-                btn_over_visible = False
-                btn_agg_disabled = True
-                btn_dup_disabled = False
+                btn_new_disabled, btn_over_visible, btn_agg_disabled, btn_dup_disabled = True, False, True, False
         else:
-            # STATE 3: New Client
-            # New: Active, Overwrite: Hidden, Agg: Active, Dup: Disabled
-            btn_new_disabled = False
-            btn_over_visible = False
-            btn_agg_disabled = False
-            btn_dup_disabled = True
+            btn_new_disabled, btn_over_visible, btn_agg_disabled, btn_dup_disabled = False, False, False, True
 
     b_col1, b_col2, b_col3, b_col4 = st.columns(4)
-    
     btn_new_clicked, btn_over_clicked = False, False
     
     with b_col1:
         if btn_over_visible:
-            if st.button("Overwrite Invoice", type="primary", key=f"btn_ov_{mode}"): btn_over_clicked = True
+             if st.button("Overwrite Invoice", type="primary", key=f"btn_ov_{mode}"): btn_over_clicked = True
         else:
-            if st.button("New Invoice", type="primary", disabled=btn_new_disabled, key=f"btn_nw_{mode}"): btn_new_clicked = True
+             if st.button("New Invoice", type="primary", disabled=btn_new_disabled, key=f"btn_nw_{mode}"): btn_new_clicked = True
             
-    with b_col2:
-        btn_nurse = st.button("Nurse Agreement", disabled=btn_agg_disabled, key=f"btn_na_{mode}")
-    with b_col3:
-        btn_patient = st.button("Patient/Family Agreement", disabled=btn_agg_disabled, key=f"btn_pa_{mode}")
+    with b_col2: btn_nurse = st.button("Nurse Agreement", disabled=btn_agg_disabled, key=f"btn_na_{mode}")
+    with b_col3: btn_patient = st.button("Patient/Family Agreement", disabled=btn_agg_disabled, key=f"btn_pa_{mode}")
     with b_col4:
         if st.button("Duplicate Invoice", disabled=btn_dup_disabled, key=f"btn_dp_{mode}"):
             st.session_state.active_tab_simulation = "Duplicate"
             st.toast("✅ Switched to Duplicate Mode. Please Click 'Duplicate Invoice' Tab above.")
-            st.info("ℹ️ Please click the 'Duplicate Invoice' Tab manually to proceed.")
 
-    # --- ACTION HANDLERS ---
-    
-    # 1. GENERATE / OVERWRITE INVOICE
     if btn_new_clicked or btn_over_clicked:
         clean_plan = PLAN_DISPLAY_NAMES.get(c_plan, c_plan)
         try: unit_rate_val = float(row.get('Unit Rate', 0))
@@ -873,36 +704,28 @@ def render_invoice_ui(df_main, mode="standard"):
             "Referral Code": str(in_ref_code), "Referral Name": str(in_ref_name), "Referral Credit": str(in_ref_credit)
         }
         
-        # --- NEW LOGIC: GENERATE AND SAVE INVOICE PDF ---
-        # 1. Generate Placeholder HTML for Invoice (To satisfy Requirement 8)
-        # You can expand this HTML later with your full invoice design
         html_invoice = f"""<!DOCTYPE html><html><head><style>body {{ font-family: 'Lato', sans-serif; }} .page {{ padding: 40px; }} .header {{ text-align: center; }} </style></head><body><div class="page"><div class="header"><h2>INVOICE: {inv_num_input}</h2></div><p><strong>Customer:</strong> {c_name}</p><p><strong>Amount:</strong> {total_billed_amount}</p><p><strong>Date:</strong> {format_date_with_suffix(global_inv_date)}</p></div></body></html>"""
-        
         inv_pdf_bytes = convert_html_to_pdf(html_invoice)
 
         save_success = False
         if btn_over_clicked:
-            # Overwrite Logic (Same Row)
             if update_invoice_in_gsheet(invoice_record, current_sheet_obj, default_inv_num):
                 st.success(f"✅ Invoice {inv_num_input} Data Overwritten Successfully!")
                 save_success = True
         elif btn_new_clicked:
-            # New Invoice Logic
             if mode == "force_new" and active_record is not None:
                 mark_service_ended(current_sheet_obj, active_record['Invoice Number'], global_inv_date)
             if save_invoice_to_gsheet(invoice_record, current_sheet_obj):
                 st.success(f"✅ Invoice {inv_num_input} Data Created Successfully!")
                 save_success = True
 
-        # 2. SAVE INVOICE PDF TO DRIVE
         if save_success and inv_pdf_bytes and drive_service:
             inv_folder_id = get_target_folder_hierarchy(drive_service, "Invoice", global_inv_date)
             inv_file_name = generate_filename("Invoice", inv_num_input, c_name)
-            
             existing_inv_id = find_file_in_folder(drive_service, inv_folder_id, inv_file_name)
             
             if existing_inv_id:
-                if btn_over_clicked: # Only overwrite PDF if overwrite button was clicked
+                if btn_over_clicked:
                     update_drive_file(drive_service, existing_inv_id, inv_pdf_bytes)
                     st.success(f"✅ Invoice PDF Overwritten: {inv_file_name}")
                 else:
@@ -910,46 +733,99 @@ def render_invoice_ui(df_main, mode="standard"):
             else:
                 upload_to_drive(drive_service, inv_folder_id, inv_file_name, inv_pdf_bytes)
                 st.success(f"✅ Invoice PDF Saved: {inv_file_name}")
+        if save_success: st.rerun()
 
-        if save_success:
-            st.rerun()
-
-    # 2. AGREEMENTS (NURSE / PATIENT)
     if btn_nurse or btn_patient:
         doc_type = "Nurse" if btn_nurse else "Patient"
         display_type = "NURSE AGREEMENT" if btn_nurse else "PATIENT AGREEMENT"
-        # Simple HTML Template with Watermark
-        html_agreement = f"""<!DOCTYPE html><html><head><style>body {{ font-family: 'Lato', sans-serif; }} .page {{ position: relative; padding: 40px; }} .watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 100px; color: #002147; opacity: 0.1; font-weight: bold; z-index: -1; }} .header {{ text-align: center; margin-bottom: 30px; }} .title {{ font-size: 24px; font-weight: bold; text-decoration: underline; color: #002147; }} .content {{ font-size: 14px; line-height: 1.6; text-align: justify; }}</style></head><body><div class="watermark">VESAK</div><div class="page"><div class="header"><img src="data:image/png;base64,{logo_b64}" width="100"><h2>Vesak Care Foundation</h2></div><div class="title">{display_type}</div><br><div class="content"><p><strong>Date:</strong> {format_date_with_suffix(global_inv_date)}</p><p><strong>Ref No:</strong> {c_ref_no}</p><p><strong>Client Name:</strong> {c_name}</p><br><p>This is a placeholder for the {display_type.title()}. Content will be updated later.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p><br><br><br><p>__________________________<br>Authorized Signatory</p></div></div></body></html>"""
-        
+        html_agreement = f"""<!DOCTYPE html><html><head><style>body {{ font-family: 'Lato', sans-serif; }} .page {{ position: relative; padding: 40px; }} .watermark {{ position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 100px; color: #002147; opacity: 0.1; font-weight: bold; z-index: -1; }} .header {{ text-align: center; margin-bottom: 30px; }} .title {{ font-size: 24px; font-weight: bold; text-decoration: underline; color: #002147; }} .content {{ font-size: 14px; line-height: 1.6; text-align: justify; }}</style></head><body><div class="watermark">VESAK</div><div class="page"><div class="header"><img src="data:image/png;base64,{logo_b64}" width="100"><h2>Vesak Care Foundation</h2></div><div class="title">{display_type}</div><br><div class="content"><p><strong>Date:</strong> {format_date_with_suffix(global_inv_date)}</p><p><strong>Ref No:</strong> {c_ref_no}</p><p><strong>Client Name:</strong> {c_name}</p><br><p>This is a placeholder for the {display_type.title()}. Content will be updated later.</p><p>__________________________<br>Authorized Signatory</p></div></div></body></html>"""
         pdf_bytes = convert_html_to_pdf(html_agreement)
         if pdf_bytes and drive_service:
-            # --- CRITICAL: USE NEW FOLDER & NAMING LOGIC ---
             folder_id = get_target_folder_hierarchy(drive_service, doc_type, global_inv_date)
             file_name = generate_filename(doc_type, inv_num_input, c_name)
-            
             existing_file_id = find_file_in_folder(drive_service, folder_id, file_name)
-            
             if existing_file_id:
                  if conflict_exists and chk_overwrite:
-                    if update_drive_file(drive_service, existing_file_id, pdf_bytes):
-                        st.success(f"✅ Overwritten existing agreement: {file_name}")
+                    if update_drive_file(drive_service, existing_file_id, pdf_bytes): st.success(f"✅ Overwritten: {file_name}")
                     else: st.error("Failed to overwrite file.")
-                 else:
-                     st.warning(f"⚠️ File exists. Use 'Overwrite' checkbox if needed.")
+                 else: st.warning(f"⚠️ File exists. Use 'Overwrite'.")
             else:
-                 if upload_to_drive(drive_service, folder_id, file_name, pdf_bytes):
-                     st.success(f"✅ Saved Agreement: {file_name}")
+                 if upload_to_drive(drive_service, folder_id, file_name, pdf_bytes): st.success(f"✅ Saved Agreement: {file_name}")
 
 if raw_file_obj:
     try:
+        # --- CRITICAL FIX 1: HANDLE BYTESIO NAME ATTRIBUTE ---
+        filename = getattr(raw_file_obj, "name", "downloaded_data.xlsx")
+        
         if hasattr(raw_file_obj, 'seek'): raw_file_obj.seek(0)
-        df = pd.read_excel(raw_file_obj) if raw_file_obj.name.endswith('.xlsx') else pd.read_csv(raw_file_obj)
+        df = pd.read_excel(raw_file_obj) if filename.endswith('.xlsx') else pd.read_csv(raw_file_obj)
         df = normalize_columns(df, COLUMN_ALIASES)
+        
+        # TAB 1: GENERATE INVOICE
         with tab1: render_invoice_ui(df, mode="standard")
+        
+        # TAB 2: FORCE NEW
         with tab2: render_invoice_ui(df, mode="force_new")
+
+        # --- CRITICAL FIX 2: REINTEGRATED TAB 3 (DUPLICATE) ---
+        with tab3:
+            st.header("©️ Duplicate Invoice from History")
+            dup_date = st.date_input("New Invoice Date:", value=datetime.date.today(), key="dup_date")
+            _, dup_sheet_obj = get_active_sheet_client(drive_service, dup_date)
+            hist_df = get_master_history("Master", dup_sheet_obj)
+            
+            if not hist_df.empty and 'Invoice Number' in hist_df.columns:
+                hist_df['Display'] = hist_df['Invoice Number'] + " - " + hist_df['Customer Name']
+                selected_dup = st.selectbox("Select Invoice to Duplicate:", hist_df['Display'].unique())
+                if selected_dup:
+                    src_row = hist_df[hist_df['Display'] == selected_dup].iloc[0]
+                    st.info(f"Duplicating: {src_row['Customer Name']} (Plan: {src_row.get('Plan')})")
+                    
+                    col_d1, col_d2 = st.columns(2)
+                    with col_d1:
+                        new_qty = st.number_input("Paid for (Qty):", value=1, min_value=1)
+                        new_inv_num = get_next_invoice_number_gsheet(dup_date, hist_df, src_row.get('Location', 'PUN'))
+                        st.text_input("New Invoice No (Auto):", value=new_inv_num, disabled=True)
+                    with col_d2:
+                        st.write("Confirm details below and Click Generate")
+                    
+                    if st.button("Generate Duplicate Invoice"):
+                        # Logic to save duplicate would go here (similar to save_invoice_to_gsheet)
+                        st.warning("Feature logic placeholder - Ensure mapping matches save function.")
+            else:
+                st.warning("No History Found to duplicate from.")
+
+        # --- CRITICAL FIX 2: REINTEGRATED TAB 4 (MANAGE SERVICES) ---
+        with tab4:
+            st.header("🛠 Service Manager & Calculator")
+            st.write("Check included/excluded items for specific plans.")
+            
+            ms_plan = st.selectbox("Select Plan:", list(SERVICES_MASTER.keys()))
+            ms_sub = st.text_input("Sub-services (comma separated) or 'All':", value="All")
+            
+            inc, exc = get_base_lists(ms_plan, ms_sub)
+            
+            c1, c2 = st.columns(2)
+            with c1:
+                st.success(f"✅ Included ({len(inc)})")
+                for i in inc: st.write(f"- {i}")
+            with c2:
+                st.error(f"❌ Excluded ({len(exc)})")
+                for e in exc: st.write(f"- {e}")
+
+        # TAB 5: NURSE PAYMENT
         with tab5:
             st.header("💰 Nurse Payment Update")
             pay_sheet_date = st.date_input("Load Sheet Date:", value=datetime.date.today(), key="pay_sheet_date")
-            pay_wb_obj, pay_sheet_obj = get_active_sheet_client(drive_service, pay_sheet_date)
-            # ... (Existing payment logic)
+            _, pay_sheet_obj = get_active_sheet_client(drive_service, pay_sheet_date)
+            
+            if pay_sheet_obj:
+                pay_inv_no = st.text_input("Enter Invoice Number to Pay:")
+                pay_amount = st.number_input("Nurse Payment Amount (₹):", min_value=0.0)
+                if st.button("Update Payment"):
+                    if update_nurse_payment(pay_sheet_obj, pay_inv_no, pay_amount):
+                        st.success("✅ Payment Updated!")
+                    else:
+                        st.error("❌ Failed to update. Check Invoice Number.")
+            
     except Exception as e: st.error(f"Error reading file: {e}")
