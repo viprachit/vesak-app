@@ -36,9 +36,10 @@ AGREEMENTS_ROOT_ID = "16QWhwkhWS4S5nRWkPuusJ9UjQzf-2TKl"
 # If left empty, the code will search/create "Vesak Invoices" in your Drive Root.
 INVOICES_ROOT_ID = "" 
 
-# --- CRITICAL: HARDCODED SHEET ID FOR 2025 ---
-# Kept as fallback for 2025 specific logic
+# --- CRITICAL: HARDCODED SHEET IDS ---
+# THESE IDS GUARANTEE CONNECTION TO YOUR SPECIFIC FILES
 MANUAL_SHEET_ID_25 = "1aBhZrgqtdD-bLE28Ujaq6lODou211wMnIIL8wxuPK5Q"
+MANUAL_SHEET_ID_26 = "1ods6Y3Kix0bsH8vXPtoUy5vW5_5NUqWCaGT4rzs7HCo"
 
 # --- HEADERS (34 COLUMNS - UPDATED) ---
 SHEET_HEADERS = [
@@ -309,10 +310,16 @@ def get_active_sheet_client(drive_service, date_obj):
         wb_name = f"Vesak_Invoice_{yy}"
         spreadsheet = None
 
+        # --- LOGIC TO CONNECT VIA ID (MORE RELIABLE) ---
         if yy == "25" and MANUAL_SHEET_ID_25:
             try: spreadsheet = client.open_by_key(MANUAL_SHEET_ID_25)
             except: pass
+        
+        if yy == "26" and MANUAL_SHEET_ID_26:
+            try: spreadsheet = client.open_by_key(MANUAL_SHEET_ID_26)
+            except: pass
 
+        # --- FALLBACK: CONNECT BY NAME ---
         if spreadsheet is None:
             try: spreadsheet = client.open(wb_name)
             except gspread.exceptions.SpreadsheetNotFound:
@@ -348,6 +355,7 @@ def get_active_sheet_client(drive_service, date_obj):
 @st.cache_data(ttl=60)
 def get_master_history(current_wb_name, _current_sheet_obj):
     frames = []
+    # 1. LOAD 2025 HISTORY VIA ID
     if MANUAL_SHEET_ID_25:
         try:
             creds = get_credentials()
@@ -357,12 +365,34 @@ def get_master_history(current_wb_name, _current_sheet_obj):
                  data = ws.get_all_records()
                  if data: frames.append(pd.DataFrame(data))
         except: pass
+    
+    # 2. LOAD 2026 HISTORY VIA ID (If we are not currently writing to it)
+    if MANUAL_SHEET_ID_26:
+        try:
+            if _current_sheet_obj and _current_sheet_obj.spreadsheet.id == MANUAL_SHEET_ID_26:
+                pass # We will load it below
+            else:
+                creds = get_credentials()
+                client = gspread.authorize(creds)
+                wb_26 = client.open_by_key(MANUAL_SHEET_ID_26)
+                for ws in wb_26.worksheets():
+                     data = ws.get_all_records()
+                     if data: frames.append(pd.DataFrame(data))
+        except: pass
+
+    # 3. LOAD CURRENT ACTIVE SHEET
     if _current_sheet_obj:
         try:
-            if _current_sheet_obj.spreadsheet.id != MANUAL_SHEET_ID_25:
-                data_curr = _current_sheet_obj.get_all_records()
-                if data_curr: frames.append(pd.DataFrame(data_curr))
+            # Check if we already loaded this ID
+            is_loaded = False
+            if _current_sheet_obj.spreadsheet.id == MANUAL_SHEET_ID_25: is_loaded = True
+            if _current_sheet_obj.spreadsheet.id == MANUAL_SHEET_ID_26: is_loaded = False # We reload current to be safe
+            
+            # Simple check: Just append current data to be safe, pandas handles concat
+            data_curr = _current_sheet_obj.get_all_records()
+            if data_curr: frames.append(pd.DataFrame(data_curr))
         except: pass
+
     if not frames: return pd.DataFrame()
     master_df = pd.concat(frames, ignore_index=True)
     if 'Invoice Number' in master_df.columns:
@@ -612,7 +642,11 @@ def run_system_health_check(drive_service, sheet_obj_25_id, agreements_id, invoi
             else: check_month = f"Dec-{y_str}" 
 
             try:
-                wb = client.open(wb_name)
+                # TRY ID FIRST IF AVAILABLE
+                if y_str == "25": wb = client.open_by_key(MANUAL_SHEET_ID_25)
+                elif y_str == "26": wb = client.open_by_key(MANUAL_SHEET_ID_26)
+                else: wb = client.open(wb_name)
+
                 st.success(f"✅ Workbook '{wb_name}': Found")
                 try:
                     wb.worksheet(check_month)
