@@ -512,7 +512,7 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
         return False
     except Exception as e: st.error(f"Update Error: {e}"); return False
 
-# --- NEW FUNCTION FOR NURSE MANAGEMENT ---
+# --- NEW FUNCTION FOR NURSE MANAGEMENT (UPDATED: RE-WRITES FORMULA) ---
 def update_nurse_management(sheet_obj, invoice_number, payment_amount, nurse_name, nurse_extra, nurse_note):
     if sheet_obj is None: return False
     try:
@@ -520,24 +520,27 @@ def update_nurse_management(sheet_obj, invoice_number, payment_amount, nurse_nam
         if cell:
             row_idx = cell.row
             
-            # Logic 1: Get Quantity from existing "Details" to safeguard
+            # Logic 1: Get Quantity
             details_val = sheet_obj.cell(row_idx, 22).value
             qty = 1
             if details_val:
                 match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
                 if match: qty = int(match.group(1))
             
-            # Logic 2: Update AC & AD (Payment & Qty)
-            range_payment = f"AC{row_idx}:AD{row_idx}"
-            sheet_obj.update(range_payment, [[payment_amount, qty]], value_input_option='USER_ENTERED')
+            # Logic 2: Re-Inject Formula to avoid breaking automation
+            # Formula is: Net Amount (AB) - (Nurse Payment (AC) * Qty (AD))
+            # Row index is constructed dynamically
+            formula_string = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
 
-            # Logic 3: Update AF, AG, AH (Nurse Names & Note) - SKIPPING AE (EARNINGS FORMULA)
-            range_nurse = f"AF{row_idx}:AH{row_idx}"
-            sheet_obj.update(range_nurse, [[nurse_name, nurse_extra, nurse_note]], value_input_option='USER_ENTERED')
+            # Logic 3: Update Everything (AC to AH) INCLUDING Formula in AE
+            # AC=Payment, AD=Qty, AE=Formula, AF=Name, AG=Extra, AH=Note
+            range_update = f"AC{row_idx}:AH{row_idx}"
             
-            return True
-        return False
-    except Exception as e: st.error(f"Nurse Update Error: {e}"); return False
+            sheet_obj.update(range_update, [[payment_amount, qty, formula_string, nurse_name, nurse_extra, nurse_note]], value_input_option='USER_ENTERED')
+            
+            return True, formula_string
+        return False, None
+    except Exception as e: st.error(f"Nurse Update Error: {e}"); return False, None
 
 def mark_service_ended(sheet_obj, invoice_number, end_date):
     if sheet_obj is None: return False, "No Sheet"
@@ -1118,10 +1121,19 @@ if raw_file_obj:
                 
                 nurse_note = st.text_area("Nurse Note (AH):", help="Notes regarding timing, extra shifts, etc.")
 
+                if 'last_formula_injected' not in st.session_state:
+                    st.session_state.last_formula_injected = ""
+
                 if st.button("Update Management Data", type="primary"):
-                    if update_nurse_management(pay_sheet_obj, pay_inv_no, pay_amount, nurse_name, nurse_extra, nurse_note): 
+                    success, formula = update_nurse_management(pay_sheet_obj, pay_inv_no, pay_amount, nurse_name, nurse_extra, nurse_note)
+                    if success:
                         st.success("✅ Nurse Data & Payment Updated Successfully!")
+                        st.session_state.last_formula_injected = formula
                     else: 
                         st.error("❌ Failed to update. Check Invoice Number.")
+                
+                # --- VISIBLE (BUT READ-ONLY) FORMULA BOX ---
+                if st.session_state.last_formula_injected:
+                    st.text_input("Important (Auto-Formula Injected in AE):", value=st.session_state.last_formula_injected, disabled=True)
             
     except Exception as e: st.error(f"Error reading file: {e}")
