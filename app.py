@@ -30,7 +30,7 @@ LOGO_FILE = "logo.png"
 URL_CONFIG_FILE = "url_config.txt"
 SYSTEM_CONFIG_FILE = "system_config.json" # <--- Stores your Drive IDs persistently
 
-# --- HEADERS (34 COLUMNS - UPDATED) ---
+# --- HEADERS (34 COLUMNS) ---
 SHEET_HEADERS = [
     "UID", "Serial No.", "Ref. No.", "Invoice Number", "Date", "Generated At",
     "Customer Name", "Age", "Gender", "Location", "Address", "Mobile",
@@ -83,7 +83,7 @@ def extract_id_from_input(input_str, type_mode="file"):
     extracted_ids = []
 
     for raw in raw_inputs:
-        # Check if it's already an ID (roughly 30-50 chars, no slashes)
+        # Check if it's already an ID (roughly 25+ chars, no slashes)
         if len(raw) > 20 and "/" not in raw:
             extracted_ids.append(raw)
             continue
@@ -96,13 +96,12 @@ def extract_id_from_input(input_str, type_mode="file"):
         if match:
             extracted_ids.append(match.group(1))
         else:
-            # Fallback: if user pasted a weird link, try to grab the ID if it looks like one
             pass 
 
     if type_mode == "list":
         return extracted_ids # Returns List of IDs
     else:
-        return extracted_ids[0] if extracted_ids else "" # Returns single ID string
+        return extracted_ids[0] if extracted_ids else "" # Returns single ID string (First valid one)
 
 # --- LOAD CONFIGURATION AT START ---
 sys_config = load_system_config()
@@ -194,15 +193,20 @@ def get_or_create_folder(service, folder_name, parent_id=None):
         st.error(f"CRITICAL ERROR: Could not create folder '{folder_name}'.")
         raise e
 
+# --- CRITICAL: NEW FOLDER HIERARCHY LOGIC ---
 def get_target_folder_hierarchy(service, doc_type, date_obj):
     yy = date_obj.strftime("%y") 
-    mmm_yy = date_obj.strftime("%b-%y")
-    if mmm_yy.startswith("Jan") and mmm_yy[3] != '-': mmm_yy = date_obj.strftime("%b-%y")
-
-    # --- DYNAMIC CONFIGURATION FOR FOLDERS ---
-    root_id = None
-    level2_name = ""
+    mmm_yy_raw = date_obj.strftime("%b-%y") # e.g. Jan-26
     
+    # Fix for 'Jan' logic if needed, or rely on %b
+    if mmm_yy_raw.startswith("Jan") and mmm_yy_raw[3] != '-': 
+        mmm_yy_raw = date_obj.strftime("%b-%y")
+
+    root_id = None
+    level2_name = "" # Yearly Folder
+    level3_name = "" # Monthly Folder with Prefix
+
+    # 1. DETERMINE ROOT AND NAMES
     if doc_type == "Invoice":
         if sys_config["folder_invoices"]:
             root_id = sys_config["folder_invoices"]
@@ -211,7 +215,9 @@ def get_target_folder_hierarchy(service, doc_type, date_obj):
             except: 
                 st.warning("⚠️ 'Vesak Invoices' Folder ID missing in Config.")
                 return None
+        # Hierarchy: Invoice-26 -> IN-Jan-26
         level2_name = f"Invoice-{yy}"
+        level3_name = f"IN-{mmm_yy_raw}"
 
     elif doc_type == "Nurse":
         if sys_config["folder_agreements"]:
@@ -219,7 +225,9 @@ def get_target_folder_hierarchy(service, doc_type, date_obj):
         else:
              st.error("⚠️ Agreements Folder Link Missing in Configuration!")
              return None
+        # Hierarchy: Nurse Agreement 26 -> NU-Jan-26
         level2_name = f"Nurse Agreement {yy}"
+        level3_name = f"NU-{mmm_yy_raw}"
 
     elif doc_type == "Patient":
         if sys_config["folder_agreements"]:
@@ -227,12 +235,19 @@ def get_target_folder_hierarchy(service, doc_type, date_obj):
         else:
              st.error("⚠️ Agreements Folder Link Missing in Configuration!")
              return None
+        # Hierarchy: Patient Agreement 26 -> PA-Jan-26
         level2_name = f"Patient Agreement {yy}"
+        level3_name = f"PA-{mmm_yy_raw}"
 
+    # 2. CREATE/FIND STRUCTURE
     if root_id:
         try:
+            # Level 2 (Yearly)
             year_id = get_or_create_folder(service, level2_name, parent_id=root_id)
-            month_id = get_or_create_folder(service, mmm_yy, parent_id=year_id)
+            
+            # Level 3 (Monthly with Prefix)
+            month_id = get_or_create_folder(service, level3_name, parent_id=year_id)
+            
             return month_id
         except Exception as e:
             st.error(f"❌ Critical Storage/Permission Error: {e}")
@@ -310,30 +325,24 @@ def get_active_sheet_client(drive_service, date_obj):
         spreadsheet = None
 
         # --- DYNAMIC LOOKUP IN CONFIGURED WORKBOOKS ---
-        # Instead of hardcoding 25/26, we iterate through ALL IDs in the config
-        # and check if they contain the relevant Year/Sheet.
-        
         configured_ids = sys_config.get("workbook_ids", [])
         
         # 1. Try connecting to provided IDs
         for wb_id in configured_ids:
             try:
                 temp_wb = client.open_by_key(wb_id)
-                # Optimization: Check if this WB name contains the year (e.g., "Invoice_25")
-                # Or just check if the sheet exists in it.
+                # Check if this WB name contains the year (e.g., "Invoice_26")
+                if f"_{yy}" in temp_wb.title:
+                    spreadsheet = temp_wb
+                    break
+                # Or try opening the sheet inside it
                 try:
                     worksheet = temp_wb.worksheet(mmm_yy)
-                    # If sheet found, this is the correct WB!
                     return temp_wb, worksheet
-                except gspread.exceptions.WorksheetNotFound:
-                    # Sheet not in this WB, continue searching other WBs
-                    # But if the WB title matches the year, we should use this one and create the sheet
-                    if f"_{yy}" in temp_wb.title:
-                        spreadsheet = temp_wb
-                        break
+                except: pass
             except: continue
 
-        # 2. Fallback: Connect by Name if ID lookup failed
+        # 2. Fallback: Connect by Name
         if spreadsheet is None:
             try: spreadsheet = client.open(wb_name)
             except gspread.exceptions.SpreadsheetNotFound:
@@ -341,12 +350,11 @@ def get_active_sheet_client(drive_service, date_obj):
                 st.markdown(f"### 🛑 New Workbook Required: `{wb_name}`\nCreate `{wb_name}` and share with `{bot_email}`\n**Then add the Link in Settings!**")
                 st.stop()
 
-        # 3. Get or Create Worksheet in the identified Spreadsheet
+        # 3. Get or Create Worksheet
         worksheet = None
         try:
             worksheet = spreadsheet.worksheet(mmm_yy)
         except gspread.exceptions.WorksheetNotFound:
-            # Create new sheet logic
             try:
                 default_sheet = spreadsheet.worksheet("Sheet1")
                 if len(default_sheet.get_all_values()) < 2:
@@ -370,29 +378,21 @@ def get_active_sheet_client(drive_service, date_obj):
 @st.cache_data(ttl=60)
 def get_master_history(current_wb_name, _current_sheet_obj):
     frames = []
-    
-    # LOAD HISTORY FROM ALL CONFIGURED WORKBOOKS
     configured_ids = sys_config.get("workbook_ids", [])
-    
     if configured_ids:
         creds = get_credentials()
         try:
             client = gspread.authorize(creds)
             for wb_id in configured_ids:
-                # Avoid re-loading current sheet via ID if possible to save API calls, 
-                # but for simplicity and safety, we load all unique history.
                 try:
                     wb = client.open_by_key(wb_id)
                     for ws in wb.worksheets():
-                        # Skip if it matches current writing sheet to avoid duplicate data (handled at end)
                         if _current_sheet_obj and ws.id == _current_sheet_obj.id: continue
-                        
                         data = ws.get_all_records()
                         if data: frames.append(pd.DataFrame(data))
                 except: pass
         except: pass
 
-    # Append Current Sheet Data
     if _current_sheet_obj:
         try:
             data_curr = _current_sheet_obj.get_all_records()
@@ -600,8 +600,8 @@ def run_system_health_check(drive_service):
     if sys_config["folder_agreements"]: st.success("✅ Config: Agreements Folder Linked.")
     else: st.warning("⚠️ Config: Agreements Folder Missing."); issues_found = True
 
-    if sys_config["folder_history"]: st.success("✅ Config: History Folder Linked.")
-    else: st.warning("⚠️ Config: History Folder Missing."); issues_found = True
+    if sys_config["folder_invoices"]: st.success("✅ Config: Invoices Folder Linked.")
+    else: st.warning("⚠️ Config: Invoices Folder Missing."); issues_found = True
 
     # 3. SOURCE DATA CHECK
     if 'raw_file_obj' in globals() and raw_file_obj:
