@@ -63,7 +63,6 @@ def save_system_config(config_data):
     with open(SYSTEM_CONFIG_FILE, "w") as f:
         json.dump(config_data, f)
 
-# --- MISSING FUNCTIONS RESTORED (CRITICAL FIX) ---
 def load_config_path(file_name):
     if os.path.exists(file_name):
         with open(file_name, "r") as f: return f.read().strip()
@@ -121,13 +120,8 @@ def get_gspread_client():
 # FILE HANDLING & HELPERS
 # ==========================================
 
-# [FIXED] ROBUST DOWNLOADER V3 - SESSION BASED
 @st.cache_data(show_spinner=False)
 def robust_file_downloader(url):
-    """
-    Downloads file using a session to persist cookies through redirects.
-    This fixes 403 errors on public OneDrive links.
-    """
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -135,39 +129,20 @@ def robust_file_downloader(url):
         'Accept-Language': 'en-US,en;q=0.5',
         'Referer': 'https://www.google.com/'
     })
-
     download_url = url
-    
-    # 1. Clean the URL (Remove existing parameters)
-    if "?" in url:
-        base_url = url.split("?")[0]
-    else:
-        base_url = url
-
-    # 2. Append download command
+    if "?" in url: base_url = url.split("?")[0]
+    else: base_url = url
     if "1drv.ms" in url or "sharepoint" in url or "onedrive" in url:
         download_url = base_url + "?download=1"
-    
     try:
-        # Attempt download
         response = session.get(download_url, verify=False, allow_redirects=True)
-        
-        # Check if successful
         if response.status_code == 200:
-            # Verify we got a file (Excel/CSV usually) and not a HTML login page
             content_type = response.headers.get('Content-Type', '').lower()
             if 'text/html' in content_type and len(response.content) < 5000:
-                # If we got a small HTML page, it might be a login redirect.
-                # Try the original URL without modification as a last resort
                 response = session.get(url, verify=False, allow_redirects=True)
-            
             return BytesIO(response.content)
-            
         raise Exception(f"Status Code: {response.status_code}")
-        
-    except Exception as e:
-        # Just return None instead of crashing, let the UI handle it
-        return None
+    except Exception as e: return None
 
 def format_date_with_suffix(d):
     if pd.isna(d): return "N/A"
@@ -187,7 +162,6 @@ def generate_filename(doc_type, invoice_no, customer_name):
 
 # --- HELPER FUNCTIONS FOR LISTS ---
 def get_base_lists(selected_plan, selected_sub_service):
-    # Defining Master List inside function
     SERVICES_MASTER = {
         "Plan A: Patient Attendant Care": ["All", "Basic Care", "Assistance with Activities for Daily Living", "Feeding & Oral Hygiene", "Mobility Support & Transfers", "Bed Bath and Emptying Bedpans", "Catheter & Ostomy Care"],
         "Plan B: Skilled Nursing": ["All", "Intravenous (IV) Therapy & Injections", "Medication Management", "Advanced Wound Care", "Catheter & Ostomy Care", "Post-Surgical Care"],
@@ -363,11 +337,10 @@ def upload_to_drive(service, folder_id, file_name, file_content_bytes):
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return file.get('id')
     except Exception as e:
-        if "storage quota" in str(e).lower():
-            try: service.files().emptyTrash().execute()
-            except: pass
-            file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-            return file.get('id')
+        # Catch strict storage quota error
+        if "storageQuotaExceeded" in str(e) or "storage quota" in str(e).lower():
+            st.warning(f"⚠️ Drive Upload Skipped: Service Account Storage Full. Download the PDF locally below.")
+            return "QUOTA_ERROR"
         return None
         
 def get_clean_image_base64(file_path):
@@ -509,8 +482,8 @@ elif data_source == "OneDrive Link":
     if st.sidebar.button("Load"): save_config_path(url_input, URL_CONFIG_FILE); st.rerun()
     if current_url: raw_file_obj = robust_file_downloader(current_url)
 
-# --- MAIN TABS ---
-tab1, tab2, tab5 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "💰 Nurse Manage"])
+# --- MAIN TABS (ALL 5 RESTORED) ---
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧾 Generate Invoice", "🆕 Force New Invoice", "©️ Duplicate Invoice", "🛠 Manage Services", "💰 Nurse Manage"])
 
 # ==========================================
 # CORE INVOICE FUNCTION
@@ -721,7 +694,6 @@ def render_invoice_ui(df_main, mode="standard"):
             
             # Save to Drive if Configured
             folder_id = sys_config.get("folder_invoices") if doc_type == "Invoice" else sys_config.get("folder_agreements")
-            # If folder is a URL, extract ID
             folder_id = extract_id_from_url(folder_id)
 
             if folder_id and drive_service:
@@ -736,6 +708,7 @@ def render_invoice_ui(df_main, mode="standard"):
                     upload_to_drive(drive_service, folder_id, file_name, pdf_bytes)
                     st.success(f"Drive: Saved {file_name}")
             
+            # --- CRITICAL FIX: Download Button Always Active ---
             st.download_button(f"⬇️ Download {doc_type} PDF", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
 if raw_file_obj:
@@ -750,6 +723,63 @@ if raw_file_obj:
         
         with tab1: render_invoice_ui(df, mode="standard")
         with tab2: render_invoice_ui(df, mode="force_new")
+        
+        # --- TAB 3: DUPLICATE INVOICE (RESTORED) ---
+        with tab3:
+            st.header("©️ Duplicate Invoice")
+            client = get_gspread_client()
+            mid = extract_id_from_url(sys_config.get("master_sheet_url"))
+            
+            dup_date = st.date_input("Select Month:", value=datetime.date.today())
+            mmm_yy = dup_date.strftime("%b-%y")
+            
+            if client and mid:
+                try:
+                    wb = client.open_by_key(mid)
+                    ws = wb.worksheet(mmm_yy)
+                    df_hist = pd.DataFrame(ws.get_all_records())
+                    
+                    if not df_hist.empty and 'Invoice Number' in df_hist.columns:
+                        df_hist['Display'] = df_hist['Invoice Number'].astype(str) + " - " + df_hist['Customer Name']
+                        sel_dup = st.selectbox("Select Invoice:", df_hist['Display'].unique())
+                        
+                        if sel_dup:
+                            row = df_hist[df_hist['Display'] == sel_dup].iloc[0]
+                            st.info(f"Selected: {row['Customer Name']}")
+                            
+                            # Simple Regeneration Logic
+                            if st.button("Generate Duplicate PDF"):
+                                html_dup = f"""<!DOCTYPE html><html><body><h2>DUPLICATE INVOICE: {row['Invoice Number']}</h2><p>Customer: {row['Customer Name']}</p><p>Amount: {row['Amount Paid']}</p></body></html>"""
+                                pdf_dup = convert_html_to_pdf(html_dup)
+                                st.download_button("Download PDF", pdf_dup, file_name=f"Duplicate-{row['Invoice Number']}.pdf")
+                    else:
+                        st.warning("No records found in this month.")
+                except: st.error("Could not load history for this month.")
+
+        # --- TAB 4: MANAGE SERVICES (RESTORED) ---
+        with tab4:
+            st.header("🛠 Manage Services")
+            SERVICES_MASTER = {
+                "Plan A: Patient Attendant Care": ["All", "Basic Care", "Assistance with Activities for Daily Living", "Feeding & Oral Hygiene", "Mobility Support & Transfers", "Bed Bath and Emptying Bedpans", "Catheter & Ostomy Care"],
+                "Plan B: Skilled Nursing": ["All", "Intravenous (IV) Therapy & Injections", "Medication Management", "Advanced Wound Care", "Catheter & Ostomy Care", "Post-Surgical Care"],
+                "Plan C: Chronic Management": ["All", "Care for Bed-Ridden Patients", "Dementia & Alzheimer's Care", "Disability Support"],
+                "Plan D: Elderly Companion": ["All", "Companionship & Conversation", "Fall Prevention & Mobility", "Light Meal Preparation"],
+                "Plan E: Maternal & Newborn": ["All", "Postnatal & Maternal Care", "Newborn Care Assistance"],
+                "Plan F: Rehabilitative Care": ["Therapeutic Massage", "Exercise Therapy", "Geriatric Rehabilitation", "Neuro Rehabilitation", "Pain Management", "Post Op Rehab"],
+                "A-la-carte Services": ["Hospital Visits", "Medical Equipment", "Medicines", "Diagnostic Services", "Nutrition Consultation", "Ambulance", "Doctor Visits", "X-Ray", "Blood Collection"]
+            }
+            
+            ms_plan = st.selectbox("Select Plan to View:", list(SERVICES_MASTER.keys()))
+            ms_sub = st.text_input("Simulate Sub-Services Input:", value="All")
+            
+            inc, exc = get_base_lists(ms_plan, ms_sub)
+            c1, c2 = st.columns(2)
+            with c1: 
+                st.success(f"✅ Included ({len(inc)})")
+                for i in inc: st.write(f"- {i}")
+            with c2: 
+                st.error(f"❌ Excluded ({len(exc)})")
+                for e in exc: st.write(f"- {e}")
         
         with tab5:
             # Nurse Manage (Simplified)
