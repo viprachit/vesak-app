@@ -124,6 +124,17 @@ def robust_file_downloader(url):
     except: pass
     return None
 
+# --- RESTORED MISSING FUNCTIONS ---
+def load_config_path(file_name):
+    if os.path.exists(file_name):
+        with open(file_name, "r") as f: return f.read().strip()
+    return ""
+
+def save_config_path(path, file_name):
+    with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
+    return path
+# ----------------------------------
+
 def format_date_with_suffix(d):
     if pd.isna(d): return "N/A"
     try:
@@ -139,6 +150,204 @@ def generate_filename(doc_type, invoice_no, customer_name):
     prefix = {"Invoice": "IN", "Nurse": "NU", "Patient": "PA"}.get(doc_type, "DOC")
     clean_name = re.sub(r'[^a-zA-Z0-9]', '-', str(customer_name)).upper().strip('-')
     return f"{prefix}-{invoice_no}-{clean_name}.pdf"
+
+# --- HELPER FUNCTIONS FOR LISTS ---
+def get_base_lists(selected_plan, selected_sub_service):
+    # Defining Master List inside function or scope
+    SERVICES_MASTER = {
+        "Plan A: Patient Attendant Care": ["All", "Basic Care", "Assistance with Activities for Daily Living", "Feeding & Oral Hygiene", "Mobility Support & Transfers", "Bed Bath and Emptying Bedpans", "Catheter & Ostomy Care"],
+        "Plan B: Skilled Nursing": ["All", "Intravenous (IV) Therapy & Injections", "Medication Management", "Advanced Wound Care", "Catheter & Ostomy Care", "Post-Surgical Care"],
+        "Plan C: Chronic Management": ["All", "Care for Bed-Ridden Patients", "Dementia & Alzheimer's Care", "Disability Support"],
+        "Plan D: Elderly Companion": ["All", "Companionship & Conversation", "Fall Prevention & Mobility", "Light Meal Preparation"],
+        "Plan E: Maternal & Newborn": ["All", "Postnatal & Maternal Care", "Newborn Care Assistance"],
+        "Plan F: Rehabilitative Care": ["Therapeutic Massage", "Exercise Therapy", "Geriatric Rehabilitation", "Neuro Rehabilitation", "Pain Management", "Post Op Rehab"],
+        "A-la-carte Services": ["Hospital Visits", "Medical Equipment", "Medicines", "Diagnostic Services", "Nutrition Consultation", "Ambulance", "Doctor Visits", "X-Ray", "Blood Collection"]
+    }
+    STANDARD_PLANS = list(SERVICES_MASTER.keys())[:5]
+    
+    master_list = SERVICES_MASTER.get(selected_plan, [])
+    if "All" in str(selected_sub_service) and selected_plan in STANDARD_PLANS:
+        included_raw = [s for s in master_list if s.lower() != "all"]
+    else: included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
+    included_clean = sorted(list(set([clean_text(s) for s in included_raw if clean_text(s)])))
+    not_included_clean = []
+    if selected_plan in STANDARD_PLANS:
+        for plan_name in STANDARD_PLANS:
+            if plan_name == selected_plan: continue 
+            for item in SERVICES_MASTER.get(plan_name, []):
+                if item.lower() == "all": continue
+                cleaned = clean_text(item)
+                if cleaned: not_included_clean.append(cleaned)
+    else:
+        for item in master_list:
+            cleaned = clean_text(item)
+            if cleaned and cleaned not in included_clean: not_included_clean.append(cleaned)
+    return included_clean, list(set(not_included_clean))
+
+def convert_html_to_pdf(source_html):
+    result = BytesIO()
+    pisa_status = pisa.CreatePDF(source_html, dest=result)
+    if pisa_status.err: return None
+    return result.getvalue()
+
+def normalize_columns(df, aliases):
+    df.columns = df.columns.astype(str).str.strip()
+    for standard_name, possible_aliases in aliases.items():
+        if standard_name in df.columns: continue 
+        for alias in possible_aliases:
+            for df_col in df.columns:
+                if df_col.lower() == alias.lower():
+                    df.rename(columns={df_col: standard_name}, inplace=True); break 
+    return df
+
+COLUMN_ALIASES = {
+    'Serial No.': ['Serial No.', 'serial no', 'sr no', 'sr. no.', 'id'],
+    'Ref. No.': ['Ref. No.', 'ref no', 'ref. no.', 'reference no', 'reference number'],
+    'Name': ['Name', 'name', 'patient name', 'client name'],
+    'Mobile': ['Mobile', 'mobile', 'phone', 'contact'],
+    'Location': ['Location', 'location', 'city'], 
+    'Address': ['Address', 'address', 'residence'],
+    'Gender': ['Gender', 'gender', 'sex'],
+    'Age': ['Age', 'age'],
+    'Service Required': ['Service Required', 'service required', 'plan'],
+    'Sub Service': ['Sub Service', 'sub service', 'sub plan'],
+    'Final Rate': ['Final Rate', 'final rate', 'amount', 'total amount'],
+    'Unit Rate': ['Rate Agreed (₹)', 'rate agreed', 'unit rate', 'per day rate'],
+    'Call Date': ['Call Date', 'call date'],
+    'Notes': ['Notes / Remarks', 'notes'],
+    'Shift': ['Shift', 'shift'],
+    'Recurring': ['Recurring Service', 'recurring'],
+    'Period': ['Period', 'period'],
+    'Visits': ['Vists', 'visits', 'visit'],
+    'Referral Code': ['Referral Code', 'referral code', 'ref code'],
+    'Referral Name': ['Referral Name', 'referral name', 'ref name'],
+    'Referral Credit': ['Referral Credit', 'referral credit', 'ref credit']
+}
+
+# --- DATABASE HELPERS ---
+def save_invoice_to_gsheet(data_dict, sheet_obj):
+    if sheet_obj is None: return False
+    try:
+        all_vals = sheet_obj.get_all_values()
+        next_row_num = len(all_vals) + 1
+        formula_net_amount = f"=U{next_row_num}-AA{next_row_num}"
+        formula_earnings = f"=AB{next_row_num}-(AC{next_row_num}*AD{next_row_num})"
+        details_txt = data_dict.get("Details", "")
+        qty_extracted = 1
+        match = re.search(r'Paid for (\d+)', details_txt)
+        if match: qty_extracted = int(match.group(1))
+        row_values = [
+            data_dict.get("UID", ""), data_dict.get("Serial No.", ""), data_dict.get("Ref. No.", ""),
+            data_dict.get("Invoice Number", ""), data_dict.get("Date", ""), data_dict.get("Generated At", ""),
+            data_dict.get("Customer Name", ""), data_dict.get("Age", ""), data_dict.get("Gender", ""),
+            data_dict.get("Location", ""), data_dict.get("Address", ""), data_dict.get("Mobile", ""),
+            data_dict.get("Plan", ""), data_dict.get("Shift", ""), data_dict.get("Recurring Service", ""),
+            data_dict.get("Period", ""), data_dict.get("Visits", ""), data_dict.get("Amount", ""),
+            data_dict.get("Notes / Remarks", ""), data_dict.get("Generated By", ""), data_dict.get("Amount Paid", ""),
+            data_dict.get("Details", ""), data_dict.get("Service Started", ""), data_dict.get("Service Ended", ""),
+            data_dict.get("Referral Code", ""), data_dict.get("Referral Name", ""), data_dict.get("Referral Credit", ""),
+            formula_net_amount, "", qty_extracted, formula_earnings,
+            "", "", "" 
+        ]
+        sheet_obj.append_row(row_values, value_input_option='USER_ENTERED')
+        return True
+    except Exception as e: st.error(f"Save Error: {e}"); return False
+
+def update_invoice_in_gsheet(data_dict, sheet_obj, original_inv_to_find):
+    if sheet_obj is None: return False
+    try:
+        cell = sheet_obj.find(str(original_inv_to_find).strip(), in_column=4)
+        if cell:
+            row_idx = cell.row
+            row_values = [
+                data_dict.get("UID", ""), data_dict.get("Serial No.", ""), data_dict.get("Ref. No.", ""),
+                data_dict.get("Invoice Number", ""), data_dict.get("Date", ""), data_dict.get("Generated At", ""),
+                data_dict.get("Customer Name", ""), data_dict.get("Age", ""), data_dict.get("Gender", ""),
+                data_dict.get("Location", ""), data_dict.get("Address", ""), data_dict.get("Mobile", ""),
+                data_dict.get("Plan", ""), data_dict.get("Shift", ""), data_dict.get("Recurring Service", ""),
+                data_dict.get("Period", ""), data_dict.get("Visits", ""), data_dict.get("Amount", ""),
+                data_dict.get("Notes / Remarks", ""), data_dict.get("Generated By", ""), data_dict.get("Amount Paid", ""),
+                data_dict.get("Details", ""), data_dict.get("Service Started", ""), data_dict.get("Service Ended", "")
+            ]
+            range_name = f"A{row_idx}:X{row_idx}"
+            sheet_obj.update(range_name, [row_values], value_input_option='USER_ENTERED')
+            return True
+        return False
+    except Exception as e: st.error(f"Update Error: {e}"); return False
+
+def update_nurse_management(sheet_obj, invoice_number, payment_amount, nurse_name, nurse_extra, nurse_note):
+    if sheet_obj is None: return False
+    try:
+        cell = sheet_obj.find(str(invoice_number).strip(), in_column=4) 
+        if cell:
+            row_idx = cell.row
+            details_val = sheet_obj.cell(row_idx, 22).value
+            qty = 1
+            if details_val:
+                match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
+                if match: qty = int(match.group(1))
+            formula_string = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
+            range_update = f"AC{row_idx}:AH{row_idx}"
+            sheet_obj.update(range_update, [[payment_amount, qty, formula_string, nurse_name, nurse_extra, nurse_note]], value_input_option='USER_ENTERED')
+            return True, formula_string
+        return False, None
+    except Exception as e: st.error(f"Nurse Update Error: {e}"); return False, None
+
+def mark_service_ended(sheet_obj, invoice_number, end_date):
+    if sheet_obj is None: return False, "No Sheet"
+    try:
+        cell = sheet_obj.find(str(invoice_number).strip(), in_column=4)
+        if cell:
+            end_time = end_date.strftime("%Y-%m-%d") + " " + datetime.datetime.now().strftime("%H:%M:%S")
+            range_name = f"X{cell.row}"
+            sheet_obj.update(range_name, [[end_time]])
+            return True, end_time
+        return False, "Invoice not found"
+    except Exception as e: return False, str(e)
+
+# --- DRIVE UPLOAD HELPERS ---
+def find_file_in_folder(service, folder_id, file_name):
+    try:
+        query = f"name = '{file_name}' and '{folder_id}' in parents and trashed = false"
+        results = service.files().list(q=query, fields="files(id, name)").execute()
+        files = results.get('files', [])
+        if files: return files[0]['id']
+        return None
+    except: return None
+
+def update_drive_file(service, file_id, file_content_bytes):
+    try:
+        media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
+        service.files().update(fileId=file_id, media_body=media).execute()
+        return True
+    except Exception as e: return False
+
+def upload_to_drive(service, folder_id, file_name, file_content_bytes):
+    file_metadata = {'name': file_name, 'parents': [folder_id]}
+    media = MediaIoBaseUpload(BytesIO(file_content_bytes), mimetype='application/pdf')
+    try:
+        file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        return file.get('id')
+    except Exception as e:
+        if "storage quota" in str(e).lower():
+            try: service.files().emptyTrash().execute()
+            except: pass
+            file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            return file.get('id')
+        return None
+        
+def get_clean_image_base64(file_path):
+    if not os.path.exists(file_path): return None
+    try:
+        img = Image.open(file_path).convert("RGBA")
+        buffer = BytesIO()
+        img.save(buffer, format="PNG", optimize=True)
+        return base64.b64encode(buffer.getvalue()).decode('utf-8')
+    except: return None
+
+def get_absolute_path(filename):
+    if os.path.exists(filename): return os.path.abspath(filename).replace('\\', '/')
+    return None
 
 # ==========================================
 # BACKUP LOGIC (CRITICAL POINT)
@@ -195,6 +404,9 @@ def perform_backup_logic(master_data, backup_url, target_month_str):
 # ==========================================
 st.title("🏥 Vesak Care - Invoice Generator")
 
+abs_logo_path = get_absolute_path(LOGO_FILE)
+logo_b64 = get_clean_image_base64(LOGO_FILE)
+
 # --- SIDEBAR CONFIGURATION ---
 with st.sidebar:
     with st.expander("⚙️ System Configuration", expanded=True):
@@ -246,6 +458,9 @@ with st.sidebar:
                 st.error(f"Could not read Master Workbook: {e}")
 
     st.markdown("---")
+    st.subheader("🖨️ PDF Settings")
+    pdf_top_margin = st.slider("Adjust Top Margin (px):", min_value=0, max_value=200, value=20, step=5)
+    
     data_source = st.radio("Load Customer Data via:", ["Upload File", "OneDrive Link"])
     if st.button("🔄 Refresh"): st.cache_data.clear(); st.rerun()
 
@@ -274,7 +489,8 @@ def render_invoice_ui(df_main, mode="standard"):
     # 1. Connect to Master Sheet
     client = get_gspread_client()
     master_id = extract_id_from_url(sys_config.get("master_sheet_url"))
-    
+    drive_service = get_drive_service()
+
     if not master_id or not client:
         st.error("❌ Master Workbook not linked in Sidebar Settings."); return
 
@@ -402,7 +618,9 @@ def render_invoice_ui(df_main, mode="standard"):
             "Generated At": datetime.datetime.now().strftime("%Y-%m-%d"),
             "Customer Name": c_name, "Mobile": c_mob, "Plan": c_plan,
             "Amount": rate, "Amount Paid": total, "Notes / Remarks": notes,
-            "Service Started": datetime.datetime.now().strftime("%Y-%m-%d"), "Service Ended": ""
+            "Service Started": datetime.datetime.now().strftime("%Y-%m-%d"), "Service Ended": "",
+            "Details": f"Paid for {billing_qty}", # Added Details Logic
+            "Details": f"Paid for {billing_qty}" if billing_qty < 2 else f"Paid for {billing_qty} units"
         }
         
         # Save to Sheet (Overwrite or Append)
@@ -410,6 +628,8 @@ def render_invoice_ui(df_main, mode="standard"):
             update_invoice_in_gsheet(record, sheet_obj, inv_final)
             st.success("Updated!")
         else:
+            if mode == "force_new" and active_record is not None:
+                mark_service_ended(sheet_obj, active_record['Invoice Number'], global_inv_date)
             save_invoice_to_gsheet(record, sheet_obj)
             st.success("Created!")
             
@@ -417,28 +637,83 @@ def render_invoice_ui(df_main, mode="standard"):
 
     # Generate PDF (Agreement or Invoice)
     if btn_save or btn_nurse or btn_patient:
-        # ... (Simplified PDF Logic reusing your existing HTML structure) ...
-        # For brevity, reusing the core logic:
-        pdf_type = "Invoice" if btn_save else ("Nurse" if btn_nurse else "Patient")
-        st.info(f"Generating {pdf_type} PDF...")
-        # (Insert your existing PDF generation HTML/Code here)
-        # Note: I'm keeping the structure clean. The logic remains the same as your code 
-        # but integrated into this simplified flow.
+        doc_type = "Invoice" if btn_save else ("Nurse" if btn_nurse else "Patient")
+        display_type = "NURSE AGREEMENT" if btn_nurse else "PATIENT AGREEMENT"
+        
+        # Determine HTML Content
+        if doc_type == "Invoice":
+            html_content = f"""
+            <!DOCTYPE html><html><head><style>
+                @page {{ size: a4 portrait; margin: 1cm; }}
+                body {{ font-family: 'Helvetica', sans-serif; }}
+                .header {{ text-align: center; }}
+                .service-box {{ margin-top: 10px; font-size: 12px; }}
+            </style></head><body>
+                <div class="header"><h2>INVOICE: {inv_input}</h2></div>
+                <p><strong>Customer:</strong> {c_name}</p>
+                <p><strong>Mobile:</strong> {c_mob}</p>
+                <hr>
+                <p><strong>Amount Paid:</strong> ₹{total}</p>
+                <p><strong>Date:</strong> {format_date_with_suffix(global_inv_date)}</p>
+                <br>
+                <p><em>Notes: {notes}</em></p>
+                <div class="service-box">
+                    <strong>Services Not Included:</strong><br>{exc_text}
+                </div>
+            </body></html>
+            """
+        else:
+             html_content = f"""
+            <!DOCTYPE html><html><head><style>
+                @page {{ size: a4 portrait; margin: 1cm; }}
+                body {{ font-family: 'Helvetica', sans-serif; }}
+                .header {{ text-align: center; }}
+            </style></head><body>
+                <div class="header">
+                    <img src="data:image/png;base64,{logo_b64}" width="100">
+                    <h2>Vesak Care Foundation</h2>
+                </div>
+                <h3>{display_type}</h3>
+                <p><strong>Ref:</strong> {c_ref}</p>
+                <p><strong>Date:</strong> {format_date_with_suffix(global_inv_date)}</p>
+                <br><br><br>
+                <p>Authorized Signatory</p>
+            </body></html>
+            """
+            
+        pdf_bytes = convert_html_to_pdf(html_content)
+        
+        if pdf_bytes:
+            file_name = generate_filename(doc_type, inv_input, c_name)
+            
+            # Save to Drive if Configured
+            folder_id = sys_config.get("folder_invoices") if doc_type == "Invoice" else sys_config.get("folder_agreements")
+            # If folder is a URL, extract ID
+            folder_id = extract_id_from_url(folder_id)
 
-# ==========================================
-# CONSTANTS & RUN
-# ==========================================
-# (Keep your SERVICES_MASTER and helper dictionaries here)
+            if folder_id and drive_service:
+                existing_id = find_file_in_folder(drive_service, folder_id, file_name)
+                if existing_id:
+                    if conflict_exists and chk_overwrite:
+                        update_drive_file(drive_service, existing_id, pdf_bytes)
+                        st.success(f"Drive: Overwritten {file_name}")
+                    else:
+                        st.warning(f"Drive: File {file_name} exists. Skipping upload.")
+                else:
+                    upload_to_drive(drive_service, folder_id, file_name, pdf_bytes)
+                    st.success(f"Drive: Saved {file_name}")
+            
+            st.download_button(f"⬇️ Download {doc_type} PDF", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
 if raw_file_obj:
     try:
-        is_excel = filename.endswith('.xlsx') if 'filename' in locals() else True
+        filename = getattr(raw_file_obj, "name", "data.xlsx")
+        is_excel = filename.endswith('.xlsx')
         if is_excel: df = pd.read_excel(raw_file_obj, engine='openpyxl')
         else: df = pd.read_csv(raw_file_obj)
         
         # Normalize columns
-        df.columns = df.columns.astype(str).str.strip()
-        # (Add your normalize_columns call here)
+        df = normalize_columns(df, COLUMN_ALIASES)
         
         with tab1: render_invoice_ui(df, mode="standard")
         with tab2: render_invoice_ui(df, mode="force_new")
