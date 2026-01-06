@@ -468,45 +468,103 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(["🧾 Generate Invoice", "🆕 Force New
 # CORE INVOICE FUNCTION
 # ==========================================
 def render_invoice_ui(df_main, mode="standard"):
-    # 1. Connect to Master Sheet
+    # 1. Connect to Master Sheet (MOVED UP FOR EXCLUSION LOGIC)
     client = get_gspread_client()
     master_id = extract_id_from_url(sys_config.get("master_sheet_url"))
 
     if not master_id or not client:
         st.error("❌ Master Workbook not linked in Sidebar Settings."); return
 
-    # --- NEW FILTER SECTION ---
-    st.subheader("1. Select Customer (Filter)")
-    
-    # 6. Filter Functionality
-    col_filt1, col_filt2 = st.columns(2)
-    with col_filt1:
-        # Renamed "Invoice Date" to "Filter Date" per instruction
-        filter_date = st.date_input("Filter Date (Search by Date):", value=datetime.date.today(), key=f"f_date_{mode}")
-    with col_filt2:
-        # Infer locations from data
-        unique_locs = ["All"] + sorted(list(df_main['Location'].astype(str).unique()))
-        filter_loc = st.selectbox("Filter Location:", unique_locs, key=f"f_loc_{mode}")
+    # --- FILTER SECTION ---
+    st.subheader("1. Select Customer")
 
-    # Apply Filter Logic
+    # Point 1: Toggle to Enable Filters (Default: OFF -> Show All)
+    use_filters = st.checkbox("🔍 Enable Search Filters (Date/Location)", key=f"use_filt_{mode}")
+
     df_view = df_main.copy()
+
+    if use_filters:
+        # 6. Filter Functionality (Active only when checkbox ticked)
+        col_filt1, col_filt2 = st.columns(2)
+        with col_filt1:
+            filter_date = st.date_input("Filter Date (Search by Date):", value=datetime.date.today(), key=f"f_date_{mode}")
+        with col_filt2:
+            unique_locs = ["All"] + sorted(list(df_main['Location'].astype(str).unique()))
+            filter_loc = st.selectbox("Filter Location:", unique_locs, key=f"f_loc_{mode}")
+
+        # Apply Filter Logic
+        if 'Call Date' in df_view.columns:
+            df_view['TempDate'] = pd.to_datetime(df_view['Call Date'], errors='coerce').dt.date
+            df_view = df_view[df_view['TempDate'] == filter_date]
+        
+        if filter_loc != "All":
+            df_view = df_view[df_view['Location'].astype(str) == filter_loc]
+
+    # --- CRITICAL POINT 2: EXCLUSION LOGIC (SERVICE ENDED) ---
+    # We must check the Google Sheet to see if "Service Ended" (Column X) has a date
+    # If so, remove them from df_view
     
-    # Filter by Date (Assuming 'Call Date' is the column)
-    if 'Call Date' in df_view.columns:
-        # Convert column to datetime for comparison
-        df_view['TempDate'] = pd.to_datetime(df_view['Call Date'], errors='coerce').dt.date
-        df_view = df_view[df_view['TempDate'] == filter_date]
+    # We use the current Invoice Date (default today) to determine which sheet to check
+    # But for exclusion, we check the sheet corresponding to today or standard active sheet
     
-    # Filter by Location
-    if filter_loc != "All":
-        df_view = df_view[df_view['Location'].astype(str) == filter_loc]
+    current_mmm_yy = datetime.date.today().strftime("%b-%y")
+    
+    # We fetch history here to build the exclusion list
+    excluded_refs = []
+    
+    try:
+        wb = client.open_by_key(master_id)
+        # Try to open current month sheet to check for ended services
+        try: 
+            sheet_check = wb.worksheet(current_mmm_yy)
+            data_check = sheet_check.get_all_records()
+            df_check = pd.DataFrame(data_check)
+            
+            if not df_check.empty and 'Service Ended' in df_check.columns:
+                # Normalize Columns for check
+                df_check['Ref_Norm'] = df_check['Ref. No.'].apply(normalize_id)
+                df_check['Ser_Norm'] = df_check['Serial No.'].apply(normalize_id)
+                
+                # Check for Valid Date in Service Ended (DD-MM-YYYY)
+                # Regex for DD-MM-YYYY or DD-MM-YY
+                date_pattern = r'\d{1,2}-\d{1,2}-\d{2,4}'
+                
+                ended_mask = df_check['Service Ended'].astype(str).str.contains(date_pattern, regex=True, na=False)
+                ended_rows = df_check[ended_mask]
+                
+                # Create a set of "Ref-Serial" keys to exclude
+                if not ended_rows.empty:
+                    for _, r_end in ended_rows.iterrows():
+                        key = f"{normalize_id(r_end['Ref. No.'])}-{normalize_id(r_end['Serial No.'])}"
+                        excluded_refs.append(key)
+                        
+        except gspread.exceptions.WorksheetNotFound:
+            pass # No sheet for this month yet, so no one has ended service this month yet.
+            
+    except Exception as e:
+        st.warning(f"Could not check exclusion list: {e}")
+
+    # Apply Exclusion to df_view
+    if excluded_refs:
+        df_view['Ref_Norm_View'] = df_view['Ref. No.'].apply(normalize_id)
+        df_view['Ser_Norm_View'] = df_view['Serial No.'].apply(normalize_id)
+        df_view['Unique_Key'] = df_view['Ref_Norm_View'] + "-" + df_view['Ser_Norm_View']
+        
+        # Filter out rows where Unique_Key is in excluded_refs
+        df_view = df_view[~df_view['Unique_Key'].isin(excluded_refs)]
+        
+        # Clean up temp columns
+        df_view = df_view.drop(columns=['Ref_Norm_View', 'Ser_Norm_View', 'Unique_Key'])
 
     # Dropdown to select Customer
     df_view['Ref_Clean'] = df_view['Ref. No.'].astype(str).str.strip()
     df_view['Label'] = df_view['Name'].astype(str) + " (" + df_view['Mobile'].astype(str) + ")"
     
     if df_view.empty:
-        st.warning(f"No customers found for {filter_date} in {filter_loc}.")
+        if use_filters:
+            st.warning(f"No active customers found for {filter_date} in {filter_loc}.")
+        else:
+            st.warning("No active customers found in the file.")
         return
 
     selected_label = st.selectbox(f"Select Customer ({mode}):", [""] + list(df_view['Label'].unique()), key=f"sel_{mode}")
@@ -550,9 +608,11 @@ def render_invoice_ui(df_main, mode="standard"):
         # Generate Invoice Number Logic
         mmm_yy = inv_date_val.strftime("%b-%y")
         try:
-            wb = client.open_by_key(master_id)
-            try: sheet_obj = wb.worksheet(mmm_yy)
-            except: sheet_obj = wb.add_worksheet(title=mmm_yy, rows=1000, cols=34); sheet_obj.append_row(SHEET_HEADERS)
+            # We open the workbook again or reuse, but we need the specific month sheet for saving
+            # Since 'wb' was opened for exclusion check (current month), we might need a different month if invoice date is different
+            wb_save = client.open_by_key(master_id)
+            try: sheet_obj = wb_save.worksheet(mmm_yy)
+            except: sheet_obj = wb_save.add_worksheet(title=mmm_yy, rows=1000, cols=34); sheet_obj.append_row(SHEET_HEADERS)
         except Exception as e: st.error(f"Connection Error: {e}"); return
         
         master_records = sheet_obj.get_all_records()
