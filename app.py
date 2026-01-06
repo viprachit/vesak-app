@@ -180,6 +180,42 @@ def clean_referral_field(val):
     if s_val == "": return ""
     return s_val
 
+# --- NEW CACHED FUNCTION TO FIX QUOTA ERROR ---
+@st.cache_data(ttl=300, show_spinner=False)
+def get_cached_exclusion_list(master_id, month_str):
+    """
+    Fetches the exclusion list with caching (5 mins) to prevent 429 Quota Errors.
+    """
+    client = get_gspread_client()
+    if not client or not master_id: return []
+    
+    excluded_refs = []
+    try:
+        wb = client.open_by_key(master_id)
+        try:
+            sheet_check = wb.worksheet(month_str)
+            data_check = sheet_check.get_all_records()
+            df_check = pd.DataFrame(data_check)
+            
+            if not df_check.empty and 'Service Ended' in df_check.columns:
+                df_check['Ref_Norm'] = df_check['Ref. No.'].apply(normalize_id)
+                df_check['Ser_Norm'] = df_check['Serial No.'].apply(normalize_id)
+                
+                date_pattern = r'\d{1,2}-\d{1,2}-\d{2,4}'
+                ended_mask = df_check['Service Ended'].astype(str).str.contains(date_pattern, regex=True, na=False)
+                ended_rows = df_check[ended_mask]
+                
+                if not ended_rows.empty:
+                    for _, r_end in ended_rows.iterrows():
+                        key = f"{normalize_id(r_end['Ref. No.'])}-{normalize_id(r_end['Serial No.'])}"
+                        excluded_refs.append(key)
+        except gspread.exceptions.WorksheetNotFound: pass
+    except Exception as e:
+        # Return empty list on error to allow app to function, just without filtering
+        return []
+        
+    return excluded_refs
+
 def generate_filename(doc_type, invoice_no, customer_name):
     prefix = {"Invoice": "IN", "Nurse": "NU", "Patient": "PA"}.get(doc_type, "DOC")
     clean_name = re.sub(r'[^a-zA-Z0-9]', '-', str(customer_name)).upper().strip('-')
@@ -515,30 +551,9 @@ def render_invoice_ui(df_main, mode="standard"):
 
     # --- CRITICAL POINT 2: EXCLUSION LOGIC (SERVICE ENDED) ---
     current_mmm_yy = datetime.date.today().strftime("%b-%y")
-    excluded_refs = []
     
-    try:
-        wb = client.open_by_key(master_id)
-        # Try to open current month sheet to check for ended services
-        try: 
-            sheet_check = wb.worksheet(current_mmm_yy)
-            data_check = sheet_check.get_all_records()
-            df_check = pd.DataFrame(data_check)
-            
-            if not df_check.empty and 'Service Ended' in df_check.columns:
-                df_check['Ref_Norm'] = df_check['Ref. No.'].apply(normalize_id)
-                df_check['Ser_Norm'] = df_check['Serial No.'].apply(normalize_id)
-                date_pattern = r'\d{1,2}-\d{1,2}-\d{2,4}'
-                ended_mask = df_check['Service Ended'].astype(str).str.contains(date_pattern, regex=True, na=False)
-                ended_rows = df_check[ended_mask]
-                
-                if not ended_rows.empty:
-                    for _, r_end in ended_rows.iterrows():
-                        key = f"{normalize_id(r_end['Ref. No.'])}-{normalize_id(r_end['Serial No.'])}"
-                        excluded_refs.append(key)
-        except gspread.exceptions.WorksheetNotFound: pass 
-    except Exception as e:
-        st.warning(f"Could not check exclusion list: {e}")
+    # CALL THE CACHED FUNCTION INSTEAD OF DIRECT API HIT
+    excluded_refs = get_cached_exclusion_list(master_id, current_mmm_yy)
 
     # Apply Exclusion to df_view
     if excluded_refs:
