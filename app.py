@@ -763,7 +763,7 @@ def render_invoice_ui(df_main, mode="standard"):
     if not conflict_exists:
         # Generate NEW Invoice Number if no conflict
         loc_code = "MUM" if "mumbai" in str(row.get('Location', '')).lower() else "PUN"
-        date_part = default_date.strftime('%y%m%d')
+        date_part = default_date.strftime('%d%m%y')
         prefix = f"{loc_code}-{date_part}-"
         next_seq = 1
         if not df_history.empty and 'Invoice Number' in df_history.columns:
@@ -1220,3 +1220,4 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
