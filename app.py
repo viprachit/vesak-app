@@ -1019,8 +1019,12 @@ def render_invoice_ui(df_main, mode="standard"):
         </main>
 
         <footer class="relative z-10 mt-auto w-full">
+            <!-- Minimalist Top Divider -->
             <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
+        
+            <!-- Footer Content -->
             <div class="flex justify-between items-end text-xs text-gray-500">
+                <!-- Office Locations (LEFT) -->
                 <div>
                     <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
                     <div class="flex gap-2">
@@ -1029,11 +1033,24 @@ def render_invoice_ui(df_main, mode="standard"):
                         <span>Kolhapur</span>
                     </div>
                 </div>
-                <div class="flex flex-col items-end gap-1">
-                    <span class="flex items-center gap-2"><img src="data:image/png;base64,{ig_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
-                    <span class="flex items-center gap-2"><img src="data:image/png;base64,{fb_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
+        
+                <!-- Social Media Icons (RIGHT) -->
+                <div class="flex flex-col items-end gap-2">
+                    <!-- Instagram -->
+                    <a href="https://www.instagram.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
+                        <i class="fab fa-instagram text-lg"></i>
+                        <span>@VesakCare</span>
+                    </a>
+        
+                    <!-- Facebook -->
+                    <a href="https://www.facebook.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
+                        <i class="fab fa-facebook text-lg"></i>
+                        <span>@VesakCare</span>
+                    </a>
                 </div>
             </div>
+        
+            <!-- Bottom Bar -->
             <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
         </footer>
     </div>
@@ -1175,3 +1192,4 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
