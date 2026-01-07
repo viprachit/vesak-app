@@ -919,7 +919,7 @@ def render_invoice_ui(df_main, mode="standard"):
         }}
     </style>
 </head>
-<body class="py-10 flex justify-center">
+<body class="py-10">
     <div class="max-w-[210mm] mx-auto mb-6 flex justify-end no-print px-4">
         <button onclick="generatePDF()" class="bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition font-bold text-xs uppercase tracking-widest">
             <i class="fas fa-download mr-2"></i> Download PDF
@@ -1191,6 +1191,7 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
