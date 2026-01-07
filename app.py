@@ -951,7 +951,7 @@ def render_invoice_ui(df_main, mode="standard"):
             body {{ background: white; -webkit-print-color-adjust: exact; }}
             .invoice-page {{ margin: 0; box-shadow: none; width: 100%; height: 100%; padding: 40px; }}
             .no-print {{ display: none !important; }}
-            .watermark-container {{ opacity: 0.015 !important; }}
+            .watermark-container {{ opacity: 0.03 !important; }}
         }}
     </style>
 </head>
@@ -1220,4 +1220,5 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
