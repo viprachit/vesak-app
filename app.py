@@ -1035,13 +1035,13 @@ def render_invoice_ui(df_main, mode="standard"):
                 </div>
         
                 <!-- Social Media Icons (RIGHT) -->
-                <div class="flex flex-col items-end gap-2">
+                <div class="flex items-center gap-6">
                     <!-- Instagram -->
                     <a href="https://www.instagram.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
                         <i class="fab fa-instagram text-lg"></i>
                         <span>@VesakCare</span>
                     </a>
-        
+                
                     <!-- Facebook -->
                     <a href="https://www.facebook.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
                         <i class="fab fa-facebook text-lg"></i>
@@ -1192,4 +1192,5 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
