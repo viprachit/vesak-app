@@ -897,6 +897,16 @@ def render_invoice_ui(df_main, mode="standard"):
         if mode == "force_new": details_text += " (New)"
         # ---------------------------------------------
 
+        # --- LOGIC FOR HISTORY PLAN NAME SAVING ---
+        plan_to_save = c_plan
+        sub_service_val = str(row.get('Sub Service', '')).strip()
+        
+        if c_plan == "Plan F: Rehabilitative Care":
+            plan_to_save = f"Plan F: Rehabilitative Care and {sub_service_val}"
+        elif c_plan == "A-la-carte Services":
+            plan_to_save = f"Other Services - {sub_service_val}"
+        # -------------------------------------------
+
         record = {
             "UID": "", 
             "Serial No.": c_serial, 
@@ -910,7 +920,7 @@ def render_invoice_ui(df_main, mode="standard"):
             "Location": c_loc,
             "Address": c_addr,
             "Mobile": c_mob, 
-            "Plan": c_plan,
+            "Plan": plan_to_save,                  # Updated for History
             "Shift": c_shift,
             "Recurring Service": c_rec,
             "Period": c_period,
@@ -959,7 +969,29 @@ def render_invoice_ui(df_main, mode="standard"):
             amount_col_html = construct_amount_html(row, billing_qty)
             inc_def = inc_list
             final_exc = exc_final
-            clean_plan = c_plan
+            
+            # --- LOGIC FOR PDF DESCRIPTION TEXT ---
+            pdf_display_plan = c_plan # Default fallback
+            sub_srv_txt = str(row.get('Sub Service', '')).strip()
+            
+            if c_plan == "Plan A: Patient Attendant Care":
+                pdf_display_plan = "Patient Care Service"
+            elif c_plan == "Plan B: Skilled Nursing":
+                pdf_display_plan = "Nurse Service"
+            elif c_plan == "Plan C: Chronic Management":
+                pdf_display_plan = "Chronic and Holistic Healthcare Service"
+            elif c_plan == "Plan D: Elderly Companion":
+                pdf_display_plan = "Elderly and Well-being Care"
+            elif c_plan == "Plan E: Maternal & Newborn":
+                pdf_display_plan = "Maternal & Newborn - Support for Women during and after Pregnancy"
+            elif c_plan == "Plan F: Rehabilitative Care":
+                pdf_display_plan = f"Rehabilitative Care for {sub_srv_txt}"
+            elif c_plan == "A-la-carte Services":
+                pdf_display_plan = f"Other Service - {sub_srv_txt}"
+            
+            clean_plan = pdf_display_plan
+            # --------------------------------------
+            
             final_notes = notes
             
             # Helper placeholders for images (Empty strings to avoid crash if not defined)
@@ -1287,4 +1319,3 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
-
