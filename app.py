@@ -253,6 +253,93 @@ def get_base_lists(selected_plan, selected_sub_service):
             if cleaned and cleaned not in included_clean: not_included_clean.append(cleaned)
     return included_clean, list(set(not_included_clean))
 
+# --- NEW HTML HELPERS (INSERTED) ---
+def construct_description_html(row):
+    shift_raw = str(row.get('Shift', '')).strip()
+    recurring = str(row.get('Recurring Service', '')).strip().lower() # Corrected key
+    period_raw = str(row.get('Period', '')).strip()
+    shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
+    shift_str = shift_map.get(shift_raw, shift_raw)
+    time_suffix = " (Time)" if "12" in shift_str else ""
+    return f"""<div style="margin-top: 4px;"><div style="font-size: 12px; color: #4a4a4a; font-weight: bold;">{shift_str}{time_suffix}</div><div style="font-size: 10px; color: #777; font-style: italic; margin-top: 2px;">{period_raw}</div></div>"""
+
+def construct_amount_html(row, billing_qty):
+    try: unit_rate = float(row.get('Unit Rate', 0)) 
+    except: unit_rate = 0.0
+    try: visits_needed = int(float(row.get('Visits', 0)))
+    except: visits_needed = 0
+    
+    period_raw = str(row.get('Period', '')).strip()
+    period_lower = period_raw.lower()
+    shift_raw = str(row.get('Shift', '')).strip()
+    
+    # NEW LOGIC FOR DETECTING "PER VISIT"
+    is_per_visit = "per visit" in shift_raw.lower()
+    
+    billing_note = ""
+    def get_plural(unit, qty):
+        if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
+        if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
+        if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
+        if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit" 
+        return unit
+
+    if is_per_visit:
+        # --- NEW LOGIC FOR PER VISIT ---
+        paid_text = f"Paid for {billing_qty} {get_plural('Visit', billing_qty)}"
+        if visits_needed > 1 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
+        elif billing_qty >= visits_needed: billing_note = f"Paid for {visits_needed} Visits."
+        elif visits_needed == 1: billing_note = "Paid for 1 Visit."
+        elif billing_qty < visits_needed: billing_note = f"Next Bill will be Generated after {billing_qty} Visits."
+        else: billing_note = paid_text
+    elif "month" in period_lower or "week" in period_lower:
+        base_unit = "Month" if "month" in period_lower else "Week"
+        paid_text = f"Paid for {billing_qty} {get_plural(base_unit, billing_qty)}"
+        if visits_needed > 1 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
+        elif visits_needed > billing_qty: billing_note = f"Next Bill will be Generated after {billing_qty} {get_plural(base_unit, billing_qty)}."
+        else: billing_note = paid_text
+    elif "daily" in period_lower:
+        paid_text = f"Paid for {billing_qty} {get_plural('Day', billing_qty)}"
+        if 1 < visits_needed < 6 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
+        elif billing_qty >= visits_needed: billing_note = f"Paid for {visits_needed} Days."
+        elif visits_needed == 1: billing_note = "Paid for 1 Day."
+        elif billing_qty < visits_needed: billing_note = f"Next Bill will be Generated after {billing_qty} Days."
+        else: billing_note = paid_text
+    else:
+        paid_text = f"Paid for {billing_qty} {period_raw}"
+        billing_note = ""
+
+    total_amount = unit_rate * billing_qty
+    shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
+    shift_display = shift_map.get(shift_raw, shift_raw)
+    if "12" in shift_display and "Time" not in shift_display: shift_display += " (Time)"
+    
+    period_display = "Monthly" if "month" in period_lower else period_raw.capitalize()
+    if "daily" in period_lower: period_display = "Daily"
+    if is_per_visit: period_display = "Visit"
+    
+    unit_rate_str = "{:,.0f}".format(unit_rate)
+    total_amount_str = "{:,.0f}".format(total_amount)
+    
+    unit_label = "Month" if "month" in period_lower else "Week" if "week" in period_lower else "Day"
+    if is_per_visit: unit_label = "Visit"
+    
+    paid_for_text = f"Paid for {billing_qty} {get_plural(unit_label, billing_qty)}"
+
+    return f"""
+    <div style="text-align: right; font-size: 13px; color: #555;">
+        <div style="margin-bottom: 4px;">{shift_display} / {period_display} = <b>₹ {unit_rate_str}</b></div>
+        <div style="color: #CC4E00; font-weight: bold; font-size: 14px; margin: 2px 0;">X</div>
+        <div style="font-weight: bold; font-size: 13px; margin: 2px 0; color: #333;">{paid_for_text}</div>
+        <div style="border-bottom: 1px solid #ccc; width: 100%; margin: 6px 0;"></div>
+        <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
+            <span style="font-size: 13px; font-weight: 800; color: #002147; text-transform: uppercase;">TOTAL - </span>
+            <span style="font-size: 16px; font-weight: bold; color: #000;">Rs. {total_amount_str}</span>
+        </div>
+        <div style="font-size: 10px; color: #666; font-style: italic; margin-top: 6px;">{billing_note}</div>
+    </div>
+    """
+
 def convert_html_to_pdf(source_html):
     result = BytesIO()
     pisa_status = pisa.CreatePDF(source_html, dest=result)
@@ -317,40 +404,40 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         if match: qty_extracted = int(match.group(1))
 
         row_values = [
-            final_uid,                          # A
-            data_dict.get("Serial No.", ""),    # B
-            data_dict.get("Ref. No.", ""),      # C
-            data_dict.get("Invoice Number", ""),# D
-            data_dict.get("Date", ""),          # E
-            data_dict.get("Generated At", ""),  # F
-            data_dict.get("Customer Name", ""), # G
-            data_dict.get("Age", ""),           # H
-            data_dict.get("Gender", ""),        # I
-            data_dict.get("Location", ""),      # J
-            data_dict.get("Address", ""),       # K
-            data_dict.get("Mobile", ""),        # L
-            data_dict.get("Plan", ""),          # M
-            data_dict.get("Shift", ""),         # N
+            final_uid,                              # A
+            data_dict.get("Serial No.", ""),        # B
+            data_dict.get("Ref. No.", ""),          # C
+            data_dict.get("Invoice Number", ""),    # D
+            data_dict.get("Date", ""),              # E
+            data_dict.get("Generated At", ""),      # F
+            data_dict.get("Customer Name", ""),     # G
+            data_dict.get("Age", ""),               # H
+            data_dict.get("Gender", ""),            # I
+            data_dict.get("Location", ""),          # J
+            data_dict.get("Address", ""),           # K
+            data_dict.get("Mobile", ""),            # L
+            data_dict.get("Plan", ""),              # M
+            data_dict.get("Shift", ""),             # N
             data_dict.get("Recurring Service", ""), # O
-            data_dict.get("Period", ""),        # P
-            data_dict.get("Visits", ""),        # Q
-            data_dict.get("Amount", ""),        # R
-            data_dict.get("Notes / Remarks", ""), # S
-            data_dict.get("Generated By", ""),  # T
-            data_dict.get("Amount Paid", ""),   # U
-            data_dict.get("Details", ""),       # V
-            data_dict.get("Service Started", ""), # W (DD-MM-YYYY)
-            data_dict.get("Service Ended", ""),   # X (DD-MM-YYYY)
-            data_dict.get("Referral Code", ""),   # Y
-            data_dict.get("Referral Name", ""),   # Z
-            data_dict.get("Referral Credit", ""), # AA
-            formula_net_amount,                 # AB
-            "",                                 # AC
-            qty_extracted,                      # AD
-            formula_earnings,                   # AE
-            "",                                 # AF
-            "",                                 # AG
-            ""                                  # AH
+            data_dict.get("Period", ""),            # P
+            data_dict.get("Visits", ""),            # Q
+            data_dict.get("Amount", ""),            # R
+            data_dict.get("Notes / Remarks", ""),   # S
+            data_dict.get("Generated By", ""),      # T
+            data_dict.get("Amount Paid", ""),       # U
+            data_dict.get("Details", ""),           # V
+            data_dict.get("Service Started", ""),   # W (DD-MM-YYYY)
+            data_dict.get("Service Ended", ""),     # X (DD-MM-YYYY)
+            data_dict.get("Referral Code", ""),     # Y
+            data_dict.get("Referral Name", ""),     # Z
+            data_dict.get("Referral Credit", ""),   # AA
+            formula_net_amount,                     # AB
+            "",                                     # AC
+            qty_extracted,                          # AD
+            formula_earnings,                       # AE
+            "",                                     # AF
+            "",                                     # AG
+            ""                                      # AH
         ]
         sheet_obj.append_row(row_values, value_input_option='USER_ENTERED')
         return True
@@ -711,7 +798,7 @@ def render_invoice_ui(df_main, mode="standard"):
         record = {
             "UID": "", 
             "Serial No.": c_serial, 
-            "Ref. No.": c_ref,       
+            "Ref. No.": c_ref,        
             "Invoice Number": inv_input, 
             "Date": format_date_with_suffix(inv_date_val), # Display format for PDF/Sheet View
             "Generated At": generated_at, 
@@ -733,9 +820,9 @@ def render_invoice_ui(df_main, mode="standard"):
             "Service Started": service_start_date, # Point 9
             "Service Ended": "",                   # Point 10
             "Details": f"Paid for {billing_qty} units",
-            "Referral Code": c_ref_code,   # Cleaned (No 'nan')
-            "Referral Name": c_ref_name,   # Cleaned (No 'nan')
-            "Referral Credit": c_ref_credit# Cleaned (No 'nan')
+            "Referral Code": c_ref_code,    # Cleaned (No 'nan')
+            "Referral Name": c_ref_name,    # Cleaned (No 'nan')
+            "Referral Credit": c_ref_credit # Cleaned (No 'nan')
         }
         
         if conflict_exists and chk_overwrite and existing_row_idx:
@@ -764,14 +851,37 @@ def render_invoice_ui(df_main, mode="standard"):
         file_name = generate_filename(doc_type, inv_input, c_name)
 
         if doc_type == "Invoice":
-            # --- NEW HTML TEMPLATE WITH INJECTED DATA ---
+            # --- PREPARE DATA FOR HTML INJECTION ---
+            desc_col_html = construct_description_html(row)
+            amount_col_html = construct_amount_html(row, billing_qty)
+            inc_def = inc_list
+            final_exc = exc_final
+            clean_plan = c_plan
+            final_notes = notes
+            
+            # Helper placeholders for images (Empty strings to avoid crash if not defined)
+            ig_b64 = "" 
+            fb_b64 = ""
+            
+            # Map variables for the specific HTML template provided
+            fmt_date = pdf_date_str
+            inv_num = inv_input
+            
+            # HTML Lists Preparation
+            inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
+            exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
+
+            notes_section = ""
+            if final_notes:
+                notes_section = f"""<div class="mt-6 p-4 bg-gray-50 border border-gray-100 rounded"><h4 class="font-bold text-vesak-navy text-xs mb-1">NOTES</h4><p class="text-xs text-gray-600 whitespace-pre-wrap">{final_notes}</p></div>"""
+
+            # --- WEB PREVIEW TEMPLATE (Tailwind CSS) ---
             html_content = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vesak Care Foundation Invoice</title>
+    <title>Invoice</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -779,199 +889,163 @@ def render_invoice_ui(df_main, mode="standard"):
         tailwind.config = {{
             theme: {{
                 extend: {{
-                    colors: {{
-                        vesak: {{
-                            navy: '#002147',
-                            gold: '#C5A065',
-                            orange: '#CC4E00',
-                            gray: '#4a4a4a',
-                            light: '#fcfcfc'
-                        }}
-                    }},
-                    fontFamily: {{
-                        serif: ['"Playfair Display"', 'serif'],
-                        sans: ['"Lato"', 'sans-serif']
-                    }}
+                    colors: {{ vesak: {{ navy: '#002147', gold: '#C5A065', orange: '#CC4E00' }} }},
+                    fontFamily: {{ serif: ['"Playfair Display"', 'serif'], sans: ['"Lato"', 'sans-serif'] }}
                 }}
             }}
         }}
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
-        
-        body {{
-            font-family: 'Lato', sans-serif;
-            background: #f0f0f0;
-        }}
-
+        body {{ font-family: 'Lato', sans-serif; background: #f0f0f0; }}
         .invoice-page {{
-            background: white;
-            width: 210mm;
-            min-height: 297mm;
-            margin: 20px auto;
-            padding: 40px;
-            position: relative;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-            display: flex;
-            flex-direction: column;
+            background: white; width: 210mm; min-height: 297mm;
+            margin: 20px auto; padding: 40px; position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); display: flex; flex-direction: column;
         }}
-
-        /* Subtle Watermark */
         .watermark-container {{
-            position: absolute;
-            top: 55%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            opacity: 0.04; 
-            pointer-events: none;
-            z-index: 0;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; align-items: center;
+            opacity: 0.03; pointer-events: none; z-index: 0;
         }}
-
         .watermark-text {{
-            font-family: 'Playfair Display', serif;
-            font-size: 80px;
-            font-weight: 700;
-            color: #002147;
-            letter-spacing: 0.3em;
-            margin-top: 10px;
+            font-family: 'Playfair Display', serif; font-size: 80px;
+            font-weight: 700; color: #002147; letter-spacing: 0.3em;
         }}
-
         @media print {{
-            body {{ 
-                background: white; 
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact;
-            }}
-            .invoice-page {{
-                margin: 0;
-                box-shadow: none;
-                width: 100%;
-                height: 100vh;
-                padding: 40px; 
-            }}
+            body {{ background: white; -webkit-print-color-adjust: exact; }}
+            .invoice-page {{ margin: 0; box-shadow: none; width: 100%; height: 100%; padding: 40px; }}
             .no-print {{ display: none !important; }}
+            .watermark-container {{ opacity: 0.015 !important; }}
         }}
     </style>
 </head>
 <body class="py-10">
-
-    <div class="max-w-[210mm] mx-auto mb-6 flex justify-end items-center no-print px-4">
-        <button onclick="downloadPDF()" class="flex items-center gap-2 bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition-colors duration-300">
-            <i class="fas fa-download"></i>
-            <span class="text-xs uppercase tracking-widest font-bold">Download PDF</span>
+    <div class="max-w-[210mm] mx-auto mb-6 flex justify-end no-print px-4">
+        <button onclick="generatePDF()" class="bg-vesak-navy text-white px-6 py-2 rounded shadow hover:bg-vesak-gold transition font-bold text-xs uppercase tracking-widest">
+            <i class="fas fa-download mr-2"></i> Download PDF
         </button>
     </div>
 
     <div class="invoice-page" id="invoice-content">
-        
         <div class="watermark-container">
-            <svg width="250" height="250" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M30 5 H70 L95 30 V70 L70 95 H30 L5 70 V30 L30 5Z" stroke="#002147" stroke-width="2" fill="none"/>
-                <path d="M50 15 V35" stroke="#C5A065" stroke-width="2"/>
-                <path d="M50 65 V85" stroke="#C5A065" stroke-width="2"/>
-                <path d="M15 50 H35" stroke="#C5A065" stroke-width="2"/>
-                <path d="M65 50 H85" stroke="#C5A065" stroke-width="2"/>
-                <path d="M25 25 L40 40" stroke="#C5A065" stroke-width="2"/>
-                <path d="M60 60 L75 75" stroke="#C5A065" stroke-width="2"/>
-                <path d="M75 25 L60 40" stroke="#C5A065" stroke-width="2"/>
-                <path d="M40 60 L25 75" stroke="#C5A065" stroke-width="2"/>
-                <circle cx="50" cy="50" r="8" fill="#CC4E00"/>
-            </svg>
-            <div class="watermark-text">VESAK</div>
+            <img src="data:image/png;base64,{logo_b64}" style="width: 300px; opacity: 0.3;">
+            <div class="watermark-text mt-4">VESAK</div>
         </div>
 
-        <header class="relative z-10 w-full mb-12">
-            <div class="flex justify-between items-start border-b border-gray-100 pb-8">
+        <header class="relative z-10 w-full mb-10">
+            <div class="flex justify-between items-start border-b border-gray-100 pb-6">
                 <div class="flex items-center gap-5">
-                    <div class="w-16 h-16 relative">
-                        <img src="data:image/png;base64,{logo_b64}" class="w-full h-full object-contain">
-                    </div>
-                    
+                    <img src="data:image/png;base64,{logo_b64}" class="w-20 h-auto">
                     <div>
                         <h1 class="font-serif text-2xl font-bold text-vesak-navy tracking-wide leading-none mb-2">
                             Vesak Care <span class="text-vesak-gold font-normal">Foundation</span>
                         </h1>
                         <div class="flex flex-col text-xs text-gray-500 font-light tracking-wide space-y-0.5">
-                            <span class="flex items-center gap-2"><span class="w-16 text-vesak-gold uppercase text-[10px] font-bold">Web</span>vesakcare.com</span>
-                            <span class="flex items-center gap-2"><span class="w-16 text-vesak-gold uppercase text-[10px] font-bold">Email</span> vesakcare@gmail.com</span>
-                            <span class="flex items-center gap-2"><span class="w-16 text-vesak-gold uppercase text-[10px] font-bold">Phone</span> +91 7777 000 878</span>
+                            <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Web</span> vesakcare.com</span>
+                            <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Email</span> vesakcare@gmail.com</span>
+                            <span><span class="font-bold text-vesak-gold uppercase w-12 inline-block">Phone</span> +91 7777 000 878</span>
                         </div>
                     </div>
                 </div>
-
                 <div class="text-right">
-                    <span class="block font-serif text-3xl text-gray-200 tracking-widest">INVOICE</span>
-                    <span class="block font-sans text-sm font-bold text-vesak-navy mt-1">#{inv_input}</span>
-                    <span class="block font-sans text-xs text-gray-400 mt-1">{pdf_date_str}</span>
+                    <span class="block font-serif text-3xl text-gray-200 tracking-widest mb-2">INVOICE</span>
+                    <div class="text-xs text-vesak-navy">
+                        <div class="mb-1"><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">Date</span> <b>{fmt_date}</b></div>
+                        <div><span class="text-gray-400 uppercase tracking-wider text-[10px] mr-2">No.</span> <b>{inv_num}</b></div>
+                    </div>
                 </div>
             </div>
         </header>
 
         <main class="flex-grow relative z-10">
-            <div class="grid grid-cols-2 gap-10 mb-12">
+            
+            <div class="flex mb-10 bg-gray-50 border-l-4 border-vesak-navy">
+                <div class="w-1/2 p-4 border-r border-gray-200">
+                    <div class="text-[10px] font-bold text-vesak-gold uppercase mb-1">Billed To</div>
+                    <div class="text-lg font-bold text-vesak-navy">{c_name}</div>
+                    <div class="flex gap-4 mt-2 text-xs text-gray-600">
+                        <div class="flex items-center gap-1"><i class="fas fa-user text-vesak-gold"></i> {c_gender}</div>
+                        <div class="flex items-center gap-1"><i class="fas fa-birthday-cake text-vesak-gold"></i> {c_age} Yrs</div>
+                    </div>
+                </div>
+                <div class="w-1/2 p-4 flex flex-col justify-center">
+                    <div class="flex items-center gap-2 text-xs text-gray-600 mb-2">
+                        <i class="fas fa-phone-alt text-vesak-gold w-4"></i> {c_mob}
+                    </div>
+                    <div class="flex items-start gap-2 text-xs text-gray-600">
+                        <i class="fas fa-map-marker-alt text-vesak-gold w-4 mt-0.5"></i> 
+                        <span class="leading-tight">{c_addr}</span>
+                    </div>
+                </div>
+            </div>
+
+            <table class="w-full mb-8">
+                <thead>
+                    <tr class="bg-vesak-navy text-white text-xs uppercase tracking-wider text-left">
+                        <th class="p-3 w-3/5">Description</th>
+                        <th class="p-3 w-2/5 text-right">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b border-gray-100">
+                        <td class="p-4 align-top">
+                            <div class="font-bold text-sm text-gray-800">{clean_plan}</div>
+                            {desc_col_html}
+                        </td>
+                        <td class="p-4 text-right font-bold text-sm text-gray-800 align-top">
+                            {amount_col_html}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="grid grid-cols-2 gap-8">
                 <div>
-                    <h3 class="text-xs uppercase font-bold text-gray-400 tracking-widest mb-4">Billed To</h3>
-                    <p class="font-serif text-xl font-bold text-vesak-navy mb-1">{c_name}</p>
-                    <p class="text-sm text-gray-500 font-light mb-1">{c_addr}</p>
-                    <p class="text-sm text-gray-500 font-light">Mobile: {c_mob}</p>
+                    <h4 class="text-xs font-bold text-vesak-navy uppercase border-b border-vesak-gold pb-1 mb-3">Services Included</h4>
+                    <ul class="list-disc pl-4 space-y-1">{inc_html}</ul>
                 </div>
-                
-                <div class="text-right">
-                    <h3 class="text-xs uppercase font-bold text-gray-400 tracking-widest mb-4">Service Details</h3>
-                    <p class="text-sm text-gray-600 mb-1"><span class="font-bold text-vesak-navy">Plan:</span> {c_plan}</p>
-                    <p class="text-sm text-gray-600 mb-1"><span class="font-bold text-vesak-navy">Units:</span> {billing_qty}</p>
-                    <p class="text-sm text-gray-600"><span class="font-bold text-vesak-navy">Rate:</span> ₹{rate}</p>
+                <div>
+                    <h4 class="text-xs font-bold text-gray-400 uppercase border-b border-gray-200 pb-1 mb-3">Services Not Included</h4>
+                    <ul class="columns-1 text-[10px] text-gray-400 space-y-1">{exc_html}</ul>
                 </div>
             </div>
 
-            <div class="bg-gray-50 p-8 rounded-lg mb-8">
-                <div class="flex justify-between items-center border-b border-gray-200 pb-4 mb-4">
-                    <span class="font-serif text-lg text-vesak-navy">Total Amount</span>
-                    <span class="font-sans text-2xl font-bold text-vesak-navy">₹{total}</span>
-                </div>
-                <div class="text-xs text-gray-400 italic">
-                    Note: {notes if notes else "No additional notes."}
-                </div>
-            </div>
+            {notes_section}
 
-            <div class="border-l-2 border-vesak-gold pl-4">
-                <h4 class="text-xs font-bold text-vesak-navy uppercase mb-2">Services Not Included</h4>
-                <p class="text-xs text-gray-500 font-light leading-relaxed">
-                    {exc_text_for_pdf}
-                </p>
+            <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">
+                Thank you for choosing Vesak Care Foundation!
             </div>
         </main>
 
         <footer class="relative z-10 mt-auto w-full">
-            <div class="mx-auto w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-70 mb-5"></div>
-            <div class="flex justify-between items-center text-xs text-gray-500 w-full">
-                <div class="text-left">
+            <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
+            <div class="flex justify-between items-end text-xs text-gray-500">
+                <div>
                     <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
-                    <div class="flex gap-3 tracking-wide font-light">
+                    <div class="flex gap-2">
                         <span>Pune</span><span class="text-vesak-gold">•</span>
                         <span>Mumbai</span><span class="text-vesak-gold">•</span>
                         <span>Kolhapur</span>
                     </div>
                 </div>
-                <div class="flex justify-end items-center gap-6">
-                    <span class="font-light hover:text-vesak-navy cursor-pointer">@VesakCare</span>
+                <div class="flex flex-col items-end gap-1">
+                    <span class="flex items-center gap-2"><img src="data:image/png;base64,{ig_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
+                    <span class="flex items-center gap-2"><img src="data:image/png;base64,{fb_b64}" class="w-3 h-3 mr-1"> @VesakCare</span>
                 </div>
             </div>
-            <div class="mt-6 w-full h-0.5 bg-vesak-navy opacity-90"></div>
+            <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
         </footer>
     </div>
 
     <script>
-        function downloadPDF() {{
+        function generatePDF() {{
             const element = document.getElementById('invoice-content');
             const opt = {{
                 margin: 0,
-                filename: '{file_name}', 
+                filename: '{file_name}',
                 image: {{ type: 'jpeg', quality: 0.98 }},
-                html2canvas: {{ scale: 2, useCORS: true, letterRendering: true }},
+                html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
                 jsPDF: {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
             }};
             html2pdf().set(opt).from(element).save();
@@ -979,7 +1053,7 @@ def render_invoice_ui(df_main, mode="standard"):
     </script>
 </body>
 </html>
-            """
+"""
             # RENDER THE HTML COMPONENT SO THE USER CAN SEE AND CLICK DOWNLOAD
             components.html(html_content, height=1000, scrolling=True)
             
