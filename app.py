@@ -899,15 +899,14 @@ def render_invoice_ui(df_main, mode="standard"):
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
         body {{ font-family: 'Lato', sans-serif; background: #f0f0f0; }}
         .invoice-page {{
-            background: white; width: 210mm; min-height: 297mm;
-            margin: 20px auto; padding: 40px; position: relative;
+            background: white; width: 210mm; height: 297mm;
+            padding: 30px; overflow: hidden;
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); display: flex; flex-direction: column;
         }}
         .watermark-container {{
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; align-items: center;
-            opacity: 0.03; pointer-events: none; z-index: 0;
-        }}
+			position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+			opacity: 0.015; pointer-events: none; z-index: 0;
+		}}
         .watermark-text {{
             font-family: 'Playfair Display', serif; font-size: 80px;
             font-weight: 700; color: #002147; letter-spacing: 0.3em;
@@ -929,7 +928,7 @@ def render_invoice_ui(df_main, mode="standard"):
 
     <div class="invoice-page" id="invoice-content">
         <div class="watermark-container">
-            <img src="data:image/png;base64,{logo_b64}" style="width: 300px; opacity: 0.3;">
+            <img src="data:image/png;base64,{logo_b64}" style="width: 300px;">
             <div class="watermark-text mt-4">VESAK</div>
         </div>
 
@@ -1062,7 +1061,7 @@ def render_invoice_ui(df_main, mode="standard"):
                 margin: 0,
                 filename: '{file_name}',
                 image: {{ type: 'jpeg', quality: 0.98 }},
-                html2canvas: {{ scale: 2, useCORS: true, scrollY: 0 }},
+                html2canvas: {{ scale: 1.6, useCORS: true, scrollY: 0 }},
                 jsPDF: {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
             }};
             html2pdf().set(opt).from(element).save();
@@ -1192,5 +1191,4 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
-
 
