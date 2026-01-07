@@ -208,8 +208,7 @@ def get_last_billing_qty(df_hist, customer_name, mobile):
     client_history = df_hist[mask]
     if not client_history.empty:
         last_details = str(client_history.iloc[-1]['Details'])
-        # --- FIXED: Added \s* to handle spaces and re.IGNORECASE ---
-        match = re.search(r'Paid for\s*(\d+)', last_details, re.IGNORECASE)
+        match = re.search(r'Paid for (\d+)', last_details)
         if match: return int(match.group(1))
     return 1
 
@@ -250,7 +249,7 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         st.error(f"Error saving to Google Sheet: {e}")
         return False
 
-# --- IMPROVED ROBUST UPDATE FUNCTION WITH AD COLUMN FIX---
+# --- IMPROVED ROBUST UPDATE FUNCTION ---
 def update_invoice_in_gsheet(data_dict, sheet_obj):
     if sheet_obj is None: return False
     try:
@@ -290,26 +289,8 @@ def update_invoice_in_gsheet(data_dict, sheet_obj):
                 data_dict.get("Amount Paid", ""), data_dict.get("Details", ""), data_dict.get("Service Started", ""),
                 data_dict.get("Service Ended", "")
             ]
-			
-            # Update Main Block (A to V)										
             range_name = f"A{row_idx_to_update}:V{row_idx_to_update}"
             sheet_obj.update(range_name, [row_values])
-
-            # --- CRITICAL FIX: Explicitly Update "Paid for" Column (AD) ---
-            try:
-                details_txt = str(data_dict.get("Details", ""))
-                qty_extracted = 1
-                # Regex match for number in "Paid for X"
-                match_qty = re.search(r'Paid for\s*(\d+)', details_txt, re.IGNORECASE)
-                if match_qty: 
-                    qty_extracted = int(match_qty.group(1))
-                
-                # AD is the 30th column. Update specifically that cell.
-                sheet_obj.update(f"AD{row_idx_to_update}", [[qty_extracted]])
-            except Exception as e_ad:
-                print(f"Non-critical error updating AD column: {e_ad}")
-            # -------------------------------------------------------------																										   
-			
             return True
         else:
             st.error(f"❌ Critical Error: Could not find original row with Serial '{target_serial}' AND Invoice '{target_inv}' to overwrite. Operation cancelled to prevent data corruption.")
