@@ -760,7 +760,7 @@ def render_invoice_ui(df_main, mode="standard"):
                         default_date = datetime.datetime.strptime(clean_date_str, "%b. %d %Y").date()
                     except: pass # Keep today's date if parsing fails													
 														  
-                    inv_final = str(last_match['Invoice Number'])
+                    #inv_final = str(last_match['Invoice Number'])
 					
 					try:
                         cell_match = sheet_obj.find(inv_final, in_column=4)
@@ -1235,6 +1235,7 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
