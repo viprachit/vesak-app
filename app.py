@@ -398,10 +398,9 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         formula_net_amount = f"=U{next_row_num}-AA{next_row_num}"
         formula_earnings = f"=AB{next_row_num}-(AC{next_row_num}*AD{next_row_num})"
         
-        details_txt = data_dict.get("Details", "")
-        qty_extracted = 1
-        match = re.search(r'Paid for (\d+)', details_txt)
-        if match: qty_extracted = int(match.group(1))
+        # --- FIXED: Use passed Raw Value, no regex needed ---
+        qty_extracted = data_dict.get("Paid for Raw", 1)
+        # --------------------------------------------------
 
         row_values = [
             final_uid,                                      # A
@@ -418,7 +417,7 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
             data_dict.get("Mobile", ""),                    # L
             data_dict.get("Plan", ""),                      # M
             data_dict.get("Shift", ""),                     # N
-            data_dict.get("Recurring Service", ""), # O
+            data_dict.get("Recurring Service", ""),         # O
             data_dict.get("Period", ""),                    # P
             data_dict.get("Visits", ""),                    # Q
             data_dict.get("Amount", ""),                    # R
@@ -433,7 +432,7 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
             data_dict.get("Referral Credit", ""),           # AA
             formula_net_amount,                             # AB
             "",                                             # AC
-            qty_extracted,                                  # AD
+            qty_extracted,                                  # AD (Updated with RAW)
             formula_earnings,                               # AE
             "",                                             # AF
             "",                                             # AG
@@ -461,10 +460,8 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, row_idx):
         sheet_obj.update(range_name, [row_values], value_input_option='USER_ENTERED')
         
         # --- NEW CODE: Update Column AD ("Paid for") ---
-        details_txt = data_dict.get("Details", "")
-        qty_extracted = 1
-        match = re.search(r'Paid for\s*(\d+)', details_txt, re.IGNORECASE)
-        if match: qty_extracted = int(match.group(1))
+        # Fixed: Use exact raw number passed from data_dict, don't re-parse "Details" string
+        qty_extracted = data_dict.get("Paid for Raw", 1)
         
         # Update cell AD{row_idx} specifically
         sheet_obj.update(f"AD{row_idx}", [[qty_extracted]], value_input_option='USER_ENTERED')
@@ -754,10 +751,17 @@ def render_invoice_ui(df_main, mode="standard"):
                     if hist_note: default_notes = hist_note
 
                     # 3. Paid Units (Extract from Details string)
-                    # --- NEW FIX: ROBUST REGEX FOR "PAID FOR" ---
-                    hist_details = str(last_match.get('Details', ''))
-                    match_qty = re.search(r'Paid for\s*(\d+)', hist_details, re.IGNORECASE)
-                    if match_qty: default_qty = int(match_qty.group(1))
+                    # --- NEW FIX: Try to get from 'Paid for' Column (AD) first ---
+                    try:
+                        raw_paid_val = last_match.get('Paid for', '')
+                        if raw_paid_val and str(raw_paid_val).strip().isdigit():
+                            default_qty = int(str(raw_paid_val).strip())
+                        else:
+                            # Fallback to Regex if AD is empty (Old data)
+                            hist_details = str(last_match.get('Details', ''))
+                            match_qty = re.search(r'Paid for\s*(\d+)', hist_details, re.IGNORECASE)
+                            if match_qty: default_qty = int(match_qty.group(1))
+                    except: pass
                     # ----------------------------------------------
 
                     # 4. Date (Try to parse back from "Jan. 23rd 2026" format)
@@ -848,6 +852,47 @@ def render_invoice_ui(df_main, mode="standard"):
         service_start_date = format_date_simple(inv_date_val)
         generated_at = datetime.datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
+        # --- LOGIC FOR DETAILS COLUMN (RULES 1-6) ---
+        p_raw_check = str(row.get('Period', '')).strip()
+        p_check_lower = p_raw_check.lower()
+        shift_raw_check = str(row.get('Shift', '')).strip()
+        shift_check_lower = shift_raw_check.lower()
+        
+        details_text = ""
+        
+        # Rules 5 & 6 (Per Visit)
+        if "per visit" in shift_check_lower:
+            if billing_qty == 1: details_text = f"Paid for {billing_qty} Visit"
+            else: details_text = f"Paid for {billing_qty} Visits"
+        
+        # Rules 1, 2, 3, 4 (Daily/Weekly/Monthly)
+        elif "daily" in p_check_lower:
+            if billing_qty == 1:
+                details_text = f"Paid for {billing_qty} Day"
+            elif billing_qty % 7 == 0:
+                # Multiples of 7 -> Weeks
+                weeks_val = int(billing_qty / 7)
+                if weeks_val == 1: details_text = f"Paid for {weeks_val} Week"
+                else: details_text = f"Paid for {weeks_val} Weeks"
+            else:
+                # 1 < N < 7 or non-multiples > 7
+                details_text = f"Paid for {billing_qty} Days"
+                
+        elif "monthly" in p_check_lower:
+            if billing_qty == 1: details_text = f"Paid for {billing_qty} Month"
+            else: details_text = f"Paid for {billing_qty} Months"
+            
+        elif "weekly" in p_check_lower:
+            if billing_qty == 1: details_text = f"Paid for {billing_qty} Week"
+            else: details_text = f"Paid for {billing_qty} Weeks"
+            
+        else:
+            # Fallback
+            details_text = f"Paid for {billing_qty} {p_raw_check}"
+            
+        if mode == "force_new": details_text += " (New)"
+        # ---------------------------------------------
+
         record = {
             "UID": "", 
             "Serial No.": c_serial, 
@@ -872,7 +917,8 @@ def render_invoice_ui(df_main, mode="standard"):
             "Generated By": gen_by_to_save, 
             "Service Started": service_start_date, # Point 9
             "Service Ended": "",                   # Point 10
-            "Details": f"Paid for {billing_qty} units",
+            "Details": details_text,               # Updated Logic
+            "Paid for Raw": billing_qty,           # Critical: Raw Number for Column AD
             "Referral Code": c_ref_code,    # Cleaned (No 'nan')
             "Referral Name": c_ref_name,    # Cleaned (No 'nan')
             "Referral Credit": c_ref_credit # Cleaned (No 'nan')
