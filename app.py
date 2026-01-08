@@ -874,7 +874,7 @@ def render_invoice_ui(df_main, mode="standard"):
             sheet_obj.append_row(SHEET_HEADERS)
     except Exception as e: st.error(f"Connection Error: {e}"); return
     
-	df_history = pd.DataFrame()						   
+	#df_history = pd.DataFrame()						   
     if sheet_obj:
         master_records = sheet_obj.get_all_records()
         df_history = pd.DataFrame(master_records)
@@ -1500,3 +1500,4 @@ if raw_file_obj:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
     except Exception as e: st.error(f"Error: {e}")
+
