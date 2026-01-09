@@ -1979,7 +1979,7 @@ def render_invoice_ui(df_main, mode="standard"):
         function generatePDF() {{
             const element = document.getElementById('invoice-content');
             const opt = {{
-                margin: [10, 10, 10, 10],
+                margin: [0.5, 0.5, 0.5, 0.5],
                 filename: '{file_name}',
                 image: {{ type: 'jpeg', quality: 1 }},
                 html2canvas: {{ scale: 2, useCORS: true, letterRendering: true, scrollY: 0 }},
@@ -2143,6 +2143,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
