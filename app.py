@@ -875,147 +875,189 @@ def render_invoice_ui(df_main, mode="standard"):
     conflict_exists = False
     existing_row_idx = None
     
-    # Logic to fetch from Google Sheet History
-    mmm_yy = default_date.strftime("%b-%y")
-    
-    sheet_obj = None
-    try:
-        wb_save = client.open_by_key(master_id)
-        try: sheet_obj = wb_save.worksheet(mmm_yy)
-        except: 
-            # Only create new sheet if we are NOT just reading existing
-            sheet_obj = wb_save.add_worksheet(title=mmm_yy, rows=1000, cols=34)
-            sheet_obj.append_row(SHEET_HEADERS)
-    except Exception as e: st.error(f"Connection Error: {e}"); return
-    
-	#df_history = pd.DataFrame()						   
-    if sheet_obj:
-        master_records = sheet_obj.get_all_records()
-        df_history = pd.DataFrame(master_records)
+	# Logic to fetch from Google Sheet History
+	mmm_yy = default_date.strftime("%b-%y")
 
-        if not df_history.empty:
-            df_history['Ref_Norm'] = df_history['Ref. No.'].apply(normalize_id)
-            df_history['Ser_Norm'] = df_history['Serial No.'].apply(normalize_id)
-			
-            # --- CRITICAL FIX: STRICT MATCH ON REF AND SERIAL ONLY (IGNORE INVOICE NO FOR DETECTION)																				   
-            match_mask = (df_history['Ref_Norm'] == c_ref) & (df_history['Ser_Norm'] == c_serial)
-            existing_matches = df_history[match_mask]
-            
-            if not existing_matches.empty:
-                # If ANY match is found based on Ref & Serial, treat as CONFLICT
-                conflict_exists = True
-                last_match = existing_matches.iloc[-1]
-                    
-                # --- FETCHING EXISTING DATA ---
-                # 1. Invoice Number (Must stay locked)
-                inv_final = str(last_match.get('Invoice Number', ''))
-                
-                # 2. Notes
-                hist_note = str(last_match.get('Notes / Remarks', '')).strip()
-                if hist_note: default_notes = hist_note
+	sheet_obj = None
+	try:
+		wb_save = client.open_by_key(master_id)
+		try:
+			sheet_obj = wb_save.worksheet(mmm_yy)
+		except:
+			# Only create new sheet if we are NOT just reading existing
+			sheet_obj = wb_save.add_worksheet(title=mmm_yy, rows=1000, cols=34)
+			sheet_obj.append_row(SHEET_HEADERS)
+	except Exception as e:
+		st.error(f"Connection Error: {e}")
+		return
 
-                # 3. Paid Units (Extract from Details string)
-				# --- NEW FIX: Try to get from 'Paid for' Column (AD) first ---																   
-                try:
-                    raw_paid_val = last_match.get('Paid for', '')
-                    if raw_paid_val and str(raw_paid_val).strip().isdigit():
-                        default_qty = int(str(raw_paid_val).strip())
-                    else:
-                        # Fallback to Regex if AD is empty (Old data)
-                        hist_details = str(last_match.get('Details', ''))
-                        match_qty = re.search(r'Paid for\s*(\d+)', hist_details, re.IGNORECASE)
-                        if match_qty: default_qty = int(match_qty.group(1))
-                except: pass
-				# ----------------------------------------------													
+	# df_history = pd.DataFrame()
+	if sheet_obj:
+		master_records = sheet_obj.get_all_records()
+		df_history = pd.DataFrame(master_records)
 
-                # 4. Date (Try to parse back from "Jan. 23rd 2026" format)
-                try:
-                    hist_date_str = str(last_match.get('Date', ''))
-		
-                    # Remove suffixes st, nd, rd, th to parse
-													
-                    clean_date_str = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', hist_date_str)
-                    default_date = datetime.datetime.strptime(clean_date_str, "%b. %d %Y").date()
-                except: pass  # Keep today's date if parsing fails
+		if not df_history.empty:
+			df_history['Ref_Norm'] = df_history['Ref. No.'].apply(normalize_id)
+			df_history['Ser_Norm'] = df_history['Serial No.'].apply(normalize_id)
 
-                # Calculate Row Index for Overwrite (1-based index)
-                # Since we matched on Ref/Serial, we iterate to find the row index in the sheet
-                # Note: This finds the *last* match if multiple exist
-                try:
-                    # GSpread row index is roughly (dataframe index + 2) if using get_all_records which treats row 1 as header
-                    # However, strictly matching by exact cell content is safer
-                    cell_match = sheet_obj.find(inv_final, in_column=4)
-                    if cell_match: existing_row_idx = cell_match.row
-                except: pass
-            else:
-                # --- NEW FIX: RESET TO 1 IF NO HISTORY FOUND ---
-                default_qty = 1
-                # -----------------------------------------------
-					# We need to find the specific row index for the update
-					# Since we matched on Ref/Serial, we iterate to find the row index in the sheet
-					# (Note: gspread row indices are 1-based, dataframe is 0-based)
-					#existing_row_idx = last_match.name + 2 
-				#except: pass
-			#else:
-				# --- NEW FIX: RESET TO 1 IF NO HISTORY FOUND ---
-				#default_qty = 1
-				# -----------------------------------------------
+			match_mask = (
+				(df_history['Ref_Norm'] == c_ref) &
+				(df_history['Ser_Norm'] == c_serial)
+			)
+			existing_matches = df_history[match_mask]
 
-    if not conflict_exists:
-        # Generate NEW Invoice Number if no conflict
-        loc_code = "MUM" if "mumbai" in str(row.get('Location', '')).lower() else "PUN"
-        
-        # --- CHANGED HERE ---
-        date_part = default_date.strftime('%d%m%Y') # Changed from %y%m%d to %d%m%Y
-        # --------------------
+			if not existing_matches.empty:
+				conflict_exists = True
+				last_match = existing_matches.iloc[-1]
 
-        prefix = f"{loc_code}-{date_part}-"
-        next_seq = 1
-        if not df_history.empty and 'Invoice Number' in df_history.columns:
-             todays_invs = df_history[df_history['Invoice Number'].astype(str).str.startswith(prefix)]
-             if not todays_invs.empty:
-                 seqs = [int(x.split('-')[-1]) for x in todays_invs['Invoice Number'] if '-' in x]
-                 if seqs: next_seq = max(seqs) + 1
-        inv_final = f"{prefix}{next_seq:03d}"
+				inv_final = str(last_match.get('Invoice Number', ''))
 
-    col_inv1, col_inv2 = st.columns(2)
-    with col_inv1:
-        # Point 2: New Invoice Date Section - PRE-FILLED WITH FETCHED DATE
-        inv_date_val = st.date_input("Invoice Date:", value=default_date, key=f"inv_d_{mode}")
-        
-    with col_inv2:
-        # Point 4: Invoice No Editable ONLY when Overwrite is ticked
-        # It uses inv_final which is locked to historical value if conflict exists
-        is_inv_disabled = True if (conflict_exists and not chk_overwrite) else False
-        # If conflict exists but user wants to Overwrite, allow editing (though typically Inv No stays same)
-        # Actually, for data integrity, maybe keep Inv No disabled even during overwrite? 
-        # Requirement said "Overwrite that particular column", usually implied editing details not Inv No.
-        # But let's stick to the requested logic: Disable Create button, Enable Overwrite checkbox.																											
-        #is_inv_disabled = not chk_overwrite
-        inv_input = st.text_input("Invoice Number", value=inv_final, disabled=is_inv_disabled, key=f"inv_n_{mode}")
+				hist_note = str(last_match.get('Notes / Remarks', '')).strip()
+				if hist_note:
+					default_notes = hist_note
 
-    st.write(f"**Plan:** {c_plan} | **Ref:** {c_ref} | **Serial:** {c_serial}")
-    
-    if conflict_exists and not chk_overwrite:
-         st.warning(f"⚠️ Customer exists (Ref: {c_ref}, Serial: {c_serial}). Check 'Overwrite' to update.")
+				# Paid Units
+				try:
+					raw_paid_val = last_match.get('Paid for', '')
+					if raw_paid_val and str(raw_paid_val).strip().isdigit():
+						default_qty = int(str(raw_paid_val).strip())
+					else:
+						hist_details = str(last_match.get('Details', ''))
+						match_qty = re.search(
+							r'Paid for\s*(\d+)',
+							hist_details,
+							re.IGNORECASE
+						)
+						if match_qty:
+							default_qty = int(match_qty.group(1))
+				except:
+					pass
+
+				# Date
+				try:
+					hist_date_str = str(last_match.get('Date', ''))
+					clean_date_str = re.sub(
+						r'(\d+)(st|nd|rd|th)',
+						r'\1',
+						hist_date_str
+					)
+					default_date = datetime.datetime.strptime(
+						clean_date_str,
+						"%b. %d %Y"
+					).date()
+				except:
+					pass
+
+				try:
+					cell_match = sheet_obj.find(inv_final, in_column=4)
+					if cell_match:
+						existing_row_idx = cell_match.row
+				except:
+					pass
+			else:
+				default_qty = 1
+				conflict_exists = False
+		else:
+			default_qty = 1
+			conflict_exists = False
+	else:
+		default_qty = 1
+		conflict_exists = False
+
+
+	if not conflict_exists:
+		loc_code = "MUM" if "mumbai" in str(row.get('Location', '')).lower() else "PUN"
+		date_part = default_date.strftime('%d%m%Y')
+		prefix = f"{loc_code}-{date_part}-"
+		next_seq = 1
+
+		if not df_history.empty and 'Invoice Number' in df_history.columns:
+			todays_invs = df_history[
+				df_history['Invoice Number']
+				.astype(str)
+				.str.startswith(prefix)
+			]
+			if not todays_invs.empty:
+				seqs = [
+					int(x.split('-')[-1])
+					for x in todays_invs['Invoice Number']
+					if '-' in x
+				]
+				if seqs:
+					next_seq = max(seqs) + 1
+
+		inv_final = f"{prefix}{next_seq:03d}"
+
+
+	# ================= UI SECTION =================
+
+	col_inv1, col_inv2 = st.columns(2)
+
+	with col_inv1:
+		inv_date_val = st.date_input(
+			"Invoice Date:",
+			value=default_date,
+			key=f"inv_d_{mode}"
+		)
+
+	with col_inv2:
+		is_inv_disabled = True if (conflict_exists and not chk_overwrite) else False
+		inv_input = st.text_input(
+			"Invoice Number",
+			value=inv_final,
+			disabled=is_inv_disabled,
+			key=f"inv_n_{mode}"
+		)
+
+	st.write(f"**Plan:** {c_plan} | **Ref:** {c_ref} | **Serial:** {c_serial}")
+
+	if conflict_exists and not chk_overwrite:
+		st.warning(
+			f"⚠️ Customer exists (Ref: {c_ref}, Serial: {c_serial}). "
+			"Check 'Overwrite' to update."
+		)
 
 	col3, col4 = st.columns(2)
+
 	with col3:
-		# PRE-FILLED WITH FETCHED UNITS
-		billing_qty = st.number_input("Paid Units:", min_value=1, value=default_qty, key=f"qty_{mode}_{selected_label}")
-		# PRE-FILLED WITH FETCHED NOTES
-		notes = st.text_area("Notes:", value=default_notes, key=f"note_{mode}")
-	
+		billing_qty = st.number_input(
+			"Paid Units:",
+			min_value=1,
+			value=default_qty,
+			key=f"qty_{mode}_{selected_label}"
+		)
+		notes = st.text_area(
+			"Notes:",
+			value=default_notes,
+			key=f"note_{mode}"
+		)
+
 	with col4:
-		 gen_by_input = st.text_input("Generated By:", value="", placeholder="Leave blank for Default", key=f"gen_{mode}")
-		 gen_by_to_save = gen_by_input if gen_by_input.strip() else "Vesak Patient Care"
+		gen_by_input = st.text_input(
+			"Generated By:",
+			value="",
+			placeholder="Leave blank for Default",
+			key=f"gen_{mode}"
+		)
+		gen_by_to_save = (
+			gen_by_input if gen_by_input.strip() else "Vesak Patient Care"
+		)
 
 	st.subheader("Services")
 	inc_list, exc_list = get_base_lists(c_plan, row.get('Sub Service', 'All'))
+
 	sc1, sc2 = st.columns(2)
-	with sc1: st.text_area("Included", ", ".join(inc_list), disabled=True)
-	with sc2: 
-		exc_final = st.multiselect("Excluded (Click X to remove):", options=exc_list, default=exc_list, key=f"exc_{mode}_{c_ref}")
+
+	with sc1:
+		st.text_area("Included", ", ".join(inc_list), disabled=True)
+
+	with sc2:
+		exc_final = st.multiselect(
+			"Excluded (Click X to remove):",
+			options=exc_list,
+			default=exc_list,
+			key=f"exc_{mode}_{c_ref}"
+		)
 		exc_text_for_pdf = ", ".join(exc_final)
 
     # --- UPDATED: Removed Nurse/Patient Buttons from here ---
@@ -1158,7 +1200,6 @@ def render_invoice_ui(df_main, mode="standard"):
 		# --- LOGIC FOR PDF DESCRIPTION TEXT ---
 		pdf_display_plan = c_plan # Default fallback
 		sub_srv_txt = str(row.get('Sub Service', '')).strip()
-	
 		if c_plan == "Plan A: Patient Attendant Care":
 			pdf_display_plan = "Patient Care Service"
 		elif c_plan == "Plan B: Skilled Nursing":
@@ -1427,7 +1468,6 @@ if raw_file_obj:
                         if sel_dup:
                             row = df_hist[df_hist['Display'] == sel_dup].iloc[0]
                             st.info(f"Selected: {row['Customer Name']}")
-							
                             if st.button("Generate Duplicate PDF"):
                                 #html_dup = f"""<!DOCTYPE html><html><body><h2>DUPLICATE INVOICE: {row['Invoice Number']}</h2><p>Customer: {row['Customer Name']}</p><p>Amount: {row['Amount Paid']}</p></body></html>"""
                                 # Prepare Data Dictionary for the new template
@@ -1549,12 +1589,3 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
-
-
-
-
-
-
-
-
-
