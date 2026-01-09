@@ -1768,19 +1768,20 @@ def render_invoice_ui(df_main, mode="standard"):
             margin: 0;
         }}
     
-        /* ================= PAGE ================= */
-
         .invoice-page {{
             position: relative;
+            background: white;
             width: 210mm;
             height: 297mm;
-            background: white;
             padding: 30px;
-            padding-bottom: 120px; /* reserve space */
-            margin: 0 auto;
+            padding-bottom: 120px; /* 🔒 Space for thank-you + footer */
             overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
+    
+            margin-left: auto;
+            margin-right: auto;
         }}
     
         main {{
@@ -1788,31 +1789,21 @@ def render_invoice_ui(df_main, mode="standard"):
         }}
     
         /* ✅ Thank-you text: centered & anchored near footer */
-        /* ================= THANK YOU ================= */
         main > .text-center {{
-            position: absolute;
-            bottom: 30px; /* 10px above gradient line */
-            left: 50%;
-            transform: translateX(-50%);
-            width: calc(100% - 60px);
+            margin-top: 40px;
+            margin-bottom: 40px;
             text-align: center;
         }}
     
-        /* ================= FOOTER ================= */
-
+        /* ✅ Footer: TRUE horizontal centering */
         footer {{
             position: absolute;
-            bottom: 10px; /* navy line = 10px from page bottom */
-            left: 50%;
-            transform: translateX(-50%);
+            bottom: 20px; /* ⬇️ slightly lower */
+			left: 0;
+			right: 0;
+            margin-left: auto;
+			margin-right: auto;);
             width: calc(100% - 60px);
-            z-index: 10;
-        }}
-        
-        /* Prevent margin collapse inside footer */
-        footer * {{
-            margin-left: 0;
-            margin-right: 0;
         }}
     
         .watermark-container {{
@@ -1833,26 +1824,22 @@ def render_invoice_ui(df_main, mode="standard"):
         }}
     
         @media print {{
+            body {{
+                background: white;
+                -webkit-print-color-adjust: exact;
+            }}
+    
             .invoice-page {{
                 width: 210mm;
                 height: 297mm;
-                margin: 0 auto;
-                padding: 30px;
-                padding-bottom: 120px;
+                padding: 20px;
+                padding-bottom: 90px;
+                box-shadow: none;
             }}
-        
+    
             footer {{
                 bottom: 10px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: calc(100% - 60px);
-            }}
-        
-            main .text-center {{
-                bottom: 90px;
-                left: 50%;
-                transform: translateX(-50%);
-                width: calc(100% - 60px);
+                width: calc(100% - 40px);
             }}
     
             .no-print {{
@@ -1961,38 +1948,46 @@ def render_invoice_ui(df_main, mode="standard"):
 
             {notes_section}
 
-            <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">
-                Thank you for choosing Vesak Care Foundation!
-            </div>
+            /* <div class="text-center text-xs text-gray-400 mt-12 mb-6 italic">  */
+               /* Thank you for choosing Vesak Care Foundation!  */
+            /* </div>  */
         </main>
 
         <footer class="relative z-10 mt-auto w-full">
-            <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
-            
-            <div class="flex justify-between items-end text-xs text-gray-500">
-                <div>
-                    <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
-                    <div class="flex gap-2">
-                        <span>Pune</span><span class="text-vesak-gold">•</span>
-                        <span>Mumbai</span><span class="text-vesak-gold">•</span>
-                        <span>Kolhapur</span>
-                    </div>
-                </div>
+			<div class="max-w-[210mm] mx-auto">
 
-                <div class="flex items-center gap-6">
-                    <a href="https://www.instagram.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
-                        <i class="fab fa-instagram text-lg"></i>
-                        <span>@VesakCare</span>
-                    </a>
-                    
-                    <a href="https://www.facebook.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
-                        <i class="fab fa-facebook text-lg"></i>
-                        <span>@VesakCare</span>
-                    </a>
-                </div>
-            </div>
+				<div class="text-center text-xs text-gray-400 italic mb-4">
+					Thank you for choosing Vesak Care Foundation!
+				</div>
+				
+				<div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
+				
+				<div class="flex justify-between items-end text-xs text-gray-500">
+					<div>
+						<p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
+						<div class="flex gap-2">
+							<span>Pune</span><span class="text-vesak-gold">•</span>
+							<span>Mumbai</span><span class="text-vesak-gold">•</span>
+							<span>Kolhapur</span>
+						</div>
+					</div>
+
+					<div class="flex items-center gap-6">
+						<a href="https://www.instagram.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
+							<i class="fab fa-instagram text-lg"></i>
+							<span>@VesakCare</span>
+						</a>
+						
+						<a href="https://www.facebook.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
+							<i class="fab fa-facebook text-lg"></i>
+							<span>@VesakCare</span>
+						</a>
+					</div>
+				</div>
             
-            <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
+				<div class="mt-4 w-full h-1 bg-vesak-navy"></div>
+				
+			</div>	
         </footer>
     </div>
 
@@ -2164,21 +2159,3 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
