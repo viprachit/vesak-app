@@ -1800,8 +1800,8 @@ def render_invoice_ui(df_main, mode="standard"):
             position: absolute;
             bottom: 7mm; /* ⬇️ slightly lower */
 			left: 30px;
-			transform: translateX(-50%);
-			width: calc(100% - 60px); /* matches 30px padding on both sides */
+			right: 30px;
+			text-align: center;
 
 			outline: 1px dashed red;
         }}
@@ -2154,6 +2154,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
