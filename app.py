@@ -1800,8 +1800,7 @@ def render_invoice_ui(df_main, mode="standard"):
             position: absolute;
             bottom: 7mm; /* ⬇️ slightly lower */
 			left: 30px;
-			right: 30px;            
-            width: auto;
+			right: 30px;
         }}
     
         .watermark-container {{
@@ -1948,41 +1947,39 @@ def render_invoice_ui(df_main, mode="standard"):
 			
         </main>
 
-        <footer class="z-10 w-full">
-			<div class="max-w-[210mm] mx-auto">
-
-				<div class="text-center text-xs text-gray-400 italic mb-4">
-					Thank you for choosing Vesak Care Foundation!
-				</div>
-				
-				<div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
-				
-				<div class="flex justify-between items-end text-xs text-gray-500">
-					<div>
-						<p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
-						<div class="flex gap-2">
-							<span>Pune</span><span class="text-vesak-gold">•</span>
-							<span>Mumbai</span><span class="text-vesak-gold">•</span>
-							<span>Kolhapur</span>
-						</div>
-					</div>
-
-					<div class="flex items-center gap-6">
-						<a href="https://www.instagram.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
-							<i class="fab fa-instagram text-lg"></i>
-							<span>@VesakCare</span>
-						</a>
-						
-						<a href="https://www.facebook.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
-							<i class="fab fa-facebook text-lg"></i>
-							<span>@VesakCare</span>
-						</a>
+        <footer class="relative z-10 w-full">
+			
+			<div class="text-center text-xs text-gray-400 italic mb-4">
+				Thank you for choosing Vesak Care Foundation!
+			</div>
+			
+			<div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
+			
+			<div class="flex justify-between items-end text-xs text-gray-500">
+				<div>
+					<p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
+					<div class="flex gap-2">
+						<span>Pune</span><span class="text-vesak-gold">•</span>
+						<span>Mumbai</span><span class="text-vesak-gold">•</span>
+						<span>Kolhapur</span>
 					</div>
 				</div>
-            
-				<div class="mt-4 w-full h-1 bg-vesak-navy"></div>
+
+				<div class="flex items-center gap-6">
+					<a href="https://www.instagram.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
+						<i class="fab fa-instagram text-lg"></i>
+						<span>@VesakCare</span>
+					</a>
+					
+					<a href="https://www.facebook.com/VesakCare/" target="_blank" class="flex items-center gap-2 text-gray-500 hover:text-vesak-gold transition-colors">
+						<i class="fab fa-facebook text-lg"></i>
+						<span>@VesakCare</span>
+					</a>
+				</div>
+			</div>
+		
+			<div class="mt-4 w-full h-1 bg-vesak-navy"></div>				
 				
-			</div>	
         </footer>
     </div>
 
@@ -2154,6 +2151,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
