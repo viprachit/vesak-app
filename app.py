@@ -64,7 +64,7 @@ def load_config_path(file_name):
     return ""
 
 def save_config_path(path, file_name):
-    with open(file_name, "w") as f: f.write(path.replace('"', '').strip())
+    with open(file_name, "w") as f: f.write(path.replace('\"', '').strip())
     return path
 
 def extract_id_from_url(url):
@@ -82,7 +82,7 @@ def get_credentials():
     scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
         s_info = st.secrets["connections"]["gsheets"]
-        private_key = s_info.get("private_key").replace("\\n", "\n")
+        private_key = s_info.get("private_key").replace("\\\\n", "\\n")
         creds_dict = {
             "type": s_info.get("type"),
             "project_id": s_info.get("project_id"),
@@ -133,7 +133,7 @@ def format_date_with_suffix(d):
     if pd.isna(d): return "N/A"
     try:
         if isinstance(d, datetime.datetime): d = d.date()
-        if not isinstance(d, datetime.date): return str(d) # Handle non-date objects
+        if not isinstance(d, datetime.date): return str(d)
         
         day = d.day
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th") if not 10 < day < 14 else "th"
@@ -152,7 +152,8 @@ def format_date_simple(d):
 
 def clean_text(text): return str(text).strip() if isinstance(text, str) else str(text)
 
-# --- CRITICAL FIX 1: ID NORMALIZATION (NO DECIMALS) ---
+# ===== CRITICAL FIX 1: ID NORMALIZATION (NO DECIMALS) =====
+# ⭐ CHANGE #1: ENHANCED normalize_id() FUNCTION
 def normalize_id(val):
     """
     Robust normalization:
@@ -215,7 +216,6 @@ def get_cached_exclusion_list(master_id, month_str):
                         excluded_refs.append(key)
         except gspread.exceptions.WorksheetNotFound: pass
     except Exception as e:
-        # Return empty list on error to allow app to function, just without filtering
         return []
         
     return excluded_refs
@@ -260,7 +260,7 @@ def get_base_lists(selected_plan, selected_sub_service):
 # --- NEW HTML HELPERS (INSERTED) ---
 def construct_description_html(row):
     shift_raw = str(row.get('Shift', '')).strip()
-    recurring = str(row.get('Recurring Service', '')).strip().lower() # Corrected key
+    recurring = str(row.get('Recurring Service', '')).strip().lower()
     period_raw = str(row.get('Period', '')).strip()
     shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
     shift_str = shift_map.get(shift_raw, shift_raw)
@@ -289,7 +289,6 @@ def construct_amount_html(row, billing_qty):
         return unit
 
     if is_per_visit:
-        # --- NEW LOGIC FOR PER VISIT ---
         paid_text = f"Paid for {billing_qty} {get_plural('Visit', billing_qty)}"
         if visits_needed > 1 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
         elif billing_qty >= visits_needed: billing_note = f"Paid for {visits_needed} Visits."
@@ -350,9 +349,6 @@ def convert_html_to_pdf(source_html):
     if pisa_status.err: return None
     return result.getvalue()
 
-# ==========================================
-# NEW: HIGH-QUALITY OFFLINE PDF TEMPLATE
-# ==========================================
 def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
     """
     Generates a Table-based HTML (xhtml2pdf compatible) that mimics the Tailwind Design.
@@ -384,7 +380,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
     
     # Amount Column Construction
     details = data_dict.get("Details", "")
-    qty_val = data_dict.get("Paid for Raw", 1) # Fallback if missing
+    qty_val = data_dict.get("Paid for Raw", 1)
     
     # Colors
     col_navy = "#002147"
@@ -593,28 +589,48 @@ def save_invoice_to_gsheet(data_dict, sheet_obj):
         return True
     except Exception as e: st.error(f"Save Error: {e}"); return False
 
+# ⭐ CHANGE #7: NEW FUNCTION - update_invoice_in_gsheet()
 def update_invoice_in_gsheet(data_dict, sheet_obj, row_idx):
+    """
+    Updates an existing row in the Google Sheet instead of appending.
+    Only updates columns A through X (customer data).
+    Preserves UID and other calculated columns.
+    """
     if sheet_obj is None: return False
     try:
         # Update columns A through X (Indices 0 to 23 in data, 1-24 in Sheet)
         row_values = [
-            data_dict.get("UID", ""), data_dict.get("Serial No.", ""), data_dict.get("Ref. No.", ""),
-            data_dict.get("Invoice Number", ""), data_dict.get("Date", ""), data_dict.get("Generated At", ""),
-            data_dict.get("Customer Name", ""), data_dict.get("Age", ""), data_dict.get("Gender", ""),
-            data_dict.get("Location", ""), data_dict.get("Address", ""), data_dict.get("Mobile", ""),
-            data_dict.get("Plan", ""), data_dict.get("Shift", ""), data_dict.get("Recurring Service", ""),
-            data_dict.get("Period", ""), data_dict.get("Visits", ""), data_dict.get("Amount", ""),
-            data_dict.get("Notes / Remarks", ""), data_dict.get("Generated By", ""), data_dict.get("Amount Paid", ""),
-            data_dict.get("Details", ""), data_dict.get("Service Started", ""), data_dict.get("Service Ended", "")
+            data_dict.get("UID", ""), 
+            data_dict.get("Serial No.", ""), 
+            data_dict.get("Ref. No.", ""),
+            data_dict.get("Invoice Number", ""), 
+            data_dict.get("Date", ""), 
+            data_dict.get("Generated At", ""),
+            data_dict.get("Customer Name", ""), 
+            data_dict.get("Age", ""), 
+            data_dict.get("Gender", ""),
+            data_dict.get("Location", ""), 
+            data_dict.get("Address", ""), 
+            data_dict.get("Mobile", ""),
+            data_dict.get("Plan", ""), 
+            data_dict.get("Shift", ""), 
+            data_dict.get("Recurring Service", ""),
+            data_dict.get("Period", ""), 
+            data_dict.get("Visits", ""), 
+            data_dict.get("Amount", ""),
+            data_dict.get("Notes / Remarks", ""), 
+            data_dict.get("Generated By", ""), 
+            data_dict.get("Amount Paid", ""),
+            data_dict.get("Details", ""), 
+            data_dict.get("Service Started", ""), 
+            data_dict.get("Service Ended", "")
         ]
         range_name = f"A{row_idx}:X{row_idx}"
         sheet_obj.update(range_name, [row_values], value_input_option='USER_ENTERED')
         
-        # --- NEW CODE: Update Column AD (\"Paid for\") ---
-        # Fixed: Use exact raw number passed from data_dict, don't re-parse "Details" string
+        # --- NEW CODE: Update Column AD (Paid for) ---
+        # Fixed: Use exact raw number passed from data_dict
         qty_extracted = data_dict.get("Paid for Raw", 1)
-        
-        # Update cell AD{row_idx} specifically
         sheet_obj.update(f"AD{row_idx}", [[qty_extracted]], value_input_option='USER_ENTERED')
         # -----------------------------------------------
 
@@ -664,7 +680,7 @@ def get_clean_image_base64(file_path):
     except: return None
 
 def get_absolute_path(filename):
-    if os.path.exists(filename): return os.path.abspath(filename).replace('\\', '/')
+    if os.path.exists(filename): return os.path.abspath(filename).replace('\\\\', '/')
     return None
 
 # ==========================================
@@ -679,7 +695,7 @@ def perform_backup_logic(master_data, backup_url, target_month_str):
         try:
             target_ws = backup_wb.worksheet(target_month_str)
             return False, f"Backup for {target_month_str} already exists. Skipping to prevent overwrite."
-        except gspread.exceptions.WorksheetNotFound: pass 
+        except gspread.exceptions.WorksheetNotFound: pass
 
         try:
             default_ws = backup_wb.worksheet("Sheet1")
@@ -757,7 +773,6 @@ elif data_source == "OneDrive Link":
     if current_url: raw_file_obj = robust_file_downloader(current_url)
 
 # --- MAIN TABS ---
-# --- UPDATED: Added Tab 6 "Create Agreements" ---
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🧾 Generate Invoice", 
     "🆕 Force New Invoice", 
@@ -834,10 +849,11 @@ def render_invoice_ui(df_main, mode="standard"):
 
     row = df_view[df_view['Label'] == selected_label].iloc[0]
     
+    # ⭐ CHANGE #2: DATA NORMALIZATION WITH STRIP
     # --- DATA NORMALIZATION ---
-    c_ref = normalize_id(row.get('Ref. No.', ''))
-    c_serial = normalize_id(row.get('Serial No.', ''))
-    c_mob = normalize_id(row.get('Mobile', '')) 
+    c_ref = normalize_id(row.get('Ref. No.', '')).strip()
+    c_serial = normalize_id(row.get('Serial No.', '')).strip()
+    c_mob = normalize_id(row.get('Mobile', '')).strip()
     c_name = row.get('Name', '')
     c_plan = row.get('Service Required', '')
     c_age = str(row.get('Age', ''))
@@ -895,12 +911,14 @@ def render_invoice_ui(df_main, mode="standard"):
         df_history = pd.DataFrame(master_records)
 
         if not df_history.empty:
-            df_history['Ref_Norm'] = df_history['Ref. No.'].apply(normalize_id)
-            df_history['Ser_Norm'] = df_history['Serial No.'].apply(normalize_id)
+            # ⭐ CHANGE #3: NORMALIZE BOTH Ref. No. AND Serial No.
+            df_history['Ref_Norm'] = df_history['Ref. No.'].apply(lambda x: normalize_id(x).strip())
+            df_history['Ser_Norm'] = df_history['Serial No.'].apply(lambda x: normalize_id(x).strip())
 
+            # ⭐ CHANGE #4: MATCH USING BOTH Ref. No. AND Serial No. (NOT Invoice No.)
             match_mask = (
-                (df_history['Ref_Norm'] == c_ref) &
-                (df_history['Ser_Norm'] == c_serial)
+                (df_history['Ref_Norm'].astype(str) == str(c_ref)) &
+                (df_history['Ser_Norm'].astype(str) == str(c_serial))
             )
             existing_matches = df_history[match_mask]
 
@@ -922,7 +940,7 @@ def render_invoice_ui(df_main, mode="standard"):
                     else:
                         hist_details = str(last_match.get('Details', ''))
                         match_qty = re.search(
-                            r'Paid for\s*(\\d+)',
+                            r'Paid for\s*(\d+)',
                             hist_details,
                             re.IGNORECASE
                         )
@@ -997,6 +1015,7 @@ def render_invoice_ui(df_main, mode="standard"):
         )
 
     with col_inv2:
+        # ⭐ CHANGE #5: DISABLE BUTTON IF CONFLICT EXISTS
         is_inv_disabled = True if (conflict_exists and not chk_overwrite) else False
         inv_input = st.text_input(
             "Invoice Number",
@@ -1059,6 +1078,7 @@ def render_invoice_ui(df_main, mode="standard"):
     # --- UPDATED: Removed Nurse/Patient Buttons from here ---
     btn_save = False
     
+    # ⭐ CHANGE #5 CONTINUED: BUTTON STATE LOGIC
     if conflict_exists:
         if chk_overwrite:
             if st.button("Overwrite Invoice", type="primary", key=f"b_ov_{mode}"): btn_save = True
@@ -1093,12 +1113,10 @@ def render_invoice_ui(df_main, mode="standard"):
             if billing_qty == 1:
                 details_text = f"Paid for {billing_qty} Day"
             elif billing_qty % 7 == 0:
-                # Multiples of 7 -> Weeks
                 weeks_val = int(billing_qty / 7)
                 if weeks_val == 1: details_text = f"Paid for {weeks_val} Week"
                 else: details_text = f"Paid for {weeks_val} Weeks"
             else:
-                # 1 < N < 7 or non-multiples > 7
                 details_text = f"Paid for {billing_qty} Days"
                 
         elif "monthly" in p_check_lower:
@@ -1110,7 +1128,6 @@ def render_invoice_ui(df_main, mode="standard"):
             else: details_text = f"Paid for {billing_qty} Weeks"
             
         else:
-            # Fallback
             details_text = f"Paid for {billing_qty} {p_raw_check}"
             
         if mode == "force_new": details_text += " (New)"
@@ -1131,7 +1148,7 @@ def render_invoice_ui(df_main, mode="standard"):
             "Serial No.": c_serial, 
             "Ref. No.": c_ref,        
             "Invoice Number": inv_input, 
-            "Date": format_date_with_suffix(inv_date_val), # Display format for PDF/Sheet View
+            "Date": format_date_with_suffix(inv_date_val),
             "Generated At": generated_at, 
             "Customer Name": c_name,
             "Age": c_age,
@@ -1139,7 +1156,7 @@ def render_invoice_ui(df_main, mode="standard"):
             "Location": c_loc,
             "Address": c_addr,
             "Mobile": c_mob, 
-            "Plan": plan_to_save,                  # Updated for History
+            "Plan": plan_to_save,
             "Shift": c_shift,
             "Recurring Service": c_rec,
             "Period": c_period,
@@ -1148,15 +1165,16 @@ def render_invoice_ui(df_main, mode="standard"):
             "Amount Paid": total, 
             "Notes / Remarks": notes, 
             "Generated By": gen_by_to_save, 
-            "Service Started": service_start_date, # Point 9
-            "Service Ended": "",                   # Point 10
-            "Details": details_text,               # Updated Logic
-            "Paid for Raw": billing_qty,           # Critical: Raw Number for Column AD
-            "Referral Code": c_ref_code,    # Cleaned (No 'nan')
-            "Referral Name": c_ref_name,    # Cleaned (No 'nan')
-            "Referral Credit": c_ref_credit # Cleaned (No 'nan')
+            "Service Started": service_start_date,
+            "Service Ended": "",
+            "Details": details_text,
+            "Paid for Raw": billing_qty,
+            "Referral Code": c_ref_code,
+            "Referral Name": c_ref_name,
+            "Referral Credit": c_ref_credit
         }
         
+        # ⭐ CHANGE #6: UPDATE vs APPEND LOGIC
         if conflict_exists and chk_overwrite and existing_row_idx:
             record["UID"] = df_history.iloc[existing_row_idx-2]["UID"] 
             try:
@@ -1174,12 +1192,10 @@ def render_invoice_ui(df_main, mode="standard"):
     if btn_save:
         doc_type = "Invoice"
         
-        
         rate = float(row.get('Unit Rate', 0))
         total = rate * billing_qty
         pdf_date_str = format_date_with_suffix(inv_date_val)
         
-        # Calculate file name here so we can pass it to the JS/HTML
         file_name = generate_filename(doc_type, inv_input, c_name)
 
         
@@ -1190,7 +1206,7 @@ def render_invoice_ui(df_main, mode="standard"):
         final_exc = exc_final
         
         # --- LOGIC FOR PDF DESCRIPTION TEXT ---
-        pdf_display_plan = c_plan # Default fallback
+        pdf_display_plan = c_plan
         sub_srv_txt = str(row.get('Sub Service', '')).strip()
         if c_plan == "Plan A: Patient Attendant Care":
             pdf_display_plan = "Patient Care Service"
@@ -1212,15 +1228,12 @@ def render_invoice_ui(df_main, mode="standard"):
         
         final_notes = notes
         
-        # Helper placeholders for images (Empty strings to avoid crash if not defined)
         ig_b64 = "" 
         fb_b64 = ""
         
-        # Map variables for the specific HTML template provided
         fmt_date = pdf_date_str
         inv_num = inv_input
         
-        # HTML Lists Preparation
         inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_def])
         exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in final_exc])
 
@@ -1262,7 +1275,7 @@ def render_invoice_ui(df_main, mode="standard"):
         }}
         .watermark-text {{
             font-family: 'Playfair Display', serif; font-size: 80px;
-            font-weight: 800; color: rgba(0, 33, 71, 0.04); /* tuned for text visibility */ letter-spacing: 0.25em;
+            font-weight: 800; color: rgba(0, 33, 71, 0.04); letter-spacing: 0.25em;
         }}
         @media print {{
             body {{ background: white; -webkit-print-color-adjust: exact; }}
@@ -1461,14 +1474,8 @@ if raw_file_obj:
                             row = df_hist[df_hist['Display'] == sel_dup].iloc[0]
                             st.info(f"Selected: {row['Customer Name']}")
                             if st.button("Generate Duplicate PDF"):
-                                # Prepare Data Dictionary for the new template
-                                # Note: Google Sheet Headers must match keys used in construct_offline_invoice_html
                                 data_map = row.to_dict()
-                                
-                                # Ensure specific fields are mapped if column names differ
                                 data_map['Paid for Raw'] = row.get('Paid for', 1) 
-                                
-                                # Use new High-Quality Generator
                                 html_dup = construct_offline_invoice_html(data_map, logo_b64, doc_type="DUPLICATE INVOICE")
                                 pdf_dup = convert_html_to_pdf(html_dup)
                                 
@@ -1528,11 +1535,9 @@ if raw_file_obj:
             else:
                 st.warning("Please configure Master Sheet URL in Sidebar.")
 
-        # --- UPDATED: Tab 6 Logic ---
         with tab6:
             st.header("📝 Create Agreements")
             
-            # --- Logic to Select Customer (Replicated from Tab 1 to act independently) ---
             use_filt_ag = st.checkbox("🔍 Enable Search Filters (Date/Location)", key="use_filt_ag")
             df_ag = df.copy()
             
@@ -1556,7 +1561,6 @@ if raw_file_obj:
                 sel_cust_ag = st.selectbox("Select Customer for Agreement:", [""] + list(df_ag['Label'].unique()), key="sel_ag")
                 if sel_cust_ag:
                     row_ag = df_ag[df_ag['Label'] == sel_cust_ag].iloc[0]
-                    # Display basics
                     st.info(f"Selected: {row_ag['Name']} | Ref: {normalize_id(row_ag.get('Ref. No.'))}")
                     
                     c_ref_ag = normalize_id(row_ag.get('Ref. No.', ''))
