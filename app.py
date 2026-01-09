@@ -1802,8 +1802,6 @@ def render_invoice_ui(df_main, mode="standard"):
 			left: 30px;
 			right: 30px;
 			text-align: center;
-
-			outline: 1px dashed red;
         }}
     
         .watermark-container {{
@@ -1958,7 +1956,7 @@ def render_invoice_ui(df_main, mode="standard"):
 			
 			<div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
 			
-			<div class="flex justify-between items-end text-xs text-gray-500">
+			<div class="flex justify-between items-center text-xs text-gray-500 h-10">
 				<div>
 					<p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
 					<div class="flex gap-2">
@@ -2154,6 +2152,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
