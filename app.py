@@ -1768,20 +1768,19 @@ def render_invoice_ui(df_main, mode="standard"):
             margin: 0;
         }}
     
+        /* ================= PAGE ================= */
+
         .invoice-page {{
             position: relative;
-            background: white;
             width: 210mm;
             height: 297mm;
+            background: white;
             padding: 30px;
-            padding-bottom: 120px; /* 🔒 Space for thank-you + footer */
+            padding-bottom: 120px; /* reserve space */
+            margin: 0 auto;
             overflow: hidden;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
             display: flex;
             flex-direction: column;
-    
-            margin-left: auto;
-            margin-right: auto;
         }}
     
         main {{
@@ -1789,19 +1788,31 @@ def render_invoice_ui(df_main, mode="standard"):
         }}
     
         /* ✅ Thank-you text: centered & anchored near footer */
+        /* ================= THANK YOU ================= */
         main > .text-center {{
-            margin-top: 40px;
-            margin-bottom: 40px;
-            text-align: center;
-        }}
-    
-        /* ✅ Footer: TRUE horizontal centering */
-        footer {{
             position: absolute;
-            bottom: 20px; /* ⬇️ slightly lower */
+            bottom: 90px; /* 10px above gradient line */
             left: 50%;
             transform: translateX(-50%);
             width: calc(100% - 60px);
+            text-align: center;
+        }}
+    
+        /* ================= FOOTER ================= */
+
+        footer {{
+            position: absolute;
+            bottom: 10px; /* navy line = 10px from page bottom */
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 60px);
+            z-index: 10;
+        }}
+        
+        /* Prevent margin collapse inside footer */
+        footer * {{
+            margin-left: 0;
+            margin-right: 0;
         }}
     
         .watermark-container {{
@@ -1822,22 +1833,26 @@ def render_invoice_ui(df_main, mode="standard"):
         }}
     
         @media print {{
-            body {{
-                background: white;
-                -webkit-print-color-adjust: exact;
-            }}
-    
             .invoice-page {{
                 width: 210mm;
                 height: 297mm;
-                padding: 20px;
-                padding-bottom: 90px;
-                box-shadow: none;
+                margin: 0 auto;
+                padding: 30px;
+                padding-bottom: 120px;
             }}
-    
+        
             footer {{
                 bottom: 10px;
-                width: calc(100% - 40px);
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 60px);
+            }}
+        
+            main .text-center {{
+                bottom: 90px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 60px);
             }}
     
             .no-print {{
@@ -2149,6 +2164,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
