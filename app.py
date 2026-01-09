@@ -1762,13 +1762,13 @@ def render_invoice_ui(df_main, mode="standard"):
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
     
-        body {
+        body {{
             font-family: 'Lato', sans-serif;
             background: #f0f0f0;
             margin: 0;
-        }
+        }}
     
-        .invoice-page {
+        .invoice-page {{
             position: relative;
             background: white;
             width: 210mm;
@@ -1782,72 +1782,72 @@ def render_invoice_ui(df_main, mode="standard"):
     
             margin-left: auto;
             margin-right: auto;
-        }
+        }}
     
-        main {
+        main {{
             flex: 1 1 auto;
-        }
+        }}
     
         /* ✅ Thank-you text: centered & anchored near footer */
-        main > .text-center {
+        main > .text-center {{
             margin-top: 40px;
             margin-bottom: 40px;
             text-align: center;
-        }
+        }}
     
         /* ✅ Footer: TRUE horizontal centering */
-        footer {
+        footer {{
             position: absolute;
             bottom: 20px; /* ⬇️ slightly lower */
             left: 50%;
             transform: translateX(-50%);
             width: calc(100% - 60px);
-        }
+        }}
     
-        .watermark-container {
+        .watermark-container {{
             position: fixed;
             top: 148.5mm;
             left: 50%;
             transform: translateX(-50%) translateY(-50%);
             pointer-events: none;
             z-index: 0;
-        }
+        }}
     
-        .watermark-text {
+        .watermark-text {{
             font-family: 'Playfair Display', serif;
             font-size: 80px;
             font-weight: 800;
             color: rgba(0, 33, 71, 0.04);
             letter-spacing: 0.25em;
-        }
+        }}
     
-        @media print {
-            body {
+        @media print {{
+            body {{
                 background: white;
                 -webkit-print-color-adjust: exact;
-            }
+            }}
     
-            .invoice-page {
+            .invoice-page {{
                 width: 210mm;
                 height: 297mm;
                 padding: 20px;
                 padding-bottom: 90px;
                 box-shadow: none;
-            }
+            }}
     
-            footer {
+            footer {{
                 bottom: 10px;
                 width: calc(100% - 40px);
-            }
+            }}
     
-            .no-print {
+            .no-print {{
                 display: none !important;
-            }
+            }}
     
-            .watermark-container {
+            .watermark-container {{
                 opacity: 0.04 !important;
-            }
-        }
+            }}
+        }}
     </style>
 </head>
 <body class="py-10">
@@ -2149,6 +2149,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
