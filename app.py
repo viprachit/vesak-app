@@ -1506,66 +1506,75 @@ def render_invoice_ui(df_main, mode="standard"):
         exc_text_for_pdf = ", ".join(exc_final)
 
     # --- UPDATED: Removed Nurse/Patient Buttons from here ---
-    btn_save = False
-    
-	# ==========================================
-	# SECTION 5: ADD WARNING DIALOG IN render_invoice_ui()
-	# ==========================================
-	# Location: In render_invoice_ui() function, BEFORE PDF generation buttons [Around Line ~1500-1600]
-	# Status: UX ENHANCEMENT
-	# What to add: Insert this warning BEFORE the Download/Print buttons
+   btn_save = False
 
-	# Add this code block in the render_invoice_ui() function where PDF buttons are shown:
-	"""
-	# === NEW CODE: Add warning before PDF buttons ===
-	st.warning(
-		"⚠️ **Important Notice:** "
-		"When generating Download or Print PDFs, if the invoice footer appears on a 2nd page, "
-		"the page break may not be perfectly aligned. "
-		"**Recommended:** Use 'Print → Save as PDF' for the best single-page output with watermark embedded.",
-		icon="📄"
-	)
-	# === END NEW CODE ===
-	"""
-	
-	# ==========================================
-	# SECTION 6: UPDATE PDF GENERATION IN render_invoice_ui()
-	# ==========================================
-	# Location: In render_invoice_ui() where buttons generate PDFs [Around Line ~1600-1700]
-	# Status: ENHANCEMENT
-	# What to change: Update the download button logic
-	
-	# NEW CODE (replacement):
-	"""
-	col_download, col_print = st.columns(2)
+    # ==========================================
+    # SECTION 5: ADD WARNING DIALOG IN render_invoice_ui()
+    # ==========================================
+    # Location: In render_invoice_ui() function, BEFORE PDF generation buttons [Around Line ~1500-1600]
+    # Status: UX ENHANCEMENT
+    # What to add: Insert this warning BEFORE the Download/Print buttons
 
-	with col_download:
-		if st.button("📥 Download PDF", key=f"btn_dl_{mode}"):
-			html = construct_offline_invoice_html(record, logo_b64, "INVOICE")
-			pdf_bytes = convert_html_to_pdf(html)
-			if pdf_bytes:
-				filename = generate_filename("Invoice", record.get("Invoice Number", ""), record.get("Customer Name", ""))
-				st.download_button(
-					label="📥 Download PDF",
-					data=pdf_bytes,
-					file_name=filename,
-					mime="application/pdf"
-				)
-			else:
-				st.error("❌ Error generating PDF. Please try again.")
+    # Add this code block in the render_invoice_ui() function where PDF buttons are shown:
+    """
+    # === NEW CODE: Add warning before PDF buttons ===
+    st.warning(
+        "⚠️ **Important Notice:** "
+        "When generating Download or Print PDFs, if the invoice footer appears on a 2nd page, "
+        "the page break may not be perfectly aligned. "
+        "**Recommended:** Use 'Print → Save as PDF' for the best single-page output with watermark embedded.",
+        icon="📄"
+    )
+    # === END NEW CODE ===
+    """
 
-	with col_print:
-		if st.button("🖨️ Print & Save", key=f"btn_pr_{mode}"):
-			html = construct_offline_invoice_html(record, logo_b64, "INVOICE")
-			# Embed print script for automatic naming
-			print_script = create_print_listener_script(
-				generate_filename("Invoice", record.get("Invoice Number", ""), record.get("Customer Name", ""))
-			)
-			html_with_print = html.replace("</body>", f"{print_script}</body>")
-			# Show preview
-			st.info("ℹ️ PDF preview will open in a new window. Use Ctrl+P or Cmd+P to Print/Save as PDF.")
-			components.html(html_with_print, height=1200, scrolling=True)
-	"""
+    # ==========================================
+    # SECTION 6: UPDATE PDF GENERATION IN render_invoice_ui()
+    # ==========================================
+    # Location: In render_invoice_ui() where buttons generate PDFs [Around Line ~1600-1700]
+    # Status: ENHANCEMENT
+    # What to change: Update the download button logic
+
+    # NEW CODE (replacement):
+    """
+    col_download, col_print = st.columns(2)
+
+    with col_download:
+        if st.button("📥 Download PDF", key=f"btn_dl_{mode}"):
+            html = construct_offline_invoice_html(record, logo_b64, "INVOICE")
+            pdf_bytes = convert_html_to_pdf(html)
+            if pdf_bytes:
+                filename = generate_filename(
+                    "Invoice",
+                    record.get("Invoice Number", ""),
+                    record.get("Customer Name", "")
+                )
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=pdf_bytes,
+                    file_name=filename,
+                    mime="application/pdf"
+                )
+            else:
+                st.error("❌ Error generating PDF. Please try again.")
+
+    with col_print:
+        if st.button("🖨️ Print & Save", key=f"btn_pr_{mode}"):
+            html = construct_offline_invoice_html(record, logo_b64, "INVOICE")
+            print_script = create_print_listener_script(
+                generate_filename(
+                    "Invoice",
+                    record.get("Invoice Number", ""),
+                    record.get("Customer Name", "")
+                )
+            )
+            html_with_print = html.replace("</body>", f"{print_script}</body>")
+            st.info(
+                "ℹ️ PDF preview will open in a new window. "
+                "Use Ctrl+P or Cmd+P to Print/Save as PDF."
+            )
+            components.html(html_with_print, height=1200, scrolling=True)
+    """
 
     # ⭐ CHANGE #5 CONTINUED: BUTTON STATE LOGIC
     if conflict_exists:
@@ -2073,4 +2082,5 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
