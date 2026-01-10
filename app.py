@@ -1224,6 +1224,7 @@ def render_invoice_ui(df_main, mode="standard"):
         return
 
     # df_history = pd.DataFrame()
+    # THE OVERWRITE FUNCTION LOGIC 
     if sheet_obj:
         master_records = sheet_obj.get_all_records()
         df_history = pd.DataFrame(master_records)
@@ -1891,5 +1892,6 @@ if raw_file_obj:
         st.error(f"Error loading file: {e}")
 else:
     st.info("👈 Upload or link your customer data file to get started!")
+
 
 
