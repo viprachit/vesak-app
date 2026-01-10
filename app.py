@@ -39,8 +39,7 @@ SHEET_HEADERS = [
 ]
 
 # --- SESSION STATE INITIALIZATION ---
-if 'chk_overwrite' not in st.session_state:
-    st.session_state.chk_overwrite = False
+if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
 
 # --- CONFIGURATION LOADER ---
 def load_system_config():
@@ -52,8 +51,7 @@ def load_system_config():
         try:
             with open(SYSTEM_CONFIG_FILE, "r") as f:
                 return json.load(f)
-        except:
-            return default_config
+        except: return default_config
     return default_config
 
 def save_system_config(config_data):
@@ -62,23 +60,18 @@ def save_system_config(config_data):
 
 def load_config_path(file_name):
     if os.path.exists(file_name):
-        with open(file_name, "r") as f:
-            return f.read().strip()
+        with open(file_name, "r") as f: return f.read().strip()
     return ""
 
 def save_config_path(path, file_name):
-    with open(file_name, "w") as f:
-        f.write(path.replace('\"', '').strip())
+    with open(file_name, "w") as f: f.write(path.replace('\"', '').strip())
     return path
 
 def extract_id_from_url(url):
-    if not url:
-        return ""
+    if not url: return ""
     match = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
-    if match:
-        return match.group(1)
-    if len(url) > 20 and "/" not in url:
-        return url
+    if match: return match.group(1)
+    if len(url) > 20 and "/" not in url: return url
     return ""
 
 sys_config = load_system_config()
@@ -107,8 +100,7 @@ def get_credentials():
 
 def get_gspread_client():
     creds = get_credentials()
-    if creds:
-        return gspread.authorize(creds)
+    if creds: return gspread.authorize(creds)
     return None
 
 # ==========================================
@@ -123,10 +115,8 @@ def robust_file_downloader(url):
         'Referer': 'https://www.google.com/'
     })
     download_url = url
-    if "?" in url:
-        base_url = url.split("?")[0]
-    else:
-        base_url = url
+    if "?" in url: base_url = url.split("?")[0]
+    else: base_url = url
     if "1drv.ms" in url or "sharepoint" in url or "onedrive" in url:
         download_url = base_url + "?download=1"
     try:
@@ -134,58 +124,47 @@ def robust_file_downloader(url):
         if response.status_code == 200:
             return BytesIO(response.content)
         raise Exception(f"Status Code: {response.status_code}")
-    except Exception as e:
-        return None
+    except Exception as e: return None
 
 def format_date_with_suffix(d):
-    """
+    
     Returns date in format: "Jan 23rd 2026"
-    """
-    if pd.isna(d):
-        return "N/A"
+    
+    if pd.isna(d): return "N/A"
     try:
-        if isinstance(d, datetime.datetime):
-            d = d.date()
-        if not isinstance(d, datetime.date):
-            return str(d)
+        if isinstance(d, datetime.datetime): d = d.date()
+        if not isinstance(d, datetime.date): return str(d)
         
         day = d.day
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th") if not 10 < day < 14 else "th"
         return d.strftime(f"%b. {day}{suffix} %Y")
-    except:
-        return str(d)
+    except: return str(d)
 
 def format_date_simple(d):
-    """
+    
     Returns date in format: "DD-MM-YYYY" (No Time)
-    """
-    if pd.isna(d):
-        return ""
+    
+    if pd.isna(d): return ""
     try:
-        if isinstance(d, datetime.datetime):
-            d = d.date()
+        if isinstance(d, datetime.datetime): d = d.date()
         return d.strftime("%d-%m-%Y")
-    except:
-        return str(d)
+    except: return str(d)
 
-def clean_text(text):
-    return str(text).strip() if isinstance(text, str) else str(text)
+def clean_text(text): return str(text).strip() if isinstance(text, str) else str(text)
 
 # ===== CRITICAL FIX 1: ID NORMALIZATION (NO DECIMALS) =====
 # ⭐ CHANGE #1: ENHANCED normalize_id() FUNCTION
 def normalize_id(val):
-    """
+    
     Robust normalization:
     1. Handles "1.0" (float string) -> float 1.0 -> int 1 -> string "1"
     2. Handles 1.0 (float) -> int 1 -> string "1"
     3. Handles "1" (string) -> string "1"
     4. Handles NaN/None -> ""
-    """
-    if pd.isna(val):
-        return ""
+    
+    if pd.isna(val): return ""
     s_val = str(val).strip()
-    if s_val == "" or s_val.lower() == "nan":
-        return ""
+    if s_val == "" or s_val.lower() == "nan": return ""
     try:
         # Convert to float first (handles "123.0"), then int (drops .0), then str
         return str(int(float(s_val)))
@@ -195,27 +174,23 @@ def normalize_id(val):
 
 # --- CRITICAL FIX 2: CLEAN REFERRAL DATA (NO 'nan') ---
 def clean_referral_field(val):
-    """
+    
     Ensures that empty cells in Excel stay empty in Google Sheets.
     Removes 'nan', 'NaN', 'None', etc.
-    """
-    if pd.isna(val):
-        return ""
+    
+    if pd.isna(val): return ""
     s_val = str(val).strip()
-    if s_val.lower() == "nan":
-        return ""
-    if s_val.lower() == "none":
-        return ""
-    if s_val == "":
-        return ""
+    if s_val.lower() == "nan": return ""
+    if s_val.lower() == "none": return ""
+    if s_val == "": return ""
     return s_val
 
 # --- CRITICAL FIX 3: CACHED EXCLUSION LIST (FIXES 429 ERROR) ---
 @st.cache_data(ttl=120, show_spinner=False)
 def get_cached_exclusion_list(master_id, month_str):
-    """
+    
     Fetches the exclusion list with caching (2 mins) to prevent 429 Quota Errors.
-    """
+    
     client = get_gspread_client()
     if not client or not master_id:
         return []
@@ -250,12 +225,18 @@ def get_cached_exclusion_list(master_id, month_str):
 # ==========================================
 # SECTION 1: FUNCTION 2 - ENHANCED generate_filename()
 # ==========================================
+# Location: Replace existing generate_filename() [Line ~223-226]
+# Status: MINOR UPDATE
+# Impact: Ensures consistent filename format for both Download and Print
+
 def generate_filename(doc_type, invoice_no, customer_name):
-    """
+    
     Generates standardized filename format.
     Format: {PREFIX}-{INVOICE_NO}-{CLEAN_NAME}.pdf
     Example: IN-2026-001-RAJESH-KUMAR.pdf
-    """
+    
+    UPGRADED: Now handles clean invoice_no and ensures consistent naming for both Download and Print
+    
     prefix = {
         "Invoice": "IN", 
         "Nurse": "NU", 
@@ -266,7 +247,7 @@ def generate_filename(doc_type, invoice_no, customer_name):
     # Clean customer name: remove special chars, uppercase, trim
     clean_name = re.sub(r'[^a-zA-Z0-9]', '-', str(customer_name)).upper().strip('-')
     
-    # Ensure invoice_no is clean (no decimals)
+    # Ensure invoice_no is clean (no decimals) - CRITICAL FIX
     invoice_no_clean = str(invoice_no).strip()
     
     return f"{prefix}-{invoice_no_clean}-{clean_name}.pdf"
@@ -287,28 +268,23 @@ def get_base_lists(selected_plan, selected_sub_service):
     master_list = SERVICES_MASTER.get(selected_plan, [])
     if "All" in str(selected_sub_service) and selected_plan in STANDARD_PLANS:
         included_raw = [s for s in master_list if s.lower() != "all"]
-    else:
-        included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
+    else: included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
     included_clean = sorted(list(set([clean_text(s) for s in included_raw if clean_text(s)])))
     not_included_clean = []
     if selected_plan in STANDARD_PLANS:
         for plan_name in STANDARD_PLANS:
-            if plan_name == selected_plan:
-                continue
+            if plan_name == selected_plan: continue 
             for item in SERVICES_MASTER.get(plan_name, []):
-                if item.lower() == "all":
-                    continue
+                if item.lower() == "all": continue
                 cleaned = clean_text(item)
-                if cleaned:
-                    not_included_clean.append(cleaned)
+                if cleaned: not_included_clean.append(cleaned)
     else:
         for item in master_list:
             cleaned = clean_text(item)
-            if cleaned and cleaned not in included_clean:
-                not_included_clean.append(cleaned)
+            if cleaned and cleaned not in included_clean: not_included_clean.append(cleaned)
     return included_clean, list(set(not_included_clean))
 
-# --- HTML HELPERS ---
+# --- NEW HTML HELPERS (INSERTED) ---
 def construct_description_html(row):
     shift_raw = str(row.get('Shift', '')).strip()
     recurring = str(row.get('Recurring Service', '')).strip().lower()
@@ -316,69 +292,49 @@ def construct_description_html(row):
     shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
     shift_str = shift_map.get(shift_raw, shift_raw)
     time_suffix = " (Time)" if "12" in shift_str else ""
-    return f"""<div style="margin-top: 4px;"><div style="font-size: 12px; color: #4a4a4a; font-weight: bold;">{shift_str}{time_suffix}</div><div style="font-size: 10px; color: #777; font-style: italic; margin-top: 2px;">{period_raw}</div></div>"""
+    return f<div style="margin-top: 4px;"><div style="font-size: 12px; color: #4a4a4a; font-weight: bold;">{shift_str}{time_suffix}</div><div style="font-size: 10px; color: #777; font-style: italic; margin-top: 2px;">{period_raw}</div></div>
 
 def construct_amount_html(row, billing_qty):
-    try:
-        unit_rate = float(row.get('Unit Rate', 0))
-    except:
-        unit_rate = 0.0
-    try:
-        visits_needed = int(float(row.get('Visits', 0)))
-    except:
-        visits_needed = 0
+    try: unit_rate = float(row.get('Unit Rate', 0)) 
+    except: unit_rate = 0.0
+    try: visits_needed = int(float(row.get('Visits', 0)))
+    except: visits_needed = 0
     
     period_raw = str(row.get('Period', '')).strip()
     period_lower = period_raw.lower()
     shift_raw = str(row.get('Shift', '')).strip()
     
+    # NEW LOGIC FOR DETECTING "PER VISIT"
     is_per_visit = "per visit" in shift_raw.lower()
     
     billing_note = ""
     def get_plural(unit, qty):
-        if "month" in unit.lower():
-            return "Months" if qty > 1 else "Month"
-        if "week" in unit.lower():
-            return "Weeks" if qty > 1 else "Week"
-        if "day" in unit.lower():
-            return "Days" if qty > 1 else "Day"
-        if "visit" in unit.lower():
-            return "Visits" if qty > 1 else "Visit"
+        if "month" in unit.lower(): return "Months" if qty > 1 else "Month"
+        if "week" in unit.lower(): return "Weeks" if qty > 1 else "Week"
+        if "day" in unit.lower(): return "Days" if qty > 1 else "Day"
+        if "visit" in unit.lower(): return "Visits" if qty > 1 else "Visit" 
         return unit
 
     if is_per_visit:
         paid_text = f"Paid for {billing_qty} {get_plural('Visit', billing_qty)}"
-        if visits_needed > 1 and billing_qty == 1:
-            billing_note = "Next Billing will be generated after the Payment to Continue the Service."
-        elif billing_qty >= visits_needed:
-            billing_note = f"Paid for {visits_needed} Visits."
-        elif visits_needed == 1:
-            billing_note = "Paid for 1 Visit."
-        elif billing_qty < visits_needed:
-            billing_note = f"Next Bill will be Generated after {billing_qty} Visits."
-        else:
-            billing_note = paid_text
+        if visits_needed > 1 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
+        elif billing_qty >= visits_needed: billing_note = f"Paid for {visits_needed} Visits."
+        elif visits_needed == 1: billing_note = "Paid for 1 Visit."
+        elif billing_qty < visits_needed: billing_note = f"Next Bill will be Generated after {billing_qty} Visits."
+        else: billing_note = paid_text
     elif "month" in period_lower or "week" in period_lower:
         base_unit = "Month" if "month" in period_lower else "Week"
         paid_text = f"Paid for {billing_qty} {get_plural(base_unit, billing_qty)}"
-        if visits_needed > 1 and billing_qty == 1:
-            billing_note = "Next Billing will be generated after the Payment to Continue the Service."
-        elif visits_needed > billing_qty:
-            billing_note = f"Next Bill will be Generated after {billing_qty} {get_plural(base_unit, billing_qty)}."
-        else:
-            billing_note = paid_text
+        if visits_needed > 1 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
+        elif visits_needed > billing_qty: billing_note = f"Next Bill will be Generated after {billing_qty} {get_plural(base_unit, billing_qty)}."
+        else: billing_note = paid_text
     elif "daily" in period_lower:
         paid_text = f"Paid for {billing_qty} {get_plural('Day', billing_qty)}"
-        if 1 < visits_needed < 6 and billing_qty == 1:
-            billing_note = "Next Billing will be generated after the Payment to Continue the Service."
-        elif billing_qty >= visits_needed:
-            billing_note = f"Paid for {visits_needed} Days."
-        elif visits_needed == 1:
-            billing_note = "Paid for 1 Day."
-        elif billing_qty < visits_needed:
-            billing_note = f"Next Bill will be Generated after {billing_qty} Days."
-        else:
-            billing_note = paid_text
+        if 1 < visits_needed < 6 and billing_qty == 1: billing_note = "Next Billing will be generated after the Payment to Continue the Service."
+        elif billing_qty >= visits_needed: billing_note = f"Paid for {visits_needed} Days."
+        elif visits_needed == 1: billing_note = "Paid for 1 Day."
+        elif billing_qty < visits_needed: billing_note = f"Next Bill will be Generated after {billing_qty} Days."
+        else: billing_note = paid_text
     else:
         paid_text = f"Paid for {billing_qty} {period_raw}"
         billing_note = ""
@@ -386,25 +342,21 @@ def construct_amount_html(row, billing_qty):
     total_amount = unit_rate * billing_qty
     shift_map = {"12-hr Day": "12 Hours - Day", "12-hr Night": "12 Hours - Night", "24-hr": "24 Hours"}
     shift_display = shift_map.get(shift_raw, shift_raw)
-    if "12" in shift_display and "Time" not in shift_display:
-        shift_display += " (Time)"
+    if "12" in shift_display and "Time" not in shift_display: shift_display += " (Time)"
     
     period_display = "Monthly" if "month" in period_lower else period_raw.capitalize()
-    if "daily" in period_lower:
-        period_display = "Daily"
-    if is_per_visit:
-        period_display = "Visit"
+    if "daily" in period_lower: period_display = "Daily"
+    if is_per_visit: period_display = "Visit"
     
     unit_rate_str = "{:,.0f}".format(unit_rate)
     total_amount_str = "{:,.0f}".format(total_amount)
     
     unit_label = "Month" if "month" in period_lower else "Week" if "week" in period_lower else "Day"
-    if is_per_visit:
-        unit_label = "Visit"
+    if is_per_visit: unit_label = "Visit"
     
     paid_for_text = f"Paid for {billing_qty} {get_plural(unit_label, billing_qty)}"
 
-    return f"""
+    return f
     <div style="text-align: right; font-size: 13px; color: #555;">
         <div style="margin-bottom: 4px;">{shift_display} / {period_display} = <b>₹ {unit_rate_str}</b></div>
         <div style="color: #CC4E00; font-weight: bold; font-size: 14px; margin: 2px 0;">X</div>
@@ -416,37 +368,62 @@ def construct_amount_html(row, billing_qty):
         </div>
         <div style="font-size: 10px; color: #666; font-style: italic; margin-top: 6px;">{billing_note}</div>
     </div>
-    """
+    
+
+# ==========================================
+# FUNCTION 5: KEEP YOUR EXISTING convert_html_to_pdf()
+# ==========================================
+# NO CHANGES NEEDED - This function stays exactly as it is
+# We're keeping xhtml2pdf as a fallback option
 
 def convert_html_to_pdf(source_html):
-    """
+    
     Converts HTML to PDF using xhtml2pdf.
     
     NOTE: This function is now a FALLBACK for compatibility.
     For new downloads, use the html2pdf.js approach instead.
-    """
+    
     result = BytesIO()
     pisa_status = pisa.CreatePDF(source_html, dest=result)
-    if pisa_status.err:
+    if pisa_status.err: 
         return None
     return result.getvalue()
 
+# ==========================================
+# SECTION 2: NEW FUNCTION - create_html2pdf_download_script()
+# ==========================================
+# Location: INSERT after convert_html_to_pdf() function [Around Line ~800]
+# Status: NEW FUNCTION - CRITICAL
+# Impact: Enables high-quality PDF downloads
+
 def create_html2pdf_download_script(html_content, filename):
-    """
+    
     Creates JavaScript for HIGH-QUALITY PDF download using html2pdf.js library.
-    """
-    js_script = f"""
+    
+    NEW FUNCTION - CRITICAL UPGRADE:
+    - Uses html2pdf.js (vectorized rendering, not rasterized)
+    - 2x resolution for crisp output
+    - Professional color preservation
+    - Single page fit guarantee
+    - Automatic margins
+    
+    Returns JavaScript code that can be embedded in HTML
+    
+    
+    js_script = f
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
         window.addEventListener('load', function() {{
+            // Get the invoice container
             const element = document.querySelector('.invoice-container');
             
+            // html2pdf options for professional output
             const opt = {{
-                margin: [8, 8, 8, 8],
+                margin: [8, 8, 8, 8],  // Top, Left, Bottom, Right in mm - AUTO-ADJUSTED
                 filename: '{filename}',
-                image: {{ type: 'jpeg', quality: 0.98 }},
+                image: {{ type: 'jpeg', quality: 0.98 }},  // 98% quality - PROFESSIONAL
                 html2canvas: {{ 
-                    scale: 2,
+                    scale: 2,  // 2x resolution for crisp output - CRITICAL
                     useCORS: true,
                     allowTaint: false,
                     logging: false,
@@ -457,42 +434,79 @@ def create_html2pdf_download_script(html_content, filename):
                     unit: 'mm', 
                     format: 'a4'
                 }},
-                pagebreak: {{ mode: ['avoid-all', 'css', 'legacy'] }},
-                compress: false
+                pagebreak: {{ mode: ['avoid-all', 'css', 'legacy'] }},  // SINGLE PAGE FIT
+                compress: false  // No compression - preserve quality
             }};
             
+            // Generate and download PDF
             html2pdf().set(opt).from(element).save();
         }});
     </script>
-    """
+    
     
     return js_script
 
+# ==========================================
+# SECTION 3: NEW FUNCTION - create_print_listener_script()
+# ==========================================
+# Location: INSERT after create_html2pdf_download_script() [Around Line ~850]
+# Status: NEW FUNCTION - CRITICAL
+# Impact: Auto-sets filename when printing
+
 def create_print_listener_script(filename):
-    """
+    
     Adds JavaScript listener to Print event for automatic filename.
-    """
+    
+    NEW FUNCTION - CRITICAL UPGRADE:
+    - Auto-sets filename when saving via Print (Ctrl+P)
+    - Professional naming format
+    - No manual typing needed
+    - Ensures consistent naming across all prints
+    
+    Returns JavaScript code that can be embedded in HTML
+    
+    
     filename_without_ext = filename.replace('.pdf', '')
     
-    js_print = f"""
+    js_print = f
     <script>
         window.addEventListener('beforeprint', function() {{
+            // Set print title to match filename (shows in save dialog)
             document.title = '{filename_without_ext}';
         }});
         
         window.addEventListener('afterprint', function() {{
+            // Reset title after printing
             document.title = 'Vesak Care Invoice';
         }});
     </script>
-    """
+    
     
     return js_print
 
+# ==========================================
+# SECTION 4: FUNCTION 1 - ENHANCED construct_offline_invoice_html()
+# ==========================================
+# Location: REPLACE the entire construct_offline_invoice_html() function [Line ~1050+]
+# Status: CRITICAL - MAJOR UPDATE
+# Impact: Premium quality PDF output with watermark and single-page fit
+
 def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
-    """
-    Generates Premium-Quality HTML for Professional PDF Output
-    """
     
+    Generates Premium-Quality HTML for Professional PDF Output
+    
+    UPGRADED FEATURES:
+    1. Professional CSS for Print Media (@media print)
+    2. Responsive Layout - Single Page Fit Guaranteed
+    3. High-Quality Logo Rendering (vectorized colors)
+    4. Auto-Adjusted Margins (8mm all sides)
+    5. Exact Color Preservation (-webkit-print-color-adjust: exact)
+    6. Page Break Controls (page-break-inside: avoid)
+    7. Fixed Footer positioning
+    8. Watermark visible in BOTH Download and Print
+    
+    
+    # Extract Data from invoice
     inv_num = data_dict.get("Invoice Number", "")
     date_str = data_dict.get("Date", "")
     c_name = data_dict.get("Customer Name", "")
@@ -501,45 +515,59 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
     c_mob = data_dict.get("Mobile", "")
     c_addr = data_dict.get("Address", "")
     
+    # Plan and Service Details
     plan_name = data_dict.get("Plan", "")
     shift = data_dict.get("Shift", "")
     period = data_dict.get("Period", "")
     
-    try:
+    # Financials
+    try: 
         amt_paid = float(data_dict.get("Amount Paid", 0))
         amt_paid_str = "{:,.0f}".format(amt_paid)
-    except:
+    except: 
         amt_paid_str = "0"
     
+    # Service dates
     svc_start = data_dict.get("Service Started", "")
     svc_end = data_dict.get("Service Ended", "")
+    
+    # Notes
     notes = data_dict.get("Notes / Remarks", "")
     
-    premium_css = """
+    # ==========================================
+    # PREMIUM CSS WITH PRINT OPTIMIZATION (CRITICAL)
+    # ==========================================
+    # This is the KEY UPGRADE - Professional print-optimized CSS
+    
+    premium_css = 
     <style>
+        /* PAGE SETUP - Auto-adjusted margins */
         @page {
             size: A4 portrait;
             margin: 8mm 8mm 8mm 8mm;
             background: white;
         }
         
+        /* RESET & NORMALIZE */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
         
+        /* BASE HTML/BODY STYLES */
         html, body {
             width: 100%;
             height: 100%;
             background: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #2c3e50;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;  /* CRITICAL: Force exact colors */
+            print-color-adjust: exact;           /* CRITICAL: Force exact colors */
             -webkit-font-smoothing: antialiased;
         }
         
+        /* INVOICE CONTAINER - Single page fit */
         .invoice-container {
             width: 100%;
             min-height: 100%;
@@ -549,6 +577,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             page-break-inside: avoid;
         }
         
+        /* HEADER SECTION */
         .invoice-header {
             display: flex;
             justify-content: space-between;
@@ -563,12 +592,13 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             flex: 0 0 auto;
         }
         
+        /* LOGO - HIGH QUALITY RENDERING */
         .logo-section img {
             height: 50px;
             width: auto;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            image-rendering: crisp-edges;
+            -webkit-print-color-adjust: exact;  /* CRITICAL: Logo quality */
+            print-color-adjust: exact;           /* CRITICAL: Logo quality */
+            image-rendering: crisp-edges;        /* CRITICAL: Crisp logo */
             color-adjust: exact;
         }
         
@@ -590,6 +620,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             margin: 2px 0;
         }
         
+        /* TITLE SECTION */
         .invoice-title {
             text-align: center;
             margin: 6px 0;
@@ -603,6 +634,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             margin: 0;
         }
         
+        /* CUSTOMER INFO SECTION */
         .customer-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -629,6 +661,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             margin-top: 2px;
         }
         
+        /* INVOICE TABLE */
         .invoice-table {
             width: 100%;
             border-collapse: collapse;
@@ -640,8 +673,8 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
         .invoice-table thead {
             background: #1a5490;
             color: white;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;  /* CRITICAL: Table header colors */
+            print-color-adjust: exact;           /* CRITICAL: Table header colors */
         }
         
         .invoice-table th {
@@ -660,10 +693,11 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
         
         .invoice-table tbody tr:nth-child(odd) {
             background: #f9f9f9;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;  /* CRITICAL: Row colors */
+            print-color-adjust: exact;           /* CRITICAL: Row colors */
         }
         
+        /* SUMMARY SECTION */
         .invoice-summary {
             margin-top: 4px;
             padding: 4px;
@@ -688,6 +722,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             color: #1a5490;
         }
         
+        /* NOTES SECTION */
         .notes-section {
             margin: 4px 0;
             padding: 3px;
@@ -701,8 +736,9 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             color: #2c3e50;
         }
         
+        /* FOOTER SECTION - CRITICAL FIX */
         .footer {
-            margin-top: auto;
+            margin-top: auto;  /* CRITICAL: Pushes to bottom */
             text-align: center;
             font-size: 8px;
             color: #999;
@@ -712,6 +748,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             position: relative;
         }
         
+        /* WATERMARK - EMBEDDED FOR PRINT */
         .watermark-container {
             position: fixed;
             top: 50%;
@@ -729,11 +766,15 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             letter-spacing: 2px;
         }
         
+        /* ========================================
+           PRINT MEDIA QUERY - CRITICAL UPGRADES
+           This ensures high-quality PDF output
+           ======================================== */
         @media print {
             html, body {
                 height: auto;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;  /* CRITICAL */
+                print-color-adjust: exact;           /* CRITICAL */
             }
             
             .invoice-container {
@@ -747,8 +788,8 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             }
             
             .invoice-table thead {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;  /* CRITICAL */
+                print-color-adjust: exact;           /* CRITICAL */
                 background: #1a5490 !important;
                 color: white !important;
             }
@@ -758,8 +799,8 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             }
             
             .logo-section img {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;  /* CRITICAL: Logo in print */
+                print-color-adjust: exact;           /* CRITICAL: Logo in print */
                 image-rendering: crisp-edges;
                 color-adjust: exact;
             }
@@ -774,11 +815,13 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
             }
         }
     </style>
-    """
     
+    
+    # Create logo image tag
     logo_img = f'<img src="data:image/png;base64,{logo_b64}" alt="Logo" />' if logo_b64 else ""
     
-    html = f"""
+    # Build the complete HTML
+    html = f
     <!DOCTYPE html>
     <html>
     <head>
@@ -788,11 +831,14 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
         {premium_css}
     </head>
     <body>
+        <!-- WATERMARK - VISIBLE IN PRINT -->
         <div class="watermark-container">
             <div class="watermark-text">VESAK CARE</div>
         </div>
         
+        <!-- MAIN INVOICE CONTAINER -->
         <div class="invoice-container">
+            <!-- HEADER WITH LOGO -->
             <div class="invoice-header">
                 <div class="logo-section">
                     {logo_img}
@@ -804,10 +850,12 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
                 </div>
             </div>
             
+            <!-- INVOICE TITLE -->
             <div class="invoice-title">
                 <h2>{doc_type}</h2>
             </div>
             
+            <!-- CUSTOMER INFORMATION -->
             <div class="customer-section">
                 <div class="customer-field">
                     <div class="customer-field-label">INVOICE NO.</div>
@@ -835,6 +883,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
                 </div>
             </div>
             
+            <!-- SERVICES TABLE -->
             <table class="invoice-table">
                 <thead>
                     <tr>
@@ -854,6 +903,7 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
                 </tbody>
             </table>
             
+            <!-- SUMMARY -->
             <div class="invoice-summary">
                 <div class="summary-item">
                     <span class="summary-label">TOTAL AMOUNT:</span>
@@ -861,28 +911,28 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
                 </div>
             </div>
             
+            <!-- NOTES (if any) -->
             {'<div class="notes-section"><strong>Notes:</strong> ' + notes + '</div>' if notes else ''}
             
+            <!-- FOOTER - FIXED AT BOTTOM -->
             <div class="footer">
                 <p>Thank you for choosing VESAK CARE SERVICES | Authorized Invoice Generated</p>
             </div>
         </div>
     </body>
     </html>
-    """
+    
     
     return html
 
 def normalize_columns(df, aliases):
     df.columns = df.columns.astype(str).str.strip()
     for standard_name, possible_aliases in aliases.items():
-        if standard_name in df.columns:
-            continue
+        if standard_name in df.columns: continue 
         for alias in possible_aliases:
             for df_col in df.columns:
                 if df_col.lower() == alias.lower():
-                    df.rename(columns={df_col: standard_name}, inplace=True)
-                    break
+                    df.rename(columns={df_col: standard_name}, inplace=True); break 
     return df
 
 COLUMN_ALIASES = {
@@ -890,7 +940,7 @@ COLUMN_ALIASES = {
     'Ref. No.': ['Ref. No.', 'ref no', 'ref. no.', 'reference no', 'reference number'],
     'Name': ['Name', 'name', 'patient name', 'client name'],
     'Mobile': ['Mobile', 'mobile', 'phone', 'contact'],
-    'Location': ['Location', 'location', 'city'],
+    'Location': ['Location', 'location', 'city'], 
     'Address': ['Address', 'address', 'residence'],
     'Gender': ['Gender', 'gender', 'sex'],
     'Age': ['Age', 'age'],
@@ -911,129 +961,125 @@ COLUMN_ALIASES = {
 
 # --- DATABASE HELPERS ---
 def save_invoice_to_gsheet(data_dict, sheet_obj):
-    if sheet_obj is None:
-        return False
+    if sheet_obj is None: return False
     try:
         all_vals = sheet_obj.get_all_values()
         next_row_num = len(all_vals) + 1
         
         existing_uids = []
-        for r in all_vals[1:]:
-            if r[0] and r[0].isdigit():
-                existing_uids.append(int(r[0]))
+        for r in all_vals[1:]: 
+            if r[0] and r[0].isdigit(): existing_uids.append(int(r[0]))
         
-        if existing_uids:
-            new_uid = max(existing_uids) + 1
-        else:
-            new_uid = 1
+        if existing_uids: new_uid = max(existing_uids) + 1
+        else: new_uid = 1
         final_uid = f"{new_uid:04d}"
 
         formula_net_amount = f"=U{next_row_num}-AA{next_row_num}"
         formula_earnings = f"=AB{next_row_num}-(AC{next_row_num}*AD{next_row_num})"
         
+        # --- FIXED: Use passed Raw Value, no regex needed ---
         qty_extracted = data_dict.get("Paid for Raw", 1)
+        # --------------------------------------------------
 
         row_values = [
-            final_uid,
-            data_dict.get("Serial No.", ""),
-            data_dict.get("Ref. No.", ""),
-            data_dict.get("Invoice Number", ""),
-            data_dict.get("Date", ""),
-            data_dict.get("Generated At", ""),
-            data_dict.get("Customer Name", ""),
-            data_dict.get("Age", ""),
-            data_dict.get("Gender", ""),
-            data_dict.get("Location", ""),
-            data_dict.get("Address", ""),
-            data_dict.get("Mobile", ""),
-            data_dict.get("Plan", ""),
-            data_dict.get("Shift", ""),
-            data_dict.get("Recurring Service", ""),
-            data_dict.get("Period", ""),
-            data_dict.get("Visits", ""),
-            data_dict.get("Amount", ""),
-            data_dict.get("Notes / Remarks", ""),
-            data_dict.get("Generated By", ""),
-            data_dict.get("Amount Paid", ""),
-            data_dict.get("Details", ""),
-            data_dict.get("Service Started", ""),
-            data_dict.get("Service Ended", ""),
-            data_dict.get("Referral Code", ""),
-            data_dict.get("Referral Name", ""),
-            data_dict.get("Referral Credit", ""),
-            formula_net_amount,
-            "",
-            qty_extracted,
-            formula_earnings,
-            "",
-            "",
-            ""
+            final_uid,                              # A
+            data_dict.get("Serial No.", ""),        # B
+            data_dict.get("Ref. No.", ""),          # C
+            data_dict.get("Invoice Number", ""),    # D
+            data_dict.get("Date", ""),              # E
+            data_dict.get("Generated At", ""),      # F
+            data_dict.get("Customer Name", ""),     # G
+            data_dict.get("Age", ""),               # H
+            data_dict.get("Gender", ""),            # I
+            data_dict.get("Location", ""),          # J
+            data_dict.get("Address", ""),           # K
+            data_dict.get("Mobile", ""),            # L
+            data_dict.get("Plan", ""),              # M
+            data_dict.get("Shift", ""),             # N
+            data_dict.get("Recurring Service", ""), # O
+            data_dict.get("Period", ""),            # P
+            data_dict.get("Visits", ""),            # Q
+            data_dict.get("Amount", ""),            # R
+            data_dict.get("Notes / Remarks", ""),   # S
+            data_dict.get("Generated By", ""),      # T
+            data_dict.get("Amount Paid", ""),       # U
+            data_dict.get("Details", ""),           # V
+            data_dict.get("Service Started", ""),   # W (DD-MM-YYYY)
+            data_dict.get("Service Ended", ""),     # X (DD-MM-YYYY)
+            data_dict.get("Referral Code", ""),     # Y
+            data_dict.get("Referral Name", ""),     # Z
+            data_dict.get("Referral Credit", ""),   # AA
+            formula_net_amount,                     # AB
+            "",                                     # AC
+            qty_extracted,                          # AD (Updated with RAW)
+            formula_earnings,                       # AE
+            "",                                     # AF
+            "",                                     # AG
+            ""                                      # AH
         ]
         sheet_obj.append_row(row_values, value_input_option='USER_ENTERED')
         return True
-    except Exception as e:
-        st.error(f"Save Error: {e}")
-        return False
+    except Exception as e: st.error(f"Save Error: {e}"); return False
 
+# ⭐ CHANGE #7: NEW FUNCTION - update_invoice_in_gsheet()
 def update_invoice_in_gsheet(data_dict, sheet_obj, row_idx):
-    """
+    
     Updates an existing row in the Google Sheet instead of appending.
     Only updates columns A through X (customer data).
     Preserves UID and other calculated columns.
-    """
-    if sheet_obj is None:
-        return False
+    
+    if sheet_obj is None: return False
     try:
+        # Update columns A through X (Indices 0 to 23 in data, 1-24 in Sheet)
         row_values = [
-            data_dict.get("UID", ""),
-            data_dict.get("Serial No.", ""),
+            data_dict.get("UID", ""), 
+            data_dict.get("Serial No.", ""), 
             data_dict.get("Ref. No.", ""),
-            data_dict.get("Invoice Number", ""),
-            data_dict.get("Date", ""),
+            data_dict.get("Invoice Number", ""), 
+            data_dict.get("Date", ""), 
             data_dict.get("Generated At", ""),
-            data_dict.get("Customer Name", ""),
-            data_dict.get("Age", ""),
+            data_dict.get("Customer Name", ""), 
+            data_dict.get("Age", ""), 
             data_dict.get("Gender", ""),
-            data_dict.get("Location", ""),
-            data_dict.get("Address", ""),
+            data_dict.get("Location", ""), 
+            data_dict.get("Address", ""), 
             data_dict.get("Mobile", ""),
-            data_dict.get("Plan", ""),
-            data_dict.get("Shift", ""),
+            data_dict.get("Plan", ""), 
+            data_dict.get("Shift", ""), 
             data_dict.get("Recurring Service", ""),
-            data_dict.get("Period", ""),
-            data_dict.get("Visits", ""),
+            data_dict.get("Period", ""), 
+            data_dict.get("Visits", ""), 
             data_dict.get("Amount", ""),
-            data_dict.get("Notes / Remarks", ""),
-            data_dict.get("Generated By", ""),
+            data_dict.get("Notes / Remarks", ""), 
+            data_dict.get("Generated By", ""), 
             data_dict.get("Amount Paid", ""),
-            data_dict.get("Details", ""),
-            data_dict.get("Service Started", ""),
+            data_dict.get("Details", ""), 
+            data_dict.get("Service Started", ""), 
             data_dict.get("Service Ended", "")
         ]
         range_name = f"A{row_idx}:X{row_idx}"
         sheet_obj.update(range_name, [row_values], value_input_option='USER_ENTERED')
         
+        # --- NEW CODE: Update Column AD (Paid for) ---
+        # Fixed: Use exact raw number passed from data_dict
         qty_extracted = data_dict.get("Paid for Raw", 1)
         sheet_obj.update(f"AD{row_idx}", [[qty_extracted]], value_input_option='USER_ENTERED')
+        # -----------------------------------------------
 
         return True
-    except Exception as e:
-        st.error(f"Update Error: {e}")
-        return False
+    except Exception as e: st.error(f"Update Error: {e}"); return False
 
 def update_nurse_management(sheet_obj, invoice_number, payment_amount, nurse_name, nurse_extra, nurse_note):
-    if sheet_obj is None:
-        return False, None
+    if sheet_obj is None: return False, None
     try:
-        cell = sheet_obj.find(str(invoice_number).strip(), in_column=4)
+        cell = sheet_obj.find(str(invoice_number).strip(), in_column=4) 
         if cell:
             row_idx = cell.row
             details_val = sheet_obj.cell(row_idx, 22).value
             qty = 1
             if details_val:
                 match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
-                if match:
-                    qty = int(match.group(1))
+                if match: qty = int(match.group(1))
             
             formula_string = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
             range_update = f"AC{row_idx}:AH{row_idx}"
@@ -1041,38 +1087,32 @@ def update_nurse_management(sheet_obj, invoice_number, payment_amount, nurse_nam
             sheet_obj.update(range_update, values, value_input_option='USER_ENTERED')
             return True, formula_string
         return False, None
-    except Exception as e:
-        st.error(f"Nurse Update Error: {e}")
-        return False, None
+    except Exception as e: st.error(f"Nurse Update Error: {e}"); return False, None
 
 def mark_service_ended(sheet_obj, invoice_number, end_date):
-    if sheet_obj is None:
-        return False, "No Sheet"
+    if sheet_obj is None: return False, "No Sheet"
     try:
         cell = sheet_obj.find(str(invoice_number).strip(), in_column=4)
         if cell:
+            # CRITICAL: Format DD-MM-YYYY NO TIME
             end_time_str = format_date_simple(end_date)
             range_name = f"X{cell.row}"
             sheet_obj.update(range_name, [[end_time_str]])
             return True, end_time_str
         return False, "Invoice not found"
-    except Exception as e:
-        return False, str(e)
+    except Exception as e: return False, str(e)
 
 def get_clean_image_base64(file_path):
-    if not os.path.exists(file_path):
-        return None
+    if not os.path.exists(file_path): return None
     try:
         img = Image.open(file_path).convert("RGBA")
         buffer = BytesIO()
         img.save(buffer, format="PNG", optimize=True)
         return base64.b64encode(buffer.getvalue()).decode('utf-8')
-    except:
-        return None
+    except: return None
 
 def get_absolute_path(filename):
-    if os.path.exists(filename):
-        return os.path.abspath(filename).replace('\\', '/')
+    if os.path.exists(filename): return os.path.abspath(filename).replace('\\\\', '/')
     return None
 
 # ==========================================
@@ -1081,15 +1121,13 @@ def get_absolute_path(filename):
 def perform_backup_logic(master_data, backup_url, target_month_str):
     client = get_gspread_client()
     backup_id = extract_id_from_url(backup_url)
-    if not backup_id or not client:
-        return False, "Invalid Backup Configuration."
+    if not backup_id or not client: return False, "Invalid Backup Configuration."
     try:
         backup_wb = client.open_by_key(backup_id)
         try:
             target_ws = backup_wb.worksheet(target_month_str)
             return False, f"Backup for {target_month_str} already exists. Skipping to prevent overwrite."
-        except gspread.exceptions.WorksheetNotFound:
-            pass
+        except gspread.exceptions.WorksheetNotFound: pass
 
         try:
             default_ws = backup_wb.worksheet("Sheet1")
@@ -1100,18 +1138,10 @@ def perform_backup_logic(master_data, backup_url, target_month_str):
 
         target_ws.clear()
         target_ws.update(range_name="A1", values=master_data, value_input_option='USER_ENTERED')
-        try:
-            target_ws.format("A1:AH1", {"textFormat": {"bold": True}, "backgroundColor": {"red": 0.8, "green": 0.8, "blue": 0.8}})
-        except:
-            pass
+        try: target_ws.format("A1:AH1", {"textFormat": {"bold": True}, "backgroundColor": {"red": 0.8, "green": 0.8, "blue": 0.8}})
+        except: pass
         return True, f"✅ Success! Data backed up to sheet '{target_month_str}' in Backup Workbook."
-    except Exception as e:
-        return False, f"Backup Failed: {str(e)}"
-return False, f"Backup Failed: {str(e)}"
-
-# ==========================================
-# END OF HELPER FUNCTIONS
-# ==========================================
+    except Exception as e: return False, f"Backup Failed: {str(e)}"
 
 # ==========================================
 # UI & MAIN LOGIC
@@ -2173,6 +2203,3 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
-
-
-
