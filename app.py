@@ -3,7 +3,6 @@ import pandas as pd
 import base64
 import os
 import datetime
-import time		   
 import requests
 import math 
 import re 
@@ -1090,10 +1089,9 @@ with st.sidebar:
                     else: st.warning(msg)
             except Exception as e: st.error(f"Could not read Master Workbook: {e}")
 
-# --- LOAD DATA ---
-st.sidebar.header("📂 Load Customer Data")											
-data_source = st.radio("Load Customer Data via:", ["Upload File", "OneDrive Link"])
-if st.button("🔄 Refresh"): st.cache_data.clear(); st.rerun()
+    
+    data_source = st.radio("Load Customer Data via:", ["Upload File", "OneDrive Link"])
+    if st.button("🔄 Refresh"): st.cache_data.clear(); st.rerun()
 
 # --- LOAD INPUT FILE ---
 raw_file_obj = None
@@ -1225,78 +1223,61 @@ def render_invoice_ui(df_main, mode="standard"):
         st.error(f"Connection Error: {e}")
         return
 
-    # df_history = pd.DataFrame()
-    # THE OVERWRITE FUNCTION LOGIC 
     if sheet_obj:
         master_records = sheet_obj.get_all_records()
         df_history = pd.DataFrame(master_records)
-    
+
         if not df_history.empty:
-            # Normalize values for accurate comparison
             df_history['Ref_Norm'] = df_history['Ref. No.'].apply(lambda x: normalize_id(x).strip())
             df_history['Ser_Norm'] = df_history['Serial No.'].apply(lambda x: normalize_id(x).strip())
-    
-            # ⭐ CHANGE #8: FIXED CONFLICT DETECTION LOGIC - MATCH ONLY ON REF. NO. AND SERIAL NO.
-            # DO NOT MATCH ON INVOICE NO. because it changes for each invoice
-            # This ensures we detect existing customers regardless of how many invoices they have
-            # Location: Lines 993-998									 
+
             match_mask = (
                 (df_history['Ref_Norm'].astype(str) == str(c_ref)) &
                 (df_history['Ser_Norm'].astype(str) == str(c_serial))
             )
-    
             existing_matches = df_history[match_mask]
-    
+
             if not existing_matches.empty:
                 conflict_exists = True
                 last_match = existing_matches.iloc[-1]
-    
+
                 inv_final = str(last_match.get('Invoice Number', ''))
-    
+
                 hist_note = str(last_match.get('Notes / Remarks', '')).strip()
                 if hist_note:
                     default_notes = hist_note
-    
-                # Paid Units
-                raw_paid_val = last_match.get('Paid for', '')
+
                 try:
+                    raw_paid_val = last_match.get('Paid for', '')
                     if raw_paid_val and str(raw_paid_val).strip().isdigit():
                         default_qty = int(str(raw_paid_val).strip())
                     else:
                         hist_details = str(last_match.get('Details', ''))
-                        match_qty = re.search(
-                            r'Paid for\s*(\d+)',
-                            hist_details,
-                            re.IGNORECASE
-                        )
+                        match_qty = re.search(r'Paid for\s*(\d+)', hist_details, re.IGNORECASE)
                         if match_qty:
                             default_qty = int(match_qty.group(1))
                 except:
                     pass
-    
-                # Date
+
                 try:
                     hist_date_str = str(last_match.get('Date', ''))
-                    clean_date_str = re.sub(
-                        r'(\d+)(st|nd|rd|th)',
-                        r'\1',
-                        hist_date_str
-                    )
-                    default_date = datetime.datetime.strptime(
-                        clean_date_str,
-                        "%b. %d %Y"
-                    ).date()
+                    clean_date_str = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', hist_date_str)
+                    default_date = datetime.datetime.strptime(clean_date_str, "%b. %d %Y").date()
                 except:
                     pass
-    
-                # Get existing row index (WITHOUT Invoice No)
+
                 try:
-                    # Since we aren't matching invoice no, search manually
-                    idx = existing_matches.index.tolist()[-1]
-                    existing_row_idx = idx + 2   # +2 for header
+                    cell_match = sheet_obj.find(inv_final, in_column=4)
+                    if cell_match:
+                        existing_row_idx = cell_match.row
                 except:
-                    existing_row_idx = None
-    
+                    pass
+                
+                # ⭐ CHANGE #3: AUTO-ENABLE OVERWRITE FOR DUPLICATE CUSTOMERS
+                # When duplicate customer detected, automatically check the checkbox
+                if conflict_exists and not chk_overwrite:
+                    st.session_state.chk_overwrite = True
+                    chk_overwrite = True
             else:
                 default_qty = 1
                 conflict_exists = False
@@ -1515,11 +1496,7 @@ def render_invoice_ui(df_main, mode="standard"):
         
         # ⭐ CHANGE #1: AUTO-RESET INVOICE DATE
         # Reset the date field to today's date after successful creation
-        st.session_state.update({
-            f"inv_d_{mode}": datetime.date.today(),
-            f"ow_{mode}": False
-        })
-        st.rerun()
+        st.session_state[f"inv_d_{mode}"] = datetime.date.today()
         
         # ⭐ CHANGE #2: AUTO-RESET OVERWRITE CHECKBOX
         # Reset checkbox to unchecked after successful creation
@@ -1984,7 +1961,5 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
-
-
 
 
