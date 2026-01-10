@@ -2,12 +2,12 @@ import streamlit as st
 import pandas as pd
 import base64
 import os
-import datetime		   
+import datetime				
 import requests
 import math 
 import re 
 import json
-import time			
+import time 
 from io import BytesIO
 from PIL import Image, ImageFile
 import streamlit.components.v1 as components
@@ -107,9 +107,9 @@ def get_gspread_client():
 # ==========================================
 # FILE HANDLING & HELPERS
 # ==========================================
-# ⭐ CHANGE #5: OPTIMIZED CACHING (3x SPEED)
-# Location: robust_file_downloader() function
-# Updated: Added TTL=180 (3 minutes) for faster file downloads
+											 
+											 
+															  
 @st.cache_data(ttl=180, show_spinner=False)
 def robust_file_downloader(url):
     session = requests.Session()
@@ -158,13 +158,13 @@ def clean_text(text): return str(text).strip() if isinstance(text, str) else str
 
 # ===== CRITICAL FIX 1: ID NORMALIZATION (NO DECIMALS) =====
 def normalize_id(val):
-    """
-    Robust normalization:
-    1. Handles "1.0" (float string) -> float 1.0 -> int 1 -> string "1"
-    2. Handles 1.0 (float) -> int 1 -> string "1"
-    3. Handles "1" (string) -> string "1"
-    4. Handles NaN/None -> ""
-    """
+	   
+						 
+																	   
+												 
+										 
+							 
+	   
     if pd.isna(val): return ""
     s_val = str(val).strip()
     if s_val == "" or s_val.lower() == "nan": return ""
@@ -175,10 +175,10 @@ def normalize_id(val):
 
 # --- CRITICAL FIX 2: CLEAN REFERRAL DATA (NO 'nan') ---
 def clean_referral_field(val):
-    """
-    Ensures that empty cells in Excel stay empty in Google Sheets.
-    Removes 'nan', 'NaN', 'None', etc.
-    """
+	   
+																  
+									  
+	   
     if pd.isna(val): return ""
     s_val = str(val).strip()
     if s_val.lower() == "nan": return ""
@@ -189,9 +189,9 @@ def clean_referral_field(val):
 # --- CRITICAL FIX 3: CACHED EXCLUSION LIST (FIXES 429 ERROR) ---
 @st.cache_data(ttl=300, show_spinner=False)
 def get_cached_exclusion_list(master_id, month_str):
-    """
-    Fetches the exclusion list with caching (5 mins) to prevent 429 Quota Errors.
-    """
+	   
+																				 
+	   
     client = get_gspread_client()
     if not client or not master_id: return []
     
@@ -225,11 +225,11 @@ def get_cached_exclusion_list(master_id, month_str):
 # SECTION 1: FUNCTION 2 - ENHANCED generate_filename()
 # ==========================================
 def generate_filename(doc_type, invoice_no, customer_name):
-    """
-    Generates standardized filename format.
-    Format: {PREFIX}-{INVOICE_NO}-{CLEAN_NAME}.pdf
-    Example: IN-2026-001-RAJESH-KUMAR.pdf
-    """
+	   
+										   
+												  
+										 
+	   
     prefix = {
         "Invoice": "IN", 
         "Nurse": "NU", 
@@ -274,7 +274,7 @@ def get_base_lists(selected_plan, selected_sub_service):
             if cleaned and cleaned not in included_clean: not_included_clean.append(cleaned)
     return included_clean, list(set(not_included_clean))
 
-# --- NEW HTML HELPERS (INSERTED) ---
+# --- NEW HTML HELPERS ---
 def construct_description_html(row):
     shift_raw = str(row.get('Shift', '')).strip()
     recurring = str(row.get('Recurring Service', '')).strip().lower()
@@ -377,16 +377,16 @@ def convert_html_to_pdf(source_html):
 # SECTION 2: NEW FUNCTION - create_html2pdf_download_script()
 # ==========================================
 def create_html2pdf_download_script(html_content, filename):
-    """
-    Creates JavaScript for HIGH-QUALITY PDF download using html2pdf.js library.
-    """
-    
+	   
+																			   
+	   
+	
     js_script = f"""
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script>
         window.addEventListener('load', function() {{
             const element = document.querySelector('.invoice-container');
-            
+			
             const opt = {{
                 margin: [8, 8, 8, 8],
                 filename: '{filename}',
@@ -406,24 +406,24 @@ def create_html2pdf_download_script(html_content, filename):
                 pagebreak: {{ mode: ['avoid-all', 'css', 'legacy'] }},
                 compress: false
             }};
-            
+			
             html2pdf().set(opt).from(element).save();
         }});
     </script>
     """
-    
+	
     return js_script
 
 # ==========================================
 # SECTION 3: NEW FUNCTION - create_print_listener_script()
 # ==========================================
 def create_print_listener_script(filename):
-    """
-    Adds JavaScript listener to Print event for automatic filename.
-    """
-    
+	   
+																   
+	   
+	
     filename_without_ext = filename.replace('.pdf', '')
-    
+	
     js_print = f"""
     <script>
         window.addEventListener('beforeprint', function() {{
@@ -435,27 +435,27 @@ def create_print_listener_script(filename):
         }});
     </script>
     """
-    
+	
     return js_print
 
 # ==========================================
 # SECTION 4: FUNCTION 1 - ENHANCED construct_offline_invoice_html()
 # ==========================================
 def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
-    """
-    Generates Premium-Quality HTML for Professional PDF Output
-    
-    UPGRADED FEATURES:
-    1. Professional CSS for Print Media (@media print)
-    2. Responsive Layout - Single Page Fit Guaranteed
-    3. High-Quality Logo Rendering (vectorized colors)
-    4. Auto-Adjusted Margins (8mm all sides)
-    5. Exact Color Preservation (-webkit-print-color-adjust: exact)
-    6. Page Break Controls (page-break-inside: avoid)
-    7. Fixed Footer positioning
-    8. Watermark visible in BOTH Download and Print
-    """
-    
+	   
+															  
+	
+					  
+													  
+													 
+													  
+											
+																   
+													 
+							   
+												   
+	   
+	
     inv_num = data_dict.get("Invoice Number", "")
     date_str = data_dict.get("Date", "")
     c_name = data_dict.get("Customer Name", "")
@@ -480,261 +480,261 @@ def construct_offline_invoice_html(data_dict, logo_b64, doc_type="INVOICE"):
     
     premium_css = """
     <style>
-        @page {
-            size: A4 portrait;
-            margin: 8mm 8mm 8mm 8mm;
-            background: white;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        html, body {
-            width: 100%;
-            height: 100%;
-            background: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: #2c3e50;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            -webkit-font-smoothing: antialiased;
-        }
-        
-        .invoice-container {
-            width: 100%;
-            min-height: 100%;
-            display: flex;
-            flex-direction: column;
-            page-break-after: avoid;
-            page-break-inside: avoid;
-        }
-        
-        .invoice-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid #2c3e50;
-            page-break-inside: avoid;
-        }
-        
-        .logo-section {
-            flex: 0 0 auto;
-        }
-        
-        .logo-section img {
-            height: 50px;
-            width: auto;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            image-rendering: crisp-edges;
-            color-adjust: exact;
-        }
-        
-        .header-info {
-            flex: 1;
-            text-align: right;
-        }
-        
-        .header-info h1 {
-            font-size: 14px;
-            font-weight: 700;
-            color: #2c3e50;
-            margin: 0;
-        }
-        
-        .header-info p {
-            font-size: 9px;
-            color: #555;
-            margin: 2px 0;
-        }
-        
-        .invoice-title {
-            text-align: center;
-            margin: 6px 0;
-            page-break-inside: avoid;
-        }
-        
-        .invoice-title h2 {
-            font-size: 16px;
-            font-weight: 700;
-            color: #1a5490;
-            margin: 0;
-        }
-        
-        .customer-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin: 6px 0;
-            font-size: 9px;
-            page-break-inside: avoid;
-        }
-        
-        .customer-field {
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .customer-field-label {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 8px;
-        }
-        
-        .customer-field-value {
-            color: #444;
-            font-size: 9px;
-            margin-top: 2px;
-        }
-        
-        .invoice-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 4px 0;
-            font-size: 9px;
-            page-break-inside: avoid;
-        }
-        
-        .invoice-table thead {
-            background: #1a5490;
-            color: white;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        
-        .invoice-table th {
-            padding: 4px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 8px;
-            border: 1px solid #1a5490;
-        }
-        
-        .invoice-table td {
-            padding: 4px;
-            border: 1px solid #ddd;
-            text-align: left;
-        }
-        
-        .invoice-table tbody tr:nth-child(odd) {
-            background: #f9f9f9;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        
-        .invoice-summary {
-            margin-top: 4px;
-            padding: 4px;
-            display: flex;
-            justify-content: flex-end;
-            font-size: 9px;
-            page-break-inside: avoid;
-        }
-        
-        .summary-item {
-            margin-left: 20px;
-        }
-        
-        .summary-label {
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .summary-value {
-            margin-left: 6px;
-            font-weight: 700;
-            color: #1a5490;
-        }
-        
-        .notes-section {
-            margin: 4px 0;
-            padding: 3px;
-            background: #fffacd;
-            border-left: 3px solid #f39c12;
-            font-size: 8px;
-            page-break-inside: avoid;
-        }
-        
-        .notes-section strong {
-            color: #2c3e50;
-        }
-        
-        .footer {
-            margin-top: auto;
-            text-align: center;
-            font-size: 8px;
-            color: #999;
-            border-top: 1px solid #ddd;
-            padding-top: 4px;
-            page-break-inside: avoid;
-            position: relative;
-        }
-        
-        .watermark-container {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 60px;
-            opacity: 0.08;
-            color: #999;
-            pointer-events: none;
-            z-index: -1;
-        }
-        
-        .watermark-text {
-            font-weight: bold;
-            letter-spacing: 2px;
-        }
-        
+        @page { size: A4 portrait; margin: 8mm 8mm 8mm 8mm; background: white; }
+							  
+									
+							  
+		 
+		
+		   
+					  
+					   
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; background: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #2c3e50; -webkit-print-color-adjust: exact; print-color-adjust: exact; -webkit-font-smoothing: antialiased; }
+        .invoice-container { width: 100%; min-height: 100%; display: flex; flex-direction: column; page-break-after: avoid; page-break-inside: avoid; }
+        .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #2c3e50; page-break-inside: avoid; }
+						
+						 
+							  
+																		 
+						   
+											  
+									  
+												
+		 
+		
+							
+						
+							 
+						  
+								   
+									
+									 
+		 
+		
+						 
+						  
+										   
+									
+							   
+								
+											 
+									 
+		 
+		
+        .logo-section { flex: 0 0 auto; }
+        .logo-section img { height: 50px; width: auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; image-rendering: crisp-edges; color-adjust: exact; }
+		 
+		
+						   
+						 
+						
+											  
+									  
+										 
+								
+		 
+		
+					  
+					
+        .header-info { flex: 1; text-align: right; }
+        .header-info h1 { font-size: 14px; font-weight: 700; color: #2c3e50; margin: 0; }
+        .header-info p { font-size: 9px; color: #555; margin: 2px 0; }
+						 
+							
+							 
+						   
+					  
+		 
+		
+						
+						   
+						
+						  
+		 
+		
+						
+							   
+						  
+        .invoice-title { text-align: center; margin: 6px 0; page-break-inside: avoid; }
+        .invoice-title h2 { font-size: 16px; font-weight: 700; color: #1a5490; margin: 0; }
+        .customer-section { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; font-size: 9px; page-break-inside: avoid; }
+						   
+							
+							 
+						   
+					  
+		 
+		
+						   
+						  
+										   
+					 
+						  
+						   
+									 
+		 
+		
+						 
+						  
+        .customer-field { display: flex; flex-direction: column; }
+        .customer-field-label { font-weight: 600; color: #2c3e50; font-size: 8px; }
+		
+							   
+							 
+						   
+						   
+		 
+		
+        .customer-field-value { color: #444; font-size: 9px; margin-top: 2px; }
+        .invoice-table { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 9px; page-break-inside: avoid; }
+        .invoice-table thead { background: #1a5490; color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .invoice-table th { padding: 4px; text-align: left; font-weight: 600; font-size: 8px; border: 1px solid #1a5490; }
+        .invoice-table td { padding: 4px; border: 1px solid #ddd; text-align: left; }
+        .invoice-table tbody tr:nth-child(odd) { background: #f9f9f9; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .invoice-summary { margin-top: 4px; padding: 4px; display: flex; justify-content: flex-end; font-size: 9px; page-break-inside: avoid; }
+						
+									  
+						  
+						   
+									 
+		 
+		
+							  
+								
+						 
+											  
+									  
+		 
+		
+						   
+						 
+							 
+							 
+						   
+									  
+		 
+		
+						   
+						 
+								   
+							 
+		 
+		
+												
+								
+											  
+									  
+		 
+		
+						  
+							
+						 
+						  
+									  
+						   
+									 
+		 
+		
+					   
+        .summary-item { margin-left: 20px; }
+		 
+		
+						
+        .summary-label { font-weight: 600; color: #2c3e50; }
+        .summary-value { margin-left: 6px; font-weight: 700; color: #1a5490; }
+        .notes-section { margin: 4px 0; padding: 3px; background: #fffacd; border-left: 3px solid #f39c12; font-size: 8px; page-break-inside: avoid; }
+		
+						
+							 
+							 
+						   
+		 
+		
+						
+						  
+						 
+								
+										   
+						   
+									 
+		 
+		
+        .notes-section strong { color: #2c3e50; }
+        .footer { margin-top: auto; text-align: center; font-size: 8px; color: #999; border-top: 1px solid #ddd; padding-top: 4px; page-break-inside: avoid; position: relative; }
+        .watermark-container { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-45deg); font-size: 60px; opacity: 0.08; color: #999; pointer-events: none; z-index: -1; }
+		
+				 
+							 
+							   
+						   
+						
+									   
+							 
+									 
+							   
+		 
+		
+							  
+							
+					 
+					  
+															
+							
+						  
+						
+								 
+						
+		 
+		
+						 
+							  
+        .watermark-text { font-weight: bold; letter-spacing: 2px; }
+		 
+		
         @media print {
-            html, body {
-                height: auto;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            
-            .invoice-container {
-                height: auto;
-                page-break-after: avoid;
-                page-break-inside: avoid;
-            }
-            
-            .invoice-table {
-                page-break-inside: avoid;
-            }
-            
-            .invoice-table thead {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                background: #1a5490 !important;
-                color: white !important;
-            }
-            
-            .invoice-header {
-                page-break-inside: avoid;
-            }
-            
-            .logo-section img {
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                image-rendering: crisp-edges;
-                color-adjust: exact;
-            }
-            
-            .footer {
-                margin-top: auto;
-                page-break-inside: avoid;
-            }
-            
-            .watermark-container {
-                opacity: 0.08 !important;
-            }
+						
+							 
+            html, body { height: auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .invoice-container { height: auto; page-break-after: avoid; page-break-inside: avoid; }
+			 
+			
+								
+							 
+										
+										 
+			 
+			
+							
+            .invoice-table { page-break-inside: avoid; }
+            .invoice-table thead { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #1a5490 !important; color: white !important; }
+			
+								  
+												  
+										  
+											   
+										
+			 
+			
+							 
+            .invoice-header { page-break-inside: avoid; }
+            .logo-section img { -webkit-print-color-adjust: exact; print-color-adjust: exact; image-rendering: crisp-edges; color-adjust: exact; }
+			
+							   
+												  
+										  
+											 
+									
+			 
+			
+					 
+								 
+            .footer { margin-top: auto; page-break-inside: avoid; }
+			 
+			
+								  
+            .watermark-container { opacity: 0.08 !important; }
+			 
         }
     </style>
     """
@@ -1090,9 +1090,9 @@ with st.sidebar:
                     else: st.warning(msg)
             except Exception as e: st.error(f"Could not read Master Workbook: {e}")
 
-										
-data_source = st.radio("Load Customer Data via:", ["Upload File", "OneDrive Link"])
-if st.button("🔄 Refresh"): st.cache_data.clear(); st.rerun()
+													   
+    data_source = st.radio("Load Customer Data via:", ["Upload File", "OneDrive Link"])
+    if st.button("🔄 Refresh"): st.cache_data.clear(); st.rerun()
 
 # --- LOAD INPUT FILE ---
 raw_file_obj = None
@@ -1132,7 +1132,7 @@ def render_invoice_ui(df_main, mode="standard"):
         # Consume the trigger
         st.session_state[f"trigger_reset_{mode}"] = False
     
-    # --------------------------------------------------------															  
+    # --------------------------------------------------------
 
     client = get_gspread_client()
     master_id = extract_id_from_url(sys_config.get("master_sheet_url"))
@@ -1253,7 +1253,7 @@ def render_invoice_ui(df_main, mode="standard"):
             # ⭐ CHANGE #8: FIXED CONFLICT DETECTION LOGIC - MATCH ONLY ON REF. NO. AND SERIAL NO.
             # DO NOT MATCH ON INVOICE NO. because it changes for each invoice
             # This ensures we detect existing customers regardless of how many invoices they have
-            									 
+											   
             match_mask = (
                 (df_history['Ref_Norm'].astype(str) == str(c_ref)) &
                 (df_history['Ser_Norm'].astype(str) == str(c_serial))
@@ -1419,8 +1419,8 @@ def render_invoice_ui(df_main, mode="standard"):
     btn_save = False
 
     # ⭐ CHANGE #5: BUTTON STATE LOGIC (NO WARNING BEFORE DOWNLOAD/PRINT)
-    # The warning block has been REMOVED entirely from here
-    # Users can now directly access Download/Print buttons without any warning dialog
+    
+																					 
 
     if conflict_exists:
         if chk_overwrite:
@@ -1527,7 +1527,7 @@ def render_invoice_ui(df_main, mode="standard"):
             st.success("Created New Row!")
         st.balloons()
         
-       # ========================================================
+        # ========================================================
         # ⭐ RESET LOGIC - TRIGGER RERUN (SOLVES THE ERROR)
         # ========================================================
         # Instead of modifying the widget key directly (which crashes),
@@ -1538,7 +1538,7 @@ def render_invoice_ui(df_main, mode="standard"):
 		  
         st.rerun()
         # ========================================================
-
+	
     if btn_save:
         doc_type = "Invoice"
         
@@ -1610,13 +1610,13 @@ def render_invoice_ui(df_main, mode="standard"):
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&display=swap');
-    
+        
         body {{
             font-family: 'Lato', sans-serif;
             background: #f0f0f0;
             margin: 0;
         }}
-    
+        
         .invoice-page {{
             position: relative;
             background: white;
@@ -1631,17 +1631,17 @@ def render_invoice_ui(df_main, mode="standard"):
             margin-left: auto;
             margin-right: auto;
         }}
-    
+        
         main {{
             flex: none;
         }}
-    
+        
         main > .text-center {{
             margin-top: 40px;
             margin-bottom: 10px;
             text-align: center;
         }}
-    
+        
         footer {{
             position: absolute;
             bottom: 7mm;
@@ -1649,7 +1649,7 @@ def render_invoice_ui(df_main, mode="standard"):
             right: 30px;
             text-align: center;
         }}
-    
+        
         .watermark-container {{
             position: fixed;
             top: 148.5mm;
@@ -1658,7 +1658,7 @@ def render_invoice_ui(df_main, mode="standard"):
             pointer-events: none;
             z-index: 0;
         }}
-    
+        
         .watermark-text {{
             font-family: 'Playfair Display', serif;
             font-size: 80px;
@@ -1666,13 +1666,13 @@ def render_invoice_ui(df_main, mode="standard"):
             color: rgba(0, 33, 71, 0.04);
             letter-spacing: 0.25em;
         }}
-    
+        
         @media print {{
             body {{
                 background: white;
                 -webkit-print-color-adjust: exact;
             }}
-    
+            
             .invoice-page {{
                 width: 210mm;
                 height: 297mm;
@@ -1680,16 +1680,16 @@ def render_invoice_ui(df_main, mode="standard"):
                 padding-bottom: 90px;
                 box-shadow: none;
             }}
-    
+            
             footer {{
                 bottom: 7mm;
                 width: calc(100% - 40px);
             }}
-    
+            
             .no-print {{
                 display: none !important;
             }}
-    
+            
             .watermark-container {{
                 opacity: 0.04 !important;
             }}
@@ -1791,16 +1791,16 @@ def render_invoice_ui(df_main, mode="standard"):
             </div>
 
             {notes_section}
-			
+            
         </main>
 
         <footer class="z-10">
             <div class="text-center text-xs text-gray-400 italic mb-4">
                 Thank you for choosing Vesak Care Foundation!
             </div>
-            
+			
             <div class="w-full h-px bg-gradient-to-r from-gray-100 via-vesak-gold to-gray-100 opacity-50 mb-4"></div>
-            
+			
             <div class="flex justify-between items-end text-xs text-gray-500">
                 <div>
                     <p class="font-serif italic text-vesak-navy mb-1 text-sm">Our Offices</p>
@@ -1823,8 +1823,8 @@ def render_invoice_ui(df_main, mode="standard"):
                     </a>
                 </div>
             </div>
-            
-            <div class="mt-4 w-full h-1 bg-vesak-navy"></div>
+			
+            <div class="mt-4 w-full h-1 bg-vesak-navy"></div>             
         </footer>
     </div>
 
