@@ -186,7 +186,7 @@ def clean_referral_field(val):
     return s_val
 
 # --- CRITICAL FIX 3: CACHED EXCLUSION LIST (FIXES 429 ERROR) ---
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_cached_exclusion_list(master_id, month_str):
     """
     Fetches the exclusion list with caching (5 mins) to prevent 429 Quota Errors.
@@ -197,6 +197,8 @@ def get_cached_exclusion_list(master_id, month_str):
     excluded_refs = []
     try:
         wb = client.open_by_key(master_id)
+		ws = wb.worksheet(month_str)
+		return ws.get_all_records()
         try:
             sheet_check = wb.worksheet(month_str)
             data_check = sheet_check.get_all_records()
@@ -1217,8 +1219,13 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # ==========================================
 def render_invoice_ui(df_main, mode="standard"):
     # 1. Connect to Master Sheet (MOVED UP FOR EXCLUSION LOGIC)
-    client = get_gspread_client()
-    master_id = extract_id_from_url(sys_config.get("master_sheet_url"))
+    # ===== CACHE SHEET CLIENT + MASTER ID @ START =====
+	# Avoid re-instantiating on every rerun
+	if "gs_client" not in st.session_state:
+	    st.session_state["gs_client"] = get_gspread_client()
+	client = st.session_state["gs_client"]
+	
+	master_id = extract_id_from_url(sys_config.get("master_sheet_url"))
 
     if not master_id or not client:
         st.error("❌ Master Workbook not linked in Sidebar Settings."); return
@@ -1301,11 +1308,25 @@ def render_invoice_ui(df_main, mode="standard"):
     c_ref_credit = clean_referral_field(row.get('Referral Credit', ''))
 
     # --- INVOICE DATE SECTION (NEW) ---
-    st.divider()
-    st.subheader("2. Invoice Details")
+	st.divider()
+	st.subheader("2. Invoice Details")
+	
+	# Overwrite Checkbox (state bound to session_state)
+	chk_overwrite = st.checkbox(
+	    "Overwrite Existing Invoice",
+	    key=f"ow_{mode}",
+	    value=st.session_state.chk_overwrite
+	)
+	st.session_state.chk_overwrite = chk_overwrite
 
     # Overwrite Checkbox (Moved up to control Disabled state)
-    chk_overwrite = st.checkbox("Overwrite Existing Invoice", key=f"ow_{mode}")
+    # Overwrite Checkbox (state bound to session_state)
+    chk_overwrite = st.checkbox(
+        "Overwrite Existing Invoice",
+        key=f"ow_{mode}",
+        value=st.session_state.chk_overwrite
+    )
+    st.session_state.chk_overwrite = chk_overwrite
 
     # --- INVOICE CALCULATION LOGIC ---
     # Default Values based on input file
@@ -1337,11 +1358,10 @@ def render_invoice_ui(df_main, mode="standard"):
 
     # df_history = pd.DataFrame()
     if sheet_obj:
-        master_records = sheet_obj.get_all_records()
-        df_history = pd.DataFrame(master_records)
+        master_records = cached_month_history(master_id, mmm_yy)
+        df_history = pd.DataFrame(master_records) if master_records else pd.DataFrame()
 
         if not df_history.empty:
-            # ⭐ CHANGE #3: NORMALIZE BOTH Ref. No. AND Serial No.
             df_history['Ref_Norm'] = df_history['Ref. No.'].apply(lambda x: normalize_id(x).strip())
             df_history['Ser_Norm'] = df_history['Serial No.'].apply(lambda x: normalize_id(x).strip())
 
@@ -1394,12 +1414,16 @@ def render_invoice_ui(df_main, mode="standard"):
                 except:
                     pass
 
-                try:
-                    cell_match = sheet_obj.find(inv_final, in_column=4)
-                    if cell_match:
-                        existing_row_idx = cell_match.row
-                except:
-                    pass
+                # === USE HISTORY DF SEARCH BEFORE SHEET FIND ===
+				existing_matches_df = df_history[df_history["Invoice Number"] == inv_final]
+				if not existing_matches_df.empty:
+				    existing_row_idx = existing_matches_df.index[-1] + 2  # account for header
+				else:
+				    try:
+				        cell_match = sheet_obj.find(inv_final, in_column=4)
+				        existing_row_idx = cell_match.row
+				    except:
+				        existing_row_idx = None
             else:
                 default_qty = 1
                 conflict_exists = False
@@ -1456,11 +1480,17 @@ def render_invoice_ui(df_main, mode="standard"):
 
     st.write(f"**Plan:** {c_plan} | **Ref:** {c_ref} | **Serial:** {c_serial}")
 
-    if conflict_exists and not chk_overwrite:
-        st.warning(
-            f"⚠️ Customer exists (Ref: {c_ref}, Serial: {c_serial}). "
-            "Check 'Overwrite' to update."
-        )
+    if conflict_exists:
+        if chk_overwrite:
+            st.info(
+                f"⚠️ Client exists (Ref: {c_ref}, Serial: {c_serial}). "
+                "Overwrite is ON – changes will update existing invoice."
+            )
+        else:
+            st.warning(
+                f"⚠️ Client exists (Ref: {c_ref}, Serial: {c_serial}). "
+                "Tick 'Overwrite' to update the existing invoice."
+            )
 
     col3, col4 = st.columns(2)
 
@@ -1686,6 +1716,29 @@ def render_invoice_ui(df_main, mode="standard"):
             save_invoice_to_gsheet(record, sheet_obj)
             st.success("Created New Row!")
         st.balloons()
+
+		# === NEW: RESET / SET STATE AFTER SAVE ===
+        if conflict_exists and chk_overwrite and existing_row_idx:
+            # After overwrite, keep overwrite ON for same client
+            st.session_state.chk_overwrite = True
+        else:
+            # After creating a NEW invoice, also set overwrite ON
+            st.session_state.chk_overwrite = True
+
+        # Always reset invoice date widget to today
+        st.session_state[f"inv_d_{mode}"] = datetime.date.today()
+        # ==========================================
+
+		# === AUTO SET OVERWRITE ===
+		# Mark this invoice as new so we force overwrite on next view
+		st.session_state[f"ow_{mode}"] = True
+		st.warning("⚠️ Client Exists. 'Overwrite' to update this client.")
+
+		# === RESET STATE AFTER SAVE ===
+		# Reset invoice date to today and overwrite checkbox
+		st.session_state[f"inv_d_{mode}"] = datetime.date.today()
+		st.session_state[f"ow_{mode}"] = False
+		st.success("🔥 State reset ready for next invoice.")
 
     if btn_save:
         doc_type = "Invoice"
@@ -2158,6 +2211,7 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
 
 
