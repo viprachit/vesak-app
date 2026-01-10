@@ -174,10 +174,10 @@ def normalize_id(val):
 
 # --- CRITICAL FIX 2: CLEAN REFERRAL DATA (NO 'nan') ---
 def clean_referral_field(val):
-    
+    """
     Ensures that empty cells in Excel stay empty in Google Sheets.
     Removes 'nan', 'NaN', 'None', etc.
-    
+    """
     if pd.isna(val): return ""
     s_val = str(val).strip()
     if s_val.lower() == "nan": return ""
@@ -3434,4 +3434,5 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
 
