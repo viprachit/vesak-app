@@ -1647,6 +1647,18 @@ if raw_file_obj:
                                 if str(paid_raw).isdigit(): qty = int(paid_raw)
                             except: pass
                             
+                            # --- CRITICAL FIX: Clean the Amount from History ---
+                            # Google Sheets might return "15,000" as a string, causing float() to fail.
+                            try:
+                                raw_hist_amt = str(row.get('Amount', '0'))
+                                # Remove commas, currency symbols, and spaces
+                                clean_hist_amt = raw_hist_amt.replace(',', '').replace('₹', '').replace('Rs.', '').strip()
+                                # We inject 'Unit Rate' into the row object because construct_amount_html looks for it first
+                                row['Unit Rate'] = float(clean_hist_amt)
+                            except:
+                                row['Unit Rate'] = 0.0
+                            # ---------------------------------------------------
+                            
                             amount_col_html = construct_amount_html(row, qty)
                             
                             # Lists Reconstruction
