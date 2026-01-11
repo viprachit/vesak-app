@@ -42,7 +42,7 @@ SHEET_HEADERS = [
 
 # --- SESSION STATE INITIALIZATION ---
 if 'chk_overwrite' not in st.session_state: st.session_state.chk_overwrite = False
-if 'show_existing_customers' not in st.session_state: st.session_state.show_existing_customers = False
+if 'show_existing_customers' not in st.session_state: st.session_state.show_existing_customers = False																									  
 
 # --- CONFIGURATION LOADER ---
 def load_system_config():
@@ -157,7 +157,7 @@ def clean_text(text): return str(text).strip() if isinstance(text, str) else str
 
 # ===== CRITICAL FIX 1: ID NORMALIZATION (NO DECIMALS) =====
 def normalize_id(val):
-    """
+	"""   
     Robust normalization:
     1. Handles "1.0" (float string) -> float 1.0 -> int 1 -> string "1"
     2. Handles 1.0 (float) -> int 1 -> string "1"
@@ -174,7 +174,7 @@ def normalize_id(val):
 
 # --- CRITICAL FIX 2: CLEAN REFERRAL DATA (NO 'nan') ---
 def clean_referral_field(val):
-    """
+	"""   
     Ensures that empty cells in Excel stay empty in Google Sheets.
     Removes 'nan', 'NaN', 'None', etc.
     """
@@ -188,12 +188,12 @@ def clean_referral_field(val):
 # --- CRITICAL FIX 3: CACHED EXCLUSION LIST (FIXES 429 ERROR) ---
 @st.cache_data(ttl=300, show_spinner=False)
 def get_cached_exclusion_list(master_id, month_str):
-    """
+	"""   
     Fetches the exclusion list with caching (5 mins) to prevent 429 Quota Errors.
     """
     client = get_gspread_client()
     if not client or not master_id: return []
-    
+	
     excluded_refs = []
     try:
         wb = client.open_by_key(master_id)
@@ -201,30 +201,30 @@ def get_cached_exclusion_list(master_id, month_str):
             sheet_check = wb.worksheet(month_str)
             data_check = sheet_check.get_all_records()
             df_check = pd.DataFrame(data_check)
-            
+			
             if not df_check.empty:
                 df_check['Ref_Norm'] = df_check['Ref. No.'].apply(normalize_id)
                 df_check['Ser_Norm'] = df_check['Serial No.'].apply(normalize_id)
                 
                 # Check for existing invoices (regardless of ended service)
                 # We need all Ref-Serial pairs present in history
-			 
-	
-		  
+												 
+				
+										
                 for _, row in df_check.iterrows():
                     key = f"{row['Ref_Norm']}-{row['Ser_Norm']}"
                     excluded_refs.append(key)
         except gspread.exceptions.WorksheetNotFound: pass
     except Exception as e:
         return []
-        
+		
     return excluded_refs
 
 # ==========================================
 # SECTION 1: FUNCTION 2 - ENHANCED generate_filename()
 # ==========================================
 def generate_filename(doc_type, invoice_no, customer_name):
-    """
+	"""   
     Generates standardized filename format.
     Format: {PREFIX}-{INVOICE_NO}-{CLEAN_NAME}.pdf
     Example: IN-2026-001-RAJESH-KUMAR.pdf
@@ -906,9 +906,9 @@ def render_invoice_ui(df_main, mode="standard"):
         st.error("❌ Master Workbook not linked in Sidebar Settings."); return
 
     # --- FILTER SECTION ---
-    st.subheader("1. Select Customer")								   
-																											  
-    # ⭐ CHANGE: NEW CUSTOMER vs EXISTING CUSTOMER TOGGLE
+    st.subheader("1. Select Customer")
+	
+	# ⭐ CHANGE: NEW CUSTOMER vs EXISTING CUSTOMER TOGGLE
     show_existing = st.toggle("📂 Switch List: 🆕 New Customers ⇄ 📂 Existing Customers", value=st.session_state.show_existing_customers, key=f"tgl_{mode}")
     st.session_state.show_existing_customers = show_existing
     
@@ -920,7 +920,7 @@ def render_invoice_ui(df_main, mode="standard"):
 
     df_view = df_main.copy()
 
-    # Filter logic
+	# Filter logic
     if use_filters:
         col_filt1, col_filt2 = st.columns(2)
         with col_filt1:
@@ -939,8 +939,8 @@ def render_invoice_ui(df_main, mode="standard"):
     # --- CRITICAL POINT 2: EXCLUSION LOGIC (CACHED) ---
     current_mmm_yy = datetime.date.today().strftime("%b-%y")
     excluded_refs = get_cached_exclusion_list(master_id, current_mmm_yy)
-    
-    # ⭐ CHANGE: Filter list based on Toggle State
+	
+	# ⭐ CHANGE: Filter list based on Toggle State
     df_view['Ref_Norm_View'] = df_view['Ref. No.'].apply(normalize_id)
     df_view['Ser_Norm_View'] = df_view['Serial No.'].apply(normalize_id)
     df_view['Unique_Key'] = df_view['Ref_Norm_View'] + "-" + df_view['Ser_Norm_View']
@@ -962,10 +962,10 @@ def render_invoice_ui(df_main, mode="standard"):
     df_view['Label'] = df_view['Name'].astype(str) + " (" + df_view['Mobile'].astype(str) + ")"
     
     if df_view.empty:
-        if show_existing:
-             st.info("📂 No existing invoices found for this month.")
-        else:
-             st.success("✅ All customers have invoices! Switch toggle to view existing.")
+						 
+        if show_existing: st.info("📂 No existing invoices found for this month.")
+			 
+        else: st.success("✅ All customers have invoices! Switch toggle to view existing.")
 
         return
 
@@ -991,8 +991,8 @@ def render_invoice_ui(df_main, mode="standard"):
     
     c_ref_code = clean_referral_field(row.get('Referral Code', ''))
     c_ref_name = clean_referral_field(row.get('Referral Name', ''))
-    
-    # Process Credit (Handle number formatting from Excel)
+	
+	# Process Credit (Handle number formatting from Excel)
     raw_credit = row.get('Referral Credit', '')
     c_ref_credit = str(int(float(raw_credit))) if str(raw_credit).replace('.', '', 1).isdigit() else clean_referral_field(raw_credit)
 
@@ -1001,8 +1001,8 @@ def render_invoice_ui(df_main, mode="standard"):
     st.subheader("2. Invoice Details")
 
     # Overwrite Checkbox (Moved up to control Disabled state)
-    # Controlled by toggle
-    chk_overwrite = st.checkbox("Overwrite Existing Invoice", key=f"ow_{mode}", disabled=True) 
+	# Controlled by toggle					  
+    chk_overwrite = st.checkbox("Overwrite Existing Invoice", key=f"ow_{mode}")
 
     # --- INVOICE CALCULATION LOGIC ---
     inv_final = ""
@@ -1216,13 +1216,13 @@ def render_invoice_ui(df_main, mode="standard"):
         with cr1: ref_name_input = st.text_input("Referral Name", value=c_ref_name, disabled=disable_ref, key=f"rn_{mode}")
         with cr2: ref_code_input = st.text_input("Referral Code", value=c_ref_code, disabled=disable_ref, key=f"rc_{mode}")
         with cr3: ref_credit_input = st.text_input("Referral Credit", value=c_ref_credit, disabled=disable_ref, key=f"rcred_{mode}")
-        
-    # ========================================================
+    
+	# ========================================================
     # ⭐ PREVIEW SECTION - GENERATE HTML LIVE
     # ========================================================
     # This block generates the preview HTML using LIVE data from the inputs above.
     # It runs on every interaction, updating the preview instantly.
-    
+	
     preview_rate = float(row.get('Unit Rate', 0))
     preview_total = preview_rate * billing_qty
     preview_date_str = format_date_with_suffix(inv_date_val)
@@ -1502,8 +1502,8 @@ def render_invoice_ui(df_main, mode="standard"):
             plan_to_save = f"Plan F: Rehabilitative Care and {sub_service_val}"
         elif c_plan == "A-la-carte Services":
             plan_to_save = f"Other Services - {sub_service_val}"
-        
-        # Clean credit for save
+		
+		# Clean credit for save
         final_credit_val = ref_credit_input.strip()
         # If it looks like a float ending in .0, strip it
         if final_credit_val.replace('.', '', 1).isdigit():
@@ -1585,7 +1585,7 @@ if raw_file_obj:
         
         with tab1: render_invoice_ui(df, mode="standard")
         
-		
+        
         with tab2:
             st.header("©️ Duplicate Invoice")
             client = get_gspread_client()
@@ -1598,7 +1598,7 @@ if raw_file_obj:
                     wb = client.open_by_key(mid)
                     ws = wb.worksheet(mmm_yy)
                     df_hist = pd.DataFrame(ws.get_all_records())
-                    
+					
                     # Create blank select box default
                     dup_list = [""]
                     if not df_hist.empty and 'Invoice Number' in df_hist.columns:
@@ -1682,8 +1682,8 @@ if raw_file_obj:
                         components.html(final_preview_html, height=1000, scrolling=True)
 
                     else:
-                        st.info("Select an invoice to generate duplicate.")
-                
+                        st.info("Select an invoice to generate duplicate.")														   
+				
                 except Exception as e: st.error(f"Could not load history for this month: {e}")
 
         with tab3:
