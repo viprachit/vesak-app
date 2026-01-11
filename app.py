@@ -157,7 +157,7 @@ def clean_text(text): return str(text).strip() if isinstance(text, str) else str
 
 # ===== CRITICAL FIX 1: ID NORMALIZATION (NO DECIMALS) =====
 def normalize_id(val):
-	"""   
+    """
     Robust normalization:
     1. Handles "1.0" (float string) -> float 1.0 -> int 1 -> string "1"
     2. Handles 1.0 (float) -> int 1 -> string "1"
