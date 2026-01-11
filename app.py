@@ -179,7 +179,7 @@ def clean_referral_field(val):
 def get_cached_exclusion_list(master_id, month_str):
     client = get_gspread_client()
     if not client or not master_id: return []
-    
+	
     excluded_refs = []
     try:
         wb = client.open_by_key(master_id)
@@ -187,8 +187,8 @@ def get_cached_exclusion_list(master_id, month_str):
             sheet_check = wb.worksheet(month_str)
             data_check = sheet_check.get_all_records()
             df_check = pd.DataFrame(data_check)
-            
-            if not df_check.empty
+			
+            if not df_check.empty:
                 df_check['Ref_Norm'] = df_check['Ref. No.'].apply(normalize_id)
                 df_check['Ser_Norm'] = df_check['Serial No.'].apply(normalize_id)
                 
@@ -196,14 +196,14 @@ def get_cached_exclusion_list(master_id, month_str):
                 # We need all Ref-Serial pairs present in history
 												 
 				
-				
-                    for _, row in df_check.iterrows():
-                        key = f"{normalize_id(r_end['Ref. No.'])}-{normalize_id(r_end['Serial No.'])}"
-                        excluded_refs.append(key)
+										
+                for _, row in df_check.iterrows():
+                    key = f"{row['Ref_Norm']}-{row['Ser_Norm']}"
+                    excluded_refs.append(key)
         except gspread.exceptions.WorksheetNotFound: pass
     except Exception as e:
         return []
-        
+		
     return excluded_refs
 
 # ==========================================
