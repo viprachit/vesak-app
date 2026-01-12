@@ -571,25 +571,36 @@ def update_invoice_in_gsheet(data_dict, sheet_obj, row_idx):
         return True
     except Exception as e: st.error(f"Update Error: {e}"); return False
 
+# Update the Nurse Management Helper (to be safe)
 def update_nurse_management(sheet_obj, invoice_number, payment_amount, nurse_name, nurse_extra, nurse_note):
-    if sheet_obj is None: return False, None
+    if sheet_obj is None: return False
     try:
-        cell = sheet_obj.find(str(invoice_number).strip(), in_column=4) 
+        # Find the row by Invoice Number
+        cell = sheet_obj.find(str(invoice_number).strip(), in_column=4)
         if cell:
             row_idx = cell.row
+            
+            # 1. Fetch 'Details' (Col V / Index 22) to recalculate 'Paid for' qty
+            # This ensures the earnings formula works correctly
             details_val = sheet_obj.cell(row_idx, 22).value
             qty = 1
             if details_val:
                 match = re.search(r'Paid for\s*:?\s*(\d+)', str(details_val), re.IGNORECASE)
                 if match: qty = int(match.group(1))
             
+            # 2. Earnings Formula (Col AE / Index 31)
+            # Formula: =Net_Amount(AB) - (Nurse_Pay(AC) * Qty(AD))
             formula_string = f"=AB{row_idx}-(AC{row_idx}*AD{row_idx})"
+            
+            # 3. Update Block AC:AH (6 Columns)
+            # AC=Payment, AD=Qty, AE=Earnings, AF=Name, AG=Extra, AH=Note
             range_update = f"AC{row_idx}:AH{row_idx}"
             values = [[payment_amount, qty, formula_string, nurse_name, nurse_extra, nurse_note]]
+            
             sheet_obj.update(range_update, values, value_input_option='USER_ENTERED')
-            return True, formula_string
-        return False, None
-    except Exception as e: st.error(f"Nurse Update Error: {e}"); return False, None
+            return True
+        return False
+    except Exception as e: st.error(f"Nurse Update Error: {e}"); return False
 
 def mark_service_ended(sheet_obj, invoice_number, end_date):
     if sheet_obj is None: return False, "No Sheet"
@@ -1840,6 +1851,108 @@ if raw_file_obj:
                     st.error(f"Connection Error: {e}")
             else:
                 st.error("Please configure Master Sheet URL in sidebar.")
+		
+		with tab4:
+            st.header("💰 Nurse Management")
+            
+            client_nur = get_gspread_client()
+            mid_nur = extract_id_from_url(sys_config.get("master_sheet_url"))
+            
+            if client_nur and mid_nur:
+                try:
+                    wb_nur = client_nur.open_by_key(mid_nur)
+                    cur_month_nur = datetime.date.today().strftime("%b-%y")
+                    ws_nur = wb_nur.worksheet(cur_month_nur)
+                    
+                    # Get all data for filtering
+                    data_nur = ws_nur.get_all_records()
+                    df_nur = pd.DataFrame(data_nur)
+                    
+                    if not df_nur.empty and 'Invoice Number' in df_nur.columns:
+                        # h. Switch List Toggle
+                        show_exist_nur = st.toggle("📂 Switch List: Mode (Overwrite Existing Nurse Data)")
+                        
+                        # Filter Logic based on 'Nurse Payment' (Col AC)
+                        if 'Nurse Payment' in df_nur.columns:
+                            # Clean payment column to string for checking
+                            df_nur['Pay_Str'] = df_nur['Nurse Payment'].astype(str).str.strip()
+                            
+                            if show_exist_nur:
+                                # Switch ON: Show customers WITH payment data
+                                df_target = df_nur[df_nur['Pay_Str'] != ""]
+                            else:
+                                # Switch OFF: Show customers WITHOUT payment data (New Entry)
+                                df_target = df_nur[df_nur['Pay_Str'] == ""]
+                                
+                            if not df_target.empty:
+                                df_target['Display'] = df_target['Customer Name'] + " (" + df_target['Invoice Number'].astype(str) + ")"
+                                
+                                # g. Select Customer (Default None/Blank)
+                                sel_nur = st.selectbox(
+                                    "Select Customer:", 
+                                    df_target['Display'].unique(), 
+                                    index=None,
+                                    placeholder="Select a customer..."
+                                )
+                                
+                                # Defaults for input fields
+                                val_name = ""
+                                val_extra = ""
+                                val_note = ""
+                                val_pay = 0
+                                is_editable = False # Disable until customer is selected
+                                
+                                if sel_nur:
+                                    is_editable = True # Unlock fields when selected
+                                    # i. If Overwrite Mode: Pull existing data from sheet
+                                    if show_exist_nur:
+                                        row_nur = df_target[df_target['Display'] == sel_nur].iloc[0]
+                                        val_name = str(row_nur.get('Nurse Name', ''))         # Col AF
+                                        val_extra = str(row_nur.get('Nurse Name (Extra)', '')) # Col AG
+                                        val_note = str(row_nur.get('Nurse Note', ''))          # Col AH
+                                        # Parse Payment (Col AC) safely
+                                        try: val_pay = int(float(str(row_nur.get('Nurse Payment', 0)).replace(',', '')))
+                                        except: val_pay = 0
+
+                                # UI: Four Text Boxes (Editable if customer selected)
+                                st.divider()
+                                c1, c2 = st.columns(2)
+                                with c1:
+                                    # b. Nurse Name
+                                    in_name = st.text_input("Nurse Name:", value=val_name, disabled=not is_editable, key="n_nm")
+                                    # c. Nurse Name (Extra)
+                                    in_extra = st.text_input("Nurse Name (Extra):", value=val_extra, disabled=not is_editable, key="n_ex")
+                                with c2:
+                                    # e. Nurse Payment (Numbers Only, No Decimal)
+                                    in_pay = st.number_input("Nurse Payment (No Decimals):", min_value=0, value=val_pay, step=1, format="%d", disabled=not is_editable, key="n_py")
+                                    # d. Nurse Note
+                                    in_note = st.text_area("Nurse Note:", value=val_note, disabled=not is_editable, key="n_nt")
+                                
+                                # Update Button
+                                if is_editable:
+                                    btn_label = "Update / Overwrite Data" if show_exist_nur else "Add Nurse Payment"
+                                    if st.button(btn_label, type="primary"):
+                                        row_save = df_target[df_target['Display'] == sel_nur].iloc[0]
+                                        inv_num = row_save['Invoice Number']
+                                        
+                                        success = update_nurse_management(
+                                            ws_nur, inv_num, in_pay, in_name, in_extra, in_note
+                                        )
+                                        
+                                        if success:
+                                            st.success("✅ Nurse details updated successfully!")
+                                            time.sleep(1)
+                                            st.rerun()
+                            else:
+                                msg = "No customers found with existing Nurse Payments." if show_exist_nur else "No customers found requiring new Nurse Payment."
+                                st.info(msg)
+                        else:
+                            st.error("Column 'Nurse Payment' not found in Master Sheet.")
+                    else:
+                        st.warning("No data found in Master Sheet.")
+                        
+                except Exception as e:
+                    st.error(f"Connection Error: {e}")
 
         with tab5:
             st.header("📝 Create Agreements")
