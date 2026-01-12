@@ -354,25 +354,28 @@ def construct_amount_html(row, billing_qty):
     elif "week" in period_lower: period_display = "Week"
     elif "daily" in period_lower: period_display = "Day"
     
-    if is_per_visit: period_display = "Visit"
-    
-    # ---------------------------------------------
+    # -----------(Note: We removed the 'if is_per_visit: period_display = "Visit"' line here)---------
     
     unit_rate_str = "{:,.0f}".format(unit_rate)
     total_amount_str = "{:,.0f}".format(total_amount)
     
-    unit_label = "Month" if "month" in period_lower else "Week" if "week" in period_lower else "Day"
-    if is_per_visit: unit_label = "Visit"
-    
+    # ⭐ NEW: CONDITIONAL RATE DISPLAY ⭐
+    # If Per Visit, show: "Per Visit = ₹ 900"
+    # Else show: "12 Hours.. / Month = ₹ 30,000"
+    if is_per_visit:
+        rate_line_html = f"{shift_display} = <b>₹ {unit_rate_str}</b>"
+    else:
+        rate_line_html = f"{shift_display} / {period_display} = <b>₹ {unit_rate_str}</b>"
+
     # ⭐ CHECK FOR OVERRIDE FROM TAB 2
     if 'Details_Override' in row:
         paid_for_text = row['Details_Override']
     else:
-        paid_for_text = f"Paid for {billing_qty} {get_plural(unit_label, billing_qty)}"
+        paid_for_text = details_text
 
     return f"""
     <div style="text-align: right; font-size: 13px; color: #555;">
-        <div style="margin-bottom: 4px;">{shift_display} / {period_display} = <b>₹ {unit_rate_str}</b></div>
+        <div style="margin-bottom: 4px;">{rate_line_html}</div>
         <div style="color: #CC4E00; font-weight: bold; font-size: 14px; margin: 2px 0;">X</div>
         <div style="font-weight: bold; font-size: 13px; margin: 2px 0; color: #333;">{paid_for_text}</div>
         <div style="border-bottom: 1px solid #ccc; width: 100%; margin: 6px 0;"></div>
