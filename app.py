@@ -935,9 +935,11 @@ def render_invoice_ui(df_main, mode="standard"):
 
     if not conflict_exists:
         # 1. Setup Formatting
-        loc_code = "MUM" if "mumbai" in str(row.get('Location', '')).lower() else "PUN"
+        # Robust Location Code: Clean the input to ensure exact match
+        raw_loc = str(row.get('Location', '')).lower().strip()
+        loc_code = "MUM" if "mumbai" in raw_loc else "PUN"
         
-        # 2. Logic: Sequence continues for the Month, resets when Month changes
+        # 2. Logic: Sequence continues for the Month/Year/Location, resets otherwise
         next_seq = 1
         target_month = default_date.month
         target_year = default_date.year
@@ -945,28 +947,24 @@ def render_invoice_ui(df_main, mode="standard"):
         if not df_history.empty and 'Invoice Number' in df_history.columns:
             existing_seqs = []
             
-            for existing_inv in df_history['Invoice Number']:
-                # Parse format: LOC-DDMMYYYY-SEQ
-                # Example: PUN-01012026-001
-                try:
-                    parts = str(existing_inv).strip().split('-')
+            # Force convert column to string to handle '001' vs 1 issues
+            inv_series = df_history['Invoice Number'].astype(str)
+
+            for existing_inv in inv_series:
+                # STRICT REGEX PARSING: LOC-DDMMYYYY-SEQ
+                # Capture Groups: 1=LOC, 2=DD, 3=MM, 4=YYYY, 5=SEQ
+                match = re.search(r'^([A-Z]{3})-(\d{2})(\d{2})(\d{4})-(\d{3,})$', existing_inv.strip())
+                
+                if match:
+                    found_loc = match.group(1)
+                    # found_day = match.group(2) # Not needed for grouping
+                    found_month = int(match.group(3))
+                    found_year = int(match.group(4))
+                    found_seq = int(match.group(5))
                     
-                    # Validate structure (Must have 4 parts, match 'IN', match Location)
-                    if len(parts) == 3 and parts[0] == loc_code:
-                        date_part_str = parts[1] # DDMMYYYY
-                        seq_part_str = parts[2]
-                        
-                        # Extract Month/Year from the Invoice String
-                        # Assuming DDMMYYYY format based on your request
-                        if len(date_part_str) == 8 and seq_part_str.isdigit():
-                            inv_month = int(date_part_str[2:4])
-                            inv_year = int(date_part_str[4:])
-                            
-                            # Only increment sequence if Month & Year match current invoice
-                            if inv_month == target_month and inv_year == target_year:
-                                existing_seqs.append(int(seq_part_str))
-                except:
-                    continue # Skip malformed invoice numbers
+                    # STRICT MATCH: Only increment if Location, Month, and Year match exactly
+                    if found_loc == loc_code and found_month == target_month and found_year == target_year:
+                        existing_seqs.append(found_seq)
             
             if existing_seqs:
                 next_seq = max(existing_seqs) + 1
