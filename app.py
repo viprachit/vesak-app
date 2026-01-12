@@ -1390,26 +1390,28 @@ def render_invoice_ui(df_main, mode="standard"):
         
         # ⭐ CHANGE #6: UPDATE vs APPEND LOGIC
         if conflict_exists and chk_overwrite and existing_row_idx:
-            record["UID"] = df_history.iloc[existing_row_idx-2]["UID"] 
-            try:
-                actual_uid = sheet_obj.cell(existing_row_idx, 1).value
-                record["UID"] = actual_uid
-            except: pass
-            
+            # ... existing update code ...
             update_invoice_in_gsheet(record, sheet_obj, existing_row_idx)
             st.success(f"Overwritten Row {existing_row_idx}!")
         else:
             save_invoice_to_gsheet(record, sheet_obj)
             st.success("Created New Row!")
+        
         st.balloons()
         
         # ========================================================
-        # ⭐ RESET LOGIC - TRIGGER RERUN (SOLVES THE ERROR)
+        # ⭐ CRITICAL FIX: CLEAR CACHE IMMEDIATELY
         # ========================================================
-        # Instead of modifying the widget key directly (which crashes),
-        # we set a trigger flag for the NEXT run and rerun immediately.
+        # This forces the program to re-read the Google Sheet 
+        # immediately, updating the Exclusion List and Sequence.
+        get_cached_exclusion_list.clear()
+        # ========================================================
+        
+        # ========================================================
+        # ⭐ RESET LOGIC - TRIGGER RERUN
+        # ========================================================
         st.session_state[f"trigger_reset_{mode}"] = True
-        time.sleep(0.5) # Short delay for balloons/visual feedback
+        time.sleep(0.5) 
         st.rerun()
         # ========================================================
 
