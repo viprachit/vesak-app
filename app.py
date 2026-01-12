@@ -946,15 +946,15 @@ def render_invoice_ui(df_main, mode="standard"):
             existing_seqs = []
             
             for existing_inv in df_history['Invoice Number']:
-                # Parse format: IN-LOC-DDMMYYYY-SEQ
-                # Example: IN-PUN-01012026-001
+                # Parse format: LOC-DDMMYYYY-SEQ
+                # Example: PUN-01012026-001
                 try:
                     parts = str(existing_inv).strip().split('-')
                     
                     # Validate structure (Must have 4 parts, match 'IN', match Location)
-                    if len(parts) == 4 and parts[0] == "IN" and parts[1] == loc_code:
-                        date_part_str = parts[2] # DDMMYYYY
-                        seq_part_str = parts[3]
+                    if len(parts) == 3 and parts[0] == loc_code:
+                        date_part_str = parts[1] # DDMMYYYY
+                        seq_part_str = parts[2]
                         
                         # Extract Month/Year from the Invoice String
                         # Assuming DDMMYYYY format based on your request
@@ -972,9 +972,9 @@ def render_invoice_ui(df_main, mode="standard"):
                 next_seq = max(existing_seqs) + 1
 
         # 3. Construct Final String
-        # Format: IN-LOC-DDMMYYYY-SEQ
+        # Format: LOC-DDMMYYYY-SEQ
         date_str_final = default_date.strftime('%d%m%Y')
-        inv_final = f"IN-{loc_code}-{date_str_final}-{next_seq:03d}"
+        inv_final = f"{loc_code}-{date_str_final}-{next_seq:03d}"
 
     # ================= UI SECTION =================
 
