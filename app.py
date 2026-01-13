@@ -246,55 +246,297 @@ def generate_filename(doc_type, invoice_no, customer_name):
 def get_base_lists(selected_plan, selected_sub_service):
     # --- 1. DEFINE MAPPINGS FOR PLAN F (Rehabilitative Care) ---
     PLAN_F_DETAILS = {
-        "Pain Management": "One or Combinations of: Manual Therapy (Maitland/Mulligan Mobilization), Soft Tissue Release/Massage, Kinesio-Taping application (Tape provided by client), Ergonomic & Postural Correction, Cryotherapy/Heat application (using home packs).",
-        "Neuro Rehabilitation": "One or Combinations of: Neuro-developmental Therapy (NDT) handling, Proprioceptive Neuromuscular Facilitation (PNF), Gross Motor function training, Tone management (Inhibitory/Facilitatory techniques).",
-        "Stroke Rehabilitation": "One or Combinations of: Hemiplegic Gait Training, Mirror Therapy concepts (using home mirror), Upper limb functional reaching tasks, Trunk control exercises, Sit-to-stand practice.",
-        "Paralysis Rehabilitation": "One or Combinations of: Passive Range of Motion (to prevent contractures), Bed mobility (rolling/transfer techniques), Pressure sore prevention positioning, Respiratory muscle training.",
-        "Parkinson’s Rehabilitation": "One or Combinations of: Cueing strategies (Auditory/Visual for freezing), Big & Loud movement therapy concepts, Rotational trunk exercises, Balance training against resistance.",
-        "Post-Operative": "One or Combinations of: Edema management (Elevation/Massage), Graded Range of Motion exercises, Isometric muscle setting, Desensitization of scar tissue, Crutch/Walker training.",
-        "Orthopedic": "One or Combinations of: Patellar mobilization (for knee), Heel slides and Quadriceps activation, Gait re-education (weaning off walker), Functional stair climbing training.",
-        "TKR/THR": "One or Combinations of: Patellar mobilization (for knee), Heel slides and Quadriceps activation, Gait re-education (weaning off walker), Functional stair climbing training.",
-        "Geriatric": "One or Combinations of: Fall Prevention Audit & Obstacle negotiation, General mobility exercises, Sit-to-stand endurance, Balance recovery strategies.",
-        "Cardio-Respiratory": "One or Combinations of: Postural Drainage (Positioning for secretion removal), Percussion/Vibrations, Active Cycle of Breathing Techniques (ACBT), Paced walking/Energy conservation techniques.",
-        "Pain Relief Pack": "Manual Therapy (Mobilization/Massage) and Heat/Cold application (using home packs). Focus: Symptom reduction.",
-        "Mobility Pack": "Assisted stretching, Passive Range of Motion of major joints, and Assisted walking. Focus: Joint stiffness reduction.",
-        "Active Recovery Pack": "Guided active exercise session, Foam rolling instruction (roller provided by client), and Cool-down stretching. Focus: Post-sport/exertion recovery.",
-        "Acute Care Pack": "R.I.C.E Protocol education, Lymphatic drainage massage (light touch), and Compression bandaging (bandage provided by client).",
-        "Progressive Strength Training": "One or Combinations of: Bodyweight resistance training (Calisthenics), Resistance Band exercises (bands provided by client), Functional lifting mechanics, Eccentric muscle loading.",
-        "Joint Stabilization": "One or Combinations of: Closed kinetic chain exercises, Single-leg balance tasks, Surface instability training (using pillows/cushions available at home), Perturbation training.",
-        "Proprioception": "One or Combinations of: Closed kinetic chain exercises, Single-leg balance tasks, Surface instability training (using pillows/cushions available at home), Perturbation training.",
-        "Women’s Health": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
-        "Antenatal": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
-        "Postnatal": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
-        "Work-From-Home": "One or Combinations of: Workstation Assessment (Chair/Desk height advice), Neck/Upper Trap Release, Postural resetting exercises, 'Desk-Yoga' stretches.",
-        "Ergonomic": "One or Combinations of: Workstation Assessment (Chair/Desk height advice), Neck/Upper Trap Release, Postural resetting exercises, 'Desk-Yoga' stretches.",
-        "Bedridden": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
-        "Palliative Care": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
-        "Fall Proof Pack": "Home Hazard Assessment (identifying rugs/cords), Balance & Coordination training, and Lower Limb Strengthening. Focus: Senior Safety.",
-        "Chest & Lungs": "Spirometry Coaching (device by client), Deep breathing exercises, Thoracic expansion exercises, and fatigue management. Focus: Post-flu/Post-infection recovery.",
-        "Post-Viral Pack": "Spirometry Coaching (device by client), Deep breathing exercises, Thoracic expansion exercises, and fatigue management. Focus: Post-flu/Post-infection recovery.",
-        "Total Spine Pack": "Manual traction (manual handling only), Spinal mobilization, Core stabilization exercises, and Hamstring/Hip Flexor stretching. Focus: Chronic Back/Neck Pain.",
-        "Walk Again Pack": "Weight shifting drills, Standing tolerance building, Gait pattern correction, and outdoor terrain negotiation (if safe). Focus: Returning to independence."
+        "Pain Management (Back, Knee, Neck, etc.)": [
+            "One or Combinations of:",
+            "Manual Therapy (Maitland/Mulligan Mobilization)",
+            "Soft Tissue Release/Massage",
+            "Kinesio-Taping application (Tape provided by client)",
+            "Ergonomic & Postural Correction",
+            "Cryotherapy/Heat application (using home packs)"
+        ],
+        "Neuro Rehabilitation": [
+            "One or Combinations of:",
+            "Neuro-developmental Therapy (NDT) handling",
+            "Proprioceptive Neuromuscular Facilitation (PNF)",
+            "Gross Motor function training",
+            "Tone management (Inhibitory/Facilitatory techniques)"
+        ],
+        "Stroke Rehabilitation": [
+            "One or Combinations of:",
+            "Hemiplegic Gait Training",
+            "Mirror Therapy concepts (using home mirror)",
+            "Upper limb functional reaching tasks",
+            "Trunk control exercises",
+            "Sit-to-stand practice"
+        ],
+        "Paralysis Rehabilitation": [
+            "One or Combinations of:",
+            "Passive Range of Motion (to prevent contractures)",
+            "Bed mobility (rolling/transfer techniques)",
+            "Pressure sore prevention positioning",
+            "Respiratory muscle training"
+        ],
+        "Parkinson’s Rehabilitation": [
+            "One or Combinations of:",
+            "Cueing strategies (Auditory/Visual for freezing)",
+            "Big & Loud movement therapy concepts",
+            "Rotational trunk exercises",
+            "Balance training against resistance"
+        ],
+        "Post-Operative Rehabilitation": [
+            "One or Combinations of:",
+            "Edema management (Elevation/Massage)",
+            "Graded Range of Motion exercises",
+            "Isometric muscle setting",
+            "Desensitization of scar tissue",
+            "Crutch/Walker training"
+        ],
+        "Orthopedic (Fractures)": [
+            "One or Combinations of:",
+            "Patellar mobilization (for knee)",
+            "Heel slides and Quadriceps activation",
+            "Gait re-education (weaning off walker)",
+            "Functional stair climbing training"
+        ],
+        "Total Knee Replacement / Total Hip  Replacement": [
+            "One or Combinations of:",
+            "Patellar mobilization (for knee)",
+            "Heel slides and Quadriceps activation",
+            "Gait re-education (weaning off walker)",
+            "Functional stair climbing training"
+        ],
+        "Geriatric Wellness": [
+            "One or Combinations of:",
+            "Fall Prevention Audit & Obstacle negotiation",
+            "General mobility exercises",
+            "Sit-to-stand endurance",
+            "Balance recovery strategies"
+        ],
+        "Cardio-Respiratory": [
+            "One or Combinations of:",
+            "Postural Drainage (Positioning for secretion removal)",
+            "Percussion/Vibrations",
+            "Active Cycle of Breathing Techniques (ACBT)",
+            "Paced walking/Energy conservation techniques"
+        ],
+        "Pain Relief Pack": [
+            "Manual Therapy (Mobilization/Massage)",
+            "Heat/Cold application (using home packs)",
+            "Focus: Symptom reduction"
+        ],
+        "Mobility Pack": [
+            "Assisted stretching",
+            "Passive Range of Motion of major joints",
+            "Assisted walking",
+            "Focus: Joint stiffness reduction"
+        ],
+        "Active Recovery Pack": [
+            "Guided active exercise session",
+            "Foam rolling instruction (roller provided by client)",
+            "Cool-down stretching",
+            "Focus: Post-sport/exertion recovery"
+        ],
+        "Acute Care Pack": [
+            "R.I.C.E Protocol education",
+            "Lymphatic drainage massage (light touch)",
+            "Compression bandaging (bandage provided by client)"
+        ],
+        "Progressive Strength Training": [
+            "One or Combinations of:",
+            "Bodyweight resistance training (Calisthenics)",
+            "Resistance Band exercises (bands provided by client)",
+            "Functional lifting mechanics",
+            "Eccentric muscle loading"
+        ],
+        "Joint Stabilization & Proprioception": [
+            "One or Combinations of:",
+            "Closed kinetic chain exercises",
+            "Single-leg balance tasks",
+            "Surface instability training (using pillows/cushions)",
+            "Perturbation training"
+        ],
+        "Women’s Health (Antenatal/Postnatal)": [
+            "One or Combinations of:",
+            "Pelvic Floor Muscle Training (Kegels)",
+            "Diastasis Recti assessment and correction",
+            "Core engagement",
+            "Posture correction for breastfeeding",
+            "Back care education"
+        ],
+        "Women’s Health (Antenatal)": [
+            "One or Combinations of:",
+            "Pelvic Floor Muscle Training (Kegels)",
+            "Diastasis Recti assessment and correction",
+            "Core engagement",
+            "Posture correction for breastfeeding",
+            "Back care education"
+        ],
+        "Women’s Health (Postnatal)": [
+            "One or Combinations of:",
+            "Pelvic Floor Muscle Training (Kegels)",
+            "Diastasis Recti assessment and correction",
+            "Core engagement",
+            "Posture correction for breastfeeding",
+            "Back care education"
+        ],
+        "Work-From-Home (Ergonomic) Care": [
+            "One or Combinations of:",
+            "Workstation Assessment (Chair/Desk height advice)",
+            "Neck/Upper Trap Release",
+            "Postural resetting exercises",
+            "'Desk-Yoga' stretches"
+        ],        
+        "Bedridden and Palliative Care": [
+            "One or Combinations of:",
+            "Passive movements for comfort",
+            "Positioning for pressure sore prevention",
+            "Gentle massage for circulation",
+            "Chest clearance positioning"
+        ],
+		"Bedridden": [
+            "One or Combinations of:",
+            "Passive movements for comfort",
+            "Positioning for pressure sore prevention",
+            "Gentle massage for circulation",
+            "Chest clearance positioning"
+        ],
+        "Palliative Care": [
+            "One or Combinations of:",
+            "Passive movements for comfort",
+            "Positioning for pressure sore prevention",
+            "Gentle massage for circulation",
+            "Chest clearance positioning"
+        ],
+        "Fall Proof Pack": [
+            "Home Hazard Assessment (identifying rugs/cords)",
+            "Balance & Coordination training",
+            "Lower Limb Strengthening",
+            "Focus: Senior Safety"
+        ],
+        "Chest & Lungs": [
+            "Spirometry Coaching (device by client)",
+            "Deep breathing exercises",
+            "Thoracic expansion exercises",
+            "Fatigue management",
+            "Focus: Post-flu/Post-infection recovery"
+        ],
+		"Chest & Lungs (Post-Viral Pack)": [
+            "Spirometry Coaching (device by client)",
+            "Deep breathing exercises",
+            "Thoracic expansion exercises",
+            "Fatigue management",
+            "Focus: Post-flu/Post-infection recovery"
+        ],
+        "Post-Viral Pack": [
+            "Spirometry Coaching (device by client)",
+            "Deep breathing exercises",
+            "Thoracic expansion exercises",
+            "Fatigue management",
+            "Focus: Post-flu/Post-infection recovery"
+        ],
+        "Total Spine Pack": [
+            "Manual traction (manual handling only)",
+            "Spinal mobilization",
+            "Core stabilization exercises",
+            "Hamstring/Hip Flexor stretching",
+            "Focus: Chronic Back/Neck Pain"
+        ],
+        "Walk Again Pack (Intensive)": [
+            "Weight shifting drills",
+            "Standing tolerance building",
+            "Gait pattern correction",
+            "Outdoor terrain negotiation (if safe)",
+            "Focus: Returning to independence"
+        ]
     }
 
     # --- 2. DEFINE MAPPINGS FOR A-LA-CARTE ---
+    # ⭐ CHANGE: VALUES ARE NOW LISTS OF STRINGS
     ALACARTE_DETAILS = {
-        "Hospital Visits": "Includes: Pick-up from residence, Management of hospital files/registration papers, Wheelchair assistance within hospital premises, Wait-time companionship, and drop-back to residence.",
-        "Care Coordination": "Includes: Pick-up from residence, Management of hospital files/registration papers, Wheelchair assistance within hospital premises, Wait-time companionship, and drop-back to residence.",
-        "Doctor Visits": "Includes: General physical assessment (BP, Pulse, Chest Auscultation), Medication review (de-prescribing), and Written prescription generation.",
-        "Diagnostic Services": "Includes: Hygiene protocol adherence (gloves/sanitization), Sample collection (vacutainer method), Labeling sample in front of patient, and Digital report delivery coordination.",
-        "Blood Collection": "Includes: Hygiene protocol adherence (gloves/sanitization), Sample collection (vacutainer method), Labeling sample in front of patient, and Digital report delivery coordination.",
-        "Nutrition": "Includes: Body Composition Analysis, Kitchen Audit (checking oil/salt/pantry staples), and Customized diet chart generation based on home cooking style.",
-        "Dietetic Consultation": "Includes: Body Composition Analysis, Kitchen Audit (checking oil/salt/pantry staples), and Customized diet chart generation based on home cooking style.",
-        "Hospital Discharge Pack": "Includes: Ambulance Pickup + Medical Equipment Rental (Bed/Oxygen) + 1 Nurse Visit for Room Setup & Vitals Check.",
-        "Dialysis Assistance": "Includes: Assisting patient down stairs/lift, Transport coordination, Post-dialysis snack assistance, and Monitoring for BP drops during return journey.",
-        "Quarterly Senior Wellness": "Includes: 1 Doctor Visit + Full Body Blood Profile + 1 Nutrition Consultation + 1 Fall Prevention Audit.",
-        "Ambulance Services": "Includes: Coordination of BLS/ACLS ambulance, Transfer of patient from bed to stretcher (Bed-to-Bed service), and Vitals monitoring during transit.",
-        "Medical Equipment Rental": "Includes: Delivery logistics, On-site demonstration of usage (e.g., how to fill oxygen water, how to lock wheelchair brakes), Collection of security deposit, and rental agreement signing.",
-        "ECG": "Includes: Lead placement on chest/limbs, Recording of trace, and Digital forwarding of graph to Cardiologist for reporting.",
-        "X-Ray": "Includes: Setup of portable machine at bedside, Safety shielding for family members, and Immediate film/digital transfer.",
-        "Critical Care Setup": "Includes: Installation of Monitor/Ventilator/Suction, 24/7 Nurse Roster management, and Daily reporting to treating consultant.",
-        "ICU at Home": "Includes: Installation of Monitor/Ventilator/Suction, 24/7 Nurse Roster management, and Daily reporting to treating consultant."
+        "Hospital Visits (Assistance with Family)": [            
+            "Pick-up from residence",
+            "Management of hospital files/registration papers",
+            "Wheelchair assistance within hospital premises",
+            "Wait-time companionship",
+            "Drop-back to residence"
+        ],
+		"Hospital Visits ((Care Coordination))": [            
+            "Pick-up from residence",
+            "Management of hospital files/registration papers",
+            "Wheelchair assistance within hospital premises",
+            "Wait-time companionship",
+            "Drop-back to residence"
+        ],
+        "Doctor Visits (Home)": [
+            "General physical assessment (BP, Pulse, Chest Auscultation)",
+            "Medication review (de-prescribing)",
+            "Written prescription generation"
+        ],
+        "Diagnostic Services": [
+            "Hygiene protocol adherence (gloves/sanitization)",
+            "Sample collection (vacutainer method)",
+            "Labeling sample in front of patient",
+            "Digital report delivery coordination"
+        ],
+        "Blood Collection": [
+            "Hygiene protocol adherence (gloves/sanitization)",
+            "Sample collection (vacutainer method)",
+            "Labeling sample in front of patient",
+            "Digital report delivery coordination"
+        ],
+        "Nutrition Consultation (Home Visit)": [
+            "Body Composition Analysis",
+            "Kitchen Audit (checking oil/salt/pantry staples)",
+            "Customized diet chart generation based on home cooking style"
+        ],
+        "Dietetic Consultation (Home Visit)": [
+            "Body Composition Analysis",
+            "Kitchen Audit (checking oil/salt/pantry staples)",
+            "Customized diet chart generation based on home cooking style"
+        ],
+        "Hospital Discharge Pack": [
+            "Ambulance Pickup",
+            "Medical Equipment Rental (Bed/Oxygen)",
+            "1 Nurse Visit for Room Setup & Vitals Check"
+        ],
+        "Dialysis Assistance (Escort)": [
+            "Assisting patient down stairs/lift",
+            "Transport coordination",
+            "Post-dialysis snack assistance",
+            "Monitoring for BP drops during return journey"
+        ],
+        "Quarterly Senior Wellness Pack": [
+            "1 Doctor Visit",
+            "Full Body Blood Profile",
+            "1 Nutrition Consultation",
+            "1 Fall Prevention Audit"
+        ],
+        "Ambulance Services": [
+            "Coordination of BLS/ACLS ambulance",
+            "Transfer of patient from bed to stretcher (Bed-to-Bed service)",
+            "Vitals monitoring during transit"
+        ],
+        "Medical Equipment Rental": [
+            "Delivery logistics",
+            "On-site demonstration of usage",
+            "Collection of security deposit",
+            "Rental agreement signing"
+        ],
+        "ECG (Portable)": [
+            "Lead placement on chest/limbs",
+            "Recording of trace",
+            "Digital forwarding of graph to Cardiologist for reporting"
+        ],
+        "X-Ray (Portable)": [
+            "Setup of portable machine at bedside",
+            "Safety shielding for family members",
+            "Immediate film/digital transfer"
+        ],
+        "Critical Care Setup (ICU at Home)": [
+            "Installation of Monitor/Ventilator/Suction",
+            "24/7 Nurse Roster management",
+            "Daily reporting to treating consultant"
+        ]
     }
 
     # --- 3. STANDARD PLANS MAPPING ---
