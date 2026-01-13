@@ -244,6 +244,60 @@ def generate_filename(doc_type, invoice_no, customer_name):
 
 # --- HELPER FUNCTIONS FOR LISTS ---
 def get_base_lists(selected_plan, selected_sub_service):
+    # --- 1. DEFINE MAPPINGS FOR PLAN F (Rehabilitative Care) ---
+    PLAN_F_DETAILS = {
+        "Pain Management": "One or Combinations of: Manual Therapy (Maitland/Mulligan Mobilization), Soft Tissue Release/Massage, Kinesio-Taping application (Tape provided by client), Ergonomic & Postural Correction, Cryotherapy/Heat application (using home packs).",
+        "Neuro Rehabilitation": "One or Combinations of: Neuro-developmental Therapy (NDT) handling, Proprioceptive Neuromuscular Facilitation (PNF), Gross Motor function training, Tone management (Inhibitory/Facilitatory techniques).",
+        "Stroke Rehabilitation": "One or Combinations of: Hemiplegic Gait Training, Mirror Therapy concepts (using home mirror), Upper limb functional reaching tasks, Trunk control exercises, Sit-to-stand practice.",
+        "Paralysis Rehabilitation": "One or Combinations of: Passive Range of Motion (to prevent contractures), Bed mobility (rolling/transfer techniques), Pressure sore prevention positioning, Respiratory muscle training.",
+        "Parkinson’s Rehabilitation": "One or Combinations of: Cueing strategies (Auditory/Visual for freezing), Big & Loud movement therapy concepts, Rotational trunk exercises, Balance training against resistance.",
+        "Post-Operative": "One or Combinations of: Edema management (Elevation/Massage), Graded Range of Motion exercises, Isometric muscle setting, Desensitization of scar tissue, Crutch/Walker training.",
+        "Orthopedic": "One or Combinations of: Patellar mobilization (for knee), Heel slides and Quadriceps activation, Gait re-education (weaning off walker), Functional stair climbing training.",
+        "TKR/THR": "One or Combinations of: Patellar mobilization (for knee), Heel slides and Quadriceps activation, Gait re-education (weaning off walker), Functional stair climbing training.",
+        "Geriatric": "One or Combinations of: Fall Prevention Audit & Obstacle negotiation, General mobility exercises, Sit-to-stand endurance, Balance recovery strategies.",
+        "Cardio-Respiratory": "One or Combinations of: Postural Drainage (Positioning for secretion removal), Percussion/Vibrations, Active Cycle of Breathing Techniques (ACBT), Paced walking/Energy conservation techniques.",
+        "Pain Relief Pack": "Manual Therapy (Mobilization/Massage) and Heat/Cold application (using home packs). Focus: Symptom reduction.",
+        "Mobility Pack": "Assisted stretching, Passive Range of Motion of major joints, and Assisted walking. Focus: Joint stiffness reduction.",
+        "Active Recovery Pack": "Guided active exercise session, Foam rolling instruction (roller provided by client), and Cool-down stretching. Focus: Post-sport/exertion recovery.",
+        "Acute Care Pack": "R.I.C.E Protocol education, Lymphatic drainage massage (light touch), and Compression bandaging (bandage provided by client).",
+        "Progressive Strength Training": "One or Combinations of: Bodyweight resistance training (Calisthenics), Resistance Band exercises (bands provided by client), Functional lifting mechanics, Eccentric muscle loading.",
+        "Joint Stabilization": "One or Combinations of: Closed kinetic chain exercises, Single-leg balance tasks, Surface instability training (using pillows/cushions available at home), Perturbation training.",
+        "Proprioception": "One or Combinations of: Closed kinetic chain exercises, Single-leg balance tasks, Surface instability training (using pillows/cushions available at home), Perturbation training.",
+        "Women’s Health": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
+        "Antenatal": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
+        "Postnatal": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
+        "Work-From-Home": "One or Combinations of: Workstation Assessment (Chair/Desk height advice), Neck/Upper Trap Release, Postural resetting exercises, 'Desk-Yoga' stretches.",
+        "Ergonomic": "One or Combinations of: Workstation Assessment (Chair/Desk height advice), Neck/Upper Trap Release, Postural resetting exercises, 'Desk-Yoga' stretches.",
+        "Bedridden": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
+        "Palliative Care": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
+        "Fall Proof Pack": "Home Hazard Assessment (identifying rugs/cords), Balance & Coordination training, and Lower Limb Strengthening. Focus: Senior Safety.",
+        "Chest & Lungs": "Spirometry Coaching (device by client), Deep breathing exercises, Thoracic expansion exercises, and fatigue management. Focus: Post-flu/Post-infection recovery.",
+        "Post-Viral Pack": "Spirometry Coaching (device by client), Deep breathing exercises, Thoracic expansion exercises, and fatigue management. Focus: Post-flu/Post-infection recovery.",
+        "Total Spine Pack": "Manual traction (manual handling only), Spinal mobilization, Core stabilization exercises, and Hamstring/Hip Flexor stretching. Focus: Chronic Back/Neck Pain.",
+        "Walk Again Pack": "Weight shifting drills, Standing tolerance building, Gait pattern correction, and outdoor terrain negotiation (if safe). Focus: Returning to independence."
+    }
+
+    # --- 2. DEFINE MAPPINGS FOR A-LA-CARTE ---
+    ALACARTE_DETAILS = {
+        "Hospital Visits": "Includes: Pick-up from residence, Management of hospital files/registration papers, Wheelchair assistance within hospital premises, Wait-time companionship, and drop-back to residence.",
+        "Care Coordination": "Includes: Pick-up from residence, Management of hospital files/registration papers, Wheelchair assistance within hospital premises, Wait-time companionship, and drop-back to residence.",
+        "Doctor Visits": "Includes: General physical assessment (BP, Pulse, Chest Auscultation), Medication review (de-prescribing), and Written prescription generation.",
+        "Diagnostic Services": "Includes: Hygiene protocol adherence (gloves/sanitization), Sample collection (vacutainer method), Labeling sample in front of patient, and Digital report delivery coordination.",
+        "Blood Collection": "Includes: Hygiene protocol adherence (gloves/sanitization), Sample collection (vacutainer method), Labeling sample in front of patient, and Digital report delivery coordination.",
+        "Nutrition": "Includes: Body Composition Analysis, Kitchen Audit (checking oil/salt/pantry staples), and Customized diet chart generation based on home cooking style.",
+        "Dietetic Consultation": "Includes: Body Composition Analysis, Kitchen Audit (checking oil/salt/pantry staples), and Customized diet chart generation based on home cooking style.",
+        "Hospital Discharge Pack": "Includes: Ambulance Pickup + Medical Equipment Rental (Bed/Oxygen) + 1 Nurse Visit for Room Setup & Vitals Check.",
+        "Dialysis Assistance": "Includes: Assisting patient down stairs/lift, Transport coordination, Post-dialysis snack assistance, and Monitoring for BP drops during return journey.",
+        "Quarterly Senior Wellness": "Includes: 1 Doctor Visit + Full Body Blood Profile + 1 Nutrition Consultation + 1 Fall Prevention Audit.",
+        "Ambulance Services": "Includes: Coordination of BLS/ACLS ambulance, Transfer of patient from bed to stretcher (Bed-to-Bed service), and Vitals monitoring during transit.",
+        "Medical Equipment Rental": "Includes: Delivery logistics, On-site demonstration of usage (e.g., how to fill oxygen water, how to lock wheelchair brakes), Collection of security deposit, and rental agreement signing.",
+        "ECG": "Includes: Lead placement on chest/limbs, Recording of trace, and Digital forwarding of graph to Cardiologist for reporting.",
+        "X-Ray": "Includes: Setup of portable machine at bedside, Safety shielding for family members, and Immediate film/digital transfer.",
+        "Critical Care Setup": "Includes: Installation of Monitor/Ventilator/Suction, 24/7 Nurse Roster management, and Daily reporting to treating consultant.",
+        "ICU at Home": "Includes: Installation of Monitor/Ventilator/Suction, 24/7 Nurse Roster management, and Daily reporting to treating consultant."
+    }
+
+    # --- 3. STANDARD PLANS MAPPING ---
     SERVICES_MASTER = {
         "Plan A: Patient Attendant Care": ["All", "Basic Care", "Assistance with Activities for Daily Living", "Feeding & Oral Hygiene", "Mobility Support & Transfers", "Bed Bath and Emptying Bedpans", "Catheter & Ostomy Care"],
         "Plan B: Skilled Nursing": ["All", "Intravenous (IV) Therapy & Injections", "Medication Management", "Advanced Wound Care", "Catheter & Ostomy Care", "Post-Surgical Care"],
@@ -253,9 +307,30 @@ def get_base_lists(selected_plan, selected_sub_service):
         "Plan F: Rehabilitative Care": ["Therapeutic Massage", "Exercise Therapy", "Geriatric Rehabilitation", "Neuro Rehabilitation", "Pain Management", "Post Op Rehab"],
         "A-la-carte Services": ["Hospital Visits", "Medical Equipment", "Medicines", "Diagnostic Services", "Nutrition Consultation", "Ambulance", "Doctor Visits", "X-Ray", "Blood Collection"]
     }
+
     STANDARD_PLANS = list(SERVICES_MASTER.keys())[:5]
+
+    # --- 4. LOGIC TO SELECT LIST ---
     
-    # Fuzzy match plan name if it was modified (e.g. Plan F with suffix)
+    # 4A. Check for PLAN F Specifics
+    if "Plan F" in selected_plan:
+        sub_check = str(selected_sub_service).strip()
+        # Search for keyword in map keys
+        for key, desc in PLAN_F_DETAILS.items():
+            if key.lower() in sub_check.lower():
+                return [desc], [] # Return description as a single item list, no exclusions
+        # Fallback if no specific sub-service matched in map
+        return ["Rehabilitative Care Assessment and Therapy Session"], []
+
+    # 4B. Check for A-LA-CARTE Specifics
+    elif "A-la-carte" in selected_plan or "Other Service" in selected_plan:
+        sub_check = str(selected_sub_service).strip()
+        for key, desc in ALACARTE_DETAILS.items():
+            if key.lower() in sub_check.lower():
+                return [desc], [] 
+        return [f"Service: {sub_check}"], []
+
+    # 4C. Standard Logic for Plans A-E
     base_plan = selected_plan
     if selected_plan not in SERVICES_MASTER:
         for k in SERVICES_MASTER.keys():
@@ -264,11 +339,15 @@ def get_base_lists(selected_plan, selected_sub_service):
                 break
 
     master_list = SERVICES_MASTER.get(base_plan, [])
+    
     if "All" in str(selected_sub_service) and base_plan in STANDARD_PLANS:
         included_raw = [s for s in master_list if s.lower() != "all"]
-    else: included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
+    else: 
+        included_raw = [x.strip() for x in str(selected_sub_service).split(',')]
+    
     included_clean = sorted(list(set([clean_text(s) for s in included_raw if clean_text(s)])))
     not_included_clean = []
+    
     if base_plan in STANDARD_PLANS:
         for plan_name in STANDARD_PLANS:
             if plan_name == base_plan: continue 
@@ -280,6 +359,7 @@ def get_base_lists(selected_plan, selected_sub_service):
         for item in master_list:
             cleaned = clean_text(item)
             if cleaned and cleaned not in included_clean: not_included_clean.append(cleaned)
+            
     return included_clean, list(set(not_included_clean))
 
 # --- NEW HTML HELPERS ---
@@ -854,9 +934,21 @@ def render_invoice_ui(df_main, mode="standard"):
     default_date = datetime.date.today()
     default_qty = 1
     
+    # ----------------------------------------------------
+    # ⭐ UPDATED NOTE LOGIC (REQUIREMENT C)
+    # ----------------------------------------------------
     val_notes = row.get('Notes', '')
     default_notes = "" if pd.isna(val_notes) or str(val_notes).strip().lower() == 'nan' else str(val_notes)
-    
+
+    # Check if Plan F to append Disclaimer
+    if "Plan F" in c_plan:
+        disclaimer_text = "All medical equipment, consumables (gloves, cotton, medicines, oils, tapes), and assistive devices (walkers, beds, weights/bands) required for the execution of these duties must be provided by the Client. The Caregiver/Therapist provides expertise and labor only."
+        if default_notes:
+            default_notes += f"\n\n{disclaimer_text}"
+        else:
+            default_notes = disclaimer_text
+    # ----------------------------------------------------
+
     conflict_exists = False
     existing_row_idx = None
 
@@ -1102,18 +1194,29 @@ def render_invoice_ui(df_main, mode="standard"):
     desc_col_html = construct_description_html(row)
     amount_col_html = construct_amount_html(row, billing_qty)
     
-    # Logic for Plan Display Name
+    # ----------------------------------------------------
+    # ⭐ UPDATED PLAN NAME LOGIC (REQUIREMENT A & D)
+    # ----------------------------------------------------
     pdf_display_plan = c_plan
     sub_srv_txt = str(row.get('Sub Service', '')).strip()
+
     if c_plan == "Plan A: Patient Attendant Care": pdf_display_plan = "Patient Care Service"
     elif c_plan == "Plan B: Skilled Nursing": pdf_display_plan = "Nurse Service"
     elif c_plan == "Plan C: Chronic Management": pdf_display_plan = "Chronic and Holistic Healthcare Service"
     elif c_plan == "Plan D: Elderly Companion": pdf_display_plan = "Elderly and Well-being Care"
     elif c_plan == "Plan E: Maternal & Newborn": pdf_display_plan = "Maternal & Newborn - Support for Women during and after Pregnancy"
-    elif c_plan == "Plan F: Rehabilitative Care": pdf_display_plan = f"Rehabilitative Care for {sub_srv_txt}"
-    elif c_plan == "A-la-carte Services": pdf_display_plan = f"Other Service - {sub_srv_txt}"
+    
+    # --- PLAN F REQUIREMENT ---
+    elif "Plan F" in c_plan: 
+        pdf_display_plan = f"Rehabilitative Care for {sub_srv_txt}"
+    
+    # --- A-LA-CARTE REQUIREMENT ---
+    elif "A-la-carte" in c_plan: 
+        pdf_display_plan = f"Other Service - {sub_srv_txt}"
     
     clean_plan = pdf_display_plan
+    # ----------------------------------------------------
+
     inc_html = "".join([f'<li class="mb-1 text-xs text-gray-700">{item}</li>' for item in inc_list])
     exc_html = "".join([f'<li class="mb-1 text-[10px] text-gray-500">{item}</li>' for item in exc_final])
 
@@ -2012,3 +2115,4 @@ if raw_file_obj:
                             if pdf_bytes: st.download_button(f"⬇️ Download Patient Agreement", data=pdf_bytes, file_name=file_name, mime="application/pdf")
 
     except Exception as e: st.error(f"Error: {e}")
+
