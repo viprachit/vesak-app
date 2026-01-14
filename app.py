@@ -595,6 +595,11 @@ def get_base_lists(selected_plan, selected_sub_service):
     if base_plan in STANDARD_PLANS:
         for plan_name in STANDARD_PLANS:
             if plan_name == base_plan: continue 
+            
+            # ⭐ LOGIC UPDATE: If Plan D is selected, DO NOT include Plan E in the exclusion list
+            if "Plan D" in base_plan and "Plan E" in plan_name:
+                continue
+
             for item in SERVICES_MASTER.get(plan_name, []):
                 if item.lower() == "all": continue
                 cleaned = clean_text(item)
