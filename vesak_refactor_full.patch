@@ -1,0 +1,869 @@
+*** Begin Patch
+*** Add/Replace File: helpers_utils.py
++<contents of helpers_utils.py above>
+*** End Patch
+*** Begin Patch
+*** Add/Replace File: helpers_agreements.py
++"""
++helpers_agreements.py
++
++Helper functions for agreement generation and saving:
++- Save functions for Nurse, Physio, A-la-carte agreements.
++- Duplicate prevention (agreement_already_saved).
++- Document hash and HTML-to-PDF conversion (WeasyPrint).
++- Optional fast-indexing to an 'Agreements_Index' sheet for O(1) verification lookups.
++"""
++
++from __future__ import annotations
++
++import datetime
++import io
++import hashlib
++from typing import Optional, Any, Dict, List
++
++import streamlit as st
++from weasyprint import HTML
++from weasyprint.text.fonts import FontConfiguration
++
++# ---------------------------
++# Small utilities
++# ---------------------------
++def format_date_simple(d: Any) -> str:
++    """
++    Format a date-like object as 'DD-MM-YYYY' (no time). Returns empty string on failure.
++    """
++    if d is None or d == "":
++        return ""
++    try:
++        if isinstance(d, datetime.datetime):
++            d = d.date()
++        if isinstance(d, datetime.date):
++            return d.strftime("%d-%m-%Y")
++    except Exception:
++        pass
++    return str(d)
++
++
++def generate_doc_hash(*parts: Any) -> str:
++    """
++    Generate a SHA-256 based document id (hex) truncated to 16 chars.
++    Deterministic for the same set of parts and fast to compute.
++    """
++    s = "||".join([str(p) for p in parts if p is not None])
++    return hashlib.sha256(s.encode("utf-8")).hexdigest()[:16]
++
++
++def convert_html_to_pdf(html: str) -> bytes:
++    """
++    Convert HTML string to PDF bytes using WeasyPrint.
++    """
++    font_config = FontConfiguration()
++    pdf_io = io.BytesIO()
++    HTML(string=html).write_pdf(pdf_io, font_config=font_config)
++    return pdf_io.getvalue()
++
++
++# ---------------------------
++# Index (fast verification) helpers
++# ---------------------------
++def _ensure_index_sheet_in_spreadsheet(spreadsheet: Any, index_name: str = "Agreements_Index") -> Optional[Any]:
++    """
++    Ensure that an index worksheet named index_name exists inside the given gspread
++    Spreadsheet object. If it does not exist it will be created and a header row written.
++    Returns the Worksheet object or None on failure.
++    NOTE: spreadsheet is expected to be a gspread.Spreadsheet object (the parent of a Worksheet).
++    """
++    if spreadsheet is None:
++        return None
++    try:
++        # Try to open
++        try:
++            idx_ws = spreadsheet.worksheet(index_name)
++        except Exception:
++            # create with a safe column layout
++            idx_ws = spreadsheet.add_worksheet(title=index_name, rows=1000, cols=10)
++            header = ["Doc Hash", "Invoice Number", "Customer Name", "Sheet", "Saved At", "Doc Type"]
++            try:
++                idx_ws.append_row(header, value_input_option="USER_ENTERED")
++            except Exception:
++                pass
++        return idx_ws
++    except Exception as e:
++        st.warning(f"[Index] Could not ensure index sheet: {e}")
++        return None
++
++
++def _append_index_row(spreadsheet: Any, doc_hash: str, invoice_no: str, customer_name: str,
++                      sheet_name: str, saved_at: str, doc_type: str, index_name: str = "Agreements_Index") -> bool:
++    """
++    Append a single row to the index worksheet. Returns True on success.
++    """
++    try:
++        idx_ws = _ensure_index_sheet_in_spreadsheet(spreadsheet, index_name=index_name)
++        if idx_ws is None:
++            return False
++        row = [doc_hash, invoice_no, customer_name, sheet_name, saved_at, doc_type]
++        idx_ws.append_row(row, value_input_option="USER_ENTERED")
++        return True
++    except Exception as e:
++        st.warning(f"[Index] Append failed: {e}")
++        return False
++
++
++def verify_doc_hash_in_spreadsheet(spreadsheet: Any, doc_hash: str, index_name: str = "Agreements_Index") -> Optional[Dict[str, str]]:
++    """
++    Fast verification: check 'Agreements_Index' worksheet for the given doc_hash.
++    Returns the first matching row as a dict with keys matching the index header, or None if not found.
++    spreadsheet must be a gspread.Spreadsheet object.
++    """
++    if spreadsheet is None or not doc_hash:
++        return None
++    try:
++        try:
++            idx_ws = spreadsheet.worksheet(index_name)
++        except Exception:
++            return None
++        records = idx_ws.get_all_records()
++        for r in records:
++            if str(r.get("Doc Hash", "")).strip() == str(doc_hash).strip():
++                return {
++                    "Doc Hash": r.get("Doc Hash", ""),
++                    "Invoice Number": r.get("Invoice Number", ""),
++                    "Customer Name": r.get("Customer Name", ""),
++                    "Sheet": r.get("Sheet", ""),
++                    "Saved At": r.get("Saved At", ""),
++                    "Doc Type": r.get("Doc Type", "")
++                }
++        return None
++    except Exception as e:
++        st.warning(f"[Index] Verification failed: {e}")
++        return None
++
++
++# ---------------------------
++# Duplicate check helper
++# ---------------------------
++def agreement_already_saved(ws: Any, invoice_no: Any, plan: Any, doc_type: Any) -> bool:
++    """
++    Scan the provided worksheet for an existing agreement matching invoice_no, plan, and doc_type.
++    Returns True if a match is found.
++    Accepts a gspread Worksheet object (ws).
++    """
++    if ws is None:
++        return False
++    try:
++        records = ws.get_all_records()
++    except Exception:
++        return False
++
++    doc_keys = ["Document Type", "Agreement Type", "Doc Type", "Document", "Type", "Doc_Type", "DocType"]
++    invoice_keys = ["Invoice Number", "Invoice", "Invoice No.", "Invoice No", "InvoiceNumber", "Invoice_Number"]
++    plan_keys = ["Plan", "Service Required", "Plan Name", "Plan"]
++
++    inv = str(invoice_no).strip() if invoice_no is not None else ""
++    plan_s = str(plan).strip() if plan is not None else ""
++    dtype = str(doc_type).strip().lower() if doc_type is not None else ""
++
++    for r in records:
++        inv_val = None
++        for k in invoice_keys:
++            if k in r:
++                inv_val = str(r.get(k, "")).strip()
++                break
++        plan_val = None
++        for k in plan_keys:
++            if k in r:
++                plan_val = str(r.get(k, "")).strip()
++                break
++        dtype_val = None
++        for k in doc_keys:
++            if k in r:
++                dtype_val = str(r.get(k, "")).strip().lower()
++                break
++
++        if inv_val == "" and plan_val == "" and (dtype_val is None or dtype_val == ""):
++            continue
++
++        if inv_val == inv and plan_val == plan_s and dtype_val == dtype:
++            return True
++
++    return False
++
++
++# ---------------------------
++# Saves (with optional index writing)
++# ---------------------------
++def _build_common_row(master_row: Dict[str, Any], tab5: Dict[str, Any], doc_type: str) -> List[Any]:
++    invoice_no = master_row.get("Invoice Number", "")
++    date_val = format_date_simple(master_row.get("Date", ""))
++    row = [
++        master_row.get("UID", ""),
++        master_row.get("Serial No.", ""),
++        master_row.get("Ref. No.", ""),
++        invoice_no,
++        date_val,
++        tab5.get("nurse_name", ""),
++        tab5.get("nurse_age", ""),
++        tab5.get("nurse_addr", ""),
++        tab5.get("nurse_aadhar", ""),
++        master_row.get("Nurse Name (Extra)", ""),
++        tab5.get("nurse_age_extra", ""),
++        tab5.get("nurse_addr_extra", ""),
++        tab5.get("nurse_aadhar_extra", ""),
++        master_row.get("Nurse Note", ""),
++        master_row.get("Nurse Payment", ""),
++        master_row.get("Customer Name", ""),
++        master_row.get("Age", ""),
++        master_row.get("Gender", ""),
++        master_row.get("Location", ""),
++        master_row.get("Address", ""),
++        master_row.get("Mobile", ""),
++        master_row.get("Plan", ""),
++    ]
++    return row
++
++
++def save_to_nurses_sheet(master_row: Dict[str, Any], tab5: Dict[str, Any], nurses_ws: Any,
++                         index_name: str = "Agreements_Index") -> bool:
++    try:
++        if nurses_ws is None:
++            raise Exception("Nurses worksheet unavailable")
++
++        invoice_no = master_row.get("Invoice Number", "")
++        plan = master_row.get("Plan", "")
++        doc_type = master_row.get("Doc Type", master_row.get("Document Type", "Caregiver Service Agreement"))
++
++        if agreement_already_saved(nurses_ws, invoice_no, plan, doc_type):
++            st.warning("⚠️ Agreement already exists (Nurses). Duplicate save prevented.")
++            return False
++
++        row = _build_common_row(master_row, tab5, doc_type)
++        saved_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
++        doc_hash = generate_doc_hash(doc_type, invoice_no, master_row.get("Customer Name", ""), saved_at)
++        row.extend([doc_type, saved_at, doc_hash])
++        nurses_ws.append_row(row, value_input_option="USER_ENTERED")
++        try:
++            parent_spreadsheet = getattr(nurses_ws, "spreadsheet", None) or getattr(nurses_ws, "parent", None)
++            if parent_spreadsheet:
++                _append_index_row(parent_spreadsheet, doc_hash, invoice_no,
++                                  master_row.get("Customer Name", ""), "Nurses", saved_at, doc_type,
++                                  index_name=index_name)
++        except Exception:
++            pass
++        return True
++    except Exception as e:
++        st.error(f"Save Error (Nurses): {e}")
++        return False
++
++
++def save_to_physio_sheet(master_row: Dict[str, Any], tab5: Dict[str, Any], physio_ws: Any,
++                         index_name: str = "Agreements_Index") -> bool:
++    try:
++        if physio_ws is None:
++            raise Exception("Physio worksheet unavailable")
++        invoice_no = master_row.get("Invoice Number", "")
++        plan = master_row.get("Plan", "")
++        doc_type = master_row.get("Doc Type", master_row.get("Document Type", "Caregiver Service Agreement"))
++        if agreement_already_saved(physio_ws, invoice_no, plan, doc_type):
++            st.warning("⚠️ Agreement already exists (Physio). Duplicate save prevented.")
++            return False
++        row = _build_common_row(master_row, tab5, doc_type)
++        saved_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
++        doc_hash = generate_doc_hash(doc_type, invoice_no, master_row.get("Customer Name", ""), saved_at)
++        row.extend([doc_type, saved_at, doc_hash])
++        physio_ws.append_row(row, value_input_option="USER_ENTERED")
++        try:
++            parent_spreadsheet = getattr(physio_ws, "spreadsheet", None) or getattr(physio_ws, "parent", None)
++            if parent_spreadsheet:
++                _append_index_row(parent_spreadsheet, doc_hash, invoice_no,
++                                  master_row.get("Customer Name", ""), "Physio", saved_at, doc_type,
++                                  index_name=index_name)
++        except Exception:
++            pass
++        return True
++    except Exception as e:
++        st.error(f"Save Error (Physio): {e}")
++        return False
++
++
++def save_to_alacarte_sheet(master_row: Dict[str, Any], tab5: Dict[str, Any], alacarte_ws: Any,
++                          index_name: str = "Agreements_Index") -> bool:
++    try:
++        if alacarte_ws is None:
++            raise Exception("A-la-carte worksheet unavailable")
++        invoice_no = master_row.get("Invoice Number", "")
++        plan = master_row.get("Plan", "")
++        doc_type = master_row.get("Doc Type", master_row.get("Document Type", "Caregiver Service Agreement"))
++        if agreement_already_saved(alacarte_ws, invoice_no, plan, doc_type):
++            st.warning("⚠️ Agreement already exists (A-la-carte). Duplicate save prevented.")
++            return False
++        row = _build_common_row(master_row, tab5, doc_type)
++        saved_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
++        doc_hash = generate_doc_hash(doc_type, invoice_no, master_row.get("Customer Name", ""), saved_at)
++        row.extend([doc_type, saved_at, doc_hash])
++        alacarte_ws.append_row(row, value_input_option="USER_ENTERED")
++        try:
++            parent_spreadsheet = getattr(alacarte_ws, "spreadsheet", None) or getattr(alacarte_ws, "parent", None)
++            if parent_spreadsheet:
++                _append_index_row(parent_spreadsheet, doc_hash, invoice_no,
++                                  master_row.get("Customer Name", ""), "A-la-carte", saved_at, doc_type,
++                                  index_name=index_name)
++        except Exception:
++            pass
++        return True
++    except Exception as e:
++        st.error(f"Save Error (A-la-carte): {e}")
++        return False
++
+*** End Patch
+*** Begin Patch
+*** Add/Replace File: i18n.py
++# i18n.py
++"""
++Internationalization dictionary for Agreements.
++Contains English, Hindi, Marathi translations.
++"""
++
++AGREEMENT_I18N = {
++    "English": {
++        "title": "CAREGIVER SERVICE RETAINER AGREEMENT",
++        "subtitle": "AGREEMENT OF SERVICE & CODE OF CONDUCT",
++        "agreement_made": "THIS AGREEMENT is made at",
++        "on_date": "on this",
++        "between": "BETWEEN",
++        "and": "AND",
++        "agency_desc": "Vesak Care Foundation, a Foundation Company having its registered office at Kolhapur (hereinafter referred to as the \"AGENCY\", which expression shall, unless repugnant to the context, include its successors and assigns).",
++        "retainer_def": "hereinafter referred to as the",
++        "whereas": "WHEREAS:",
++        "whereas_a": "A. The Agency is engaged in the business of providing professional Patient Care and Home Health services.",
++        "whereas_b": "B. The Retainer has represented to the Agency that they possess the required skills, training, and physical fitness to provide such services and has applied to be empanelled with the Agency.",
++        "agreed": "NOW, THEREFORE, IT IS AGREED AS FOLLOWS:",
++        "sec_1": "1. NATURE OF ENGAGEMENT",
++        "sec_1_1": "The Retainer is engaged as a Professional Retainer on a contract basis and not as a permanent employee.",
++        "sec_1_2": "The Retainer understands that the Agency acts as a facilitator between the Patient and the Retainer.",
++        "sec_2": "2. SCOPE OF DUTIES (STRICT COMPLIANCE)",
++        "sec_2_intro": "The Retainer agrees to perform ONLY the following duties:",
++        "sec_2_1": "2.1 EXCLUSION CLAUSE (NON-DOMESTIC POLICY):",
++        "sec_2_1_text": "The Retainer explicitly agrees that they are NOT a Domestic Helper (Maid). The Retainer shall politely but firmly REFUSE to:",
++        "refuse_list": ["Wash utensils or clothes for the family.", "Sweep or mop the floor (except immediate accidental spillage by patient).", "Cook food for the family.", "Perform any task not related to the patient’s health."],
++        "sec_3": "3. ANTI-POACHING & NON-SOLICITATION (ZERO TOLERANCE)",
++        "sec_3_1": "3.1 The Restriction: The Caregiver acknowledges that the Client/Patient has been introduced solely through the efforts and investment of the Agency.",
++        "sec_3_2": "3.2 Prohibition: The Caregiver agrees that during the tenure of this agreement and for a period of 24 Months after leaving the Agency, they shall NOT:",
++        "prohibit_list": ["Accept direct employment from any Client introduced by the Agency.", "Approach the Client to offer services at a lower rate by bypassing the Agency’s commission.", "Accept 'Private Duty' or 'Cash' from the Client without informing the Agency."],
++        "sec_3_3": "3.3 Consequence of Breach: If the Caregiver is found violating this clause:",
++        "breach_list": ["Blacklisting: The Caregiver will be permanently blacklisted and reported to the Maharashtra Home Healthcare Association.", "Forfeiture: The Agency shall forfeit all pending dues, salary, and security deposits immediately.", "Damages: The Agency reserves the right to claim damages for loss of business."],
++        "sec_4": "4. CODE OF CONDUCT & DISCIPLINE",
++        "sec_4_1": "4.1. Uniform: The Caregiver must wear the designated Uniform and ID Card while on duty.",
++        "sec_4_2": "4.2. Mobile Usage: Use of mobile phones for social media (Reels/YouTube) or video calls during duty hours is Strictly Prohibited.",
++        "sec_4_3": "4.3. Substance Abuse: Consumption of Alcohol, Tobacco, Gutka, or Drugs on duty will lead to Immediate Termination.",
++        "sec_4_4": "4.4. Financial Integrity: The Caregiver shall not borrow money from the Client nor ask for tips/gifts.",
++        "sec_5": "5. CRIMINAL LIABILITY & STATUTORY LAWS",
++        "sec_5_text": "The Caregiver is aware of the laws of the land:",
++        "sec_5_1": "5.1. Theft: Any act of stealing (cash, jewelry, medicines) will be prosecuted under Section 381 of the Indian Penal Code (Theft by Clerk or Servant) which carries a punishment of imprisonment up to 7 Years.",
++        "sec_5_2": "5.2. Elder Abuse: Any negligence or abuse of a Senior Citizen is a punishable offense under the Maintenance and Welfare of Parents and Senior Citizens Act, 2007.",
++        "sec_6": "6. TERMINATION & NOTICE PERIOD",
++        "sec_6_1": "6.1. The Caregiver must provide 30 Days written notice before resigning.",
++        "sec_6_2": "6.2. Patient Abandonment: Leaving the patient unattended mid-shift or absconding without notice is a critical safety violation. In such cases, the Agency will forfeit all dues and may pursue legal action for negligence.",
++        "sec_7": "7. INDEMNITY",
++        "sec_7_text": "The Caregiver agrees to indemnify the Agency against any legal action, claims, or damages arising out of the Caregiver’s own negligence, criminal conduct, or failure to follow medical instructions.",
++        "sec_8": "8. JURISDICTION",
++        "sec_8_text": "All disputes arising out of this agreement are subject to the exclusive jurisdiction of the Courts in",
++        "witness": "IN WITNESS WHEREOF, the parties have signed this Agreement.",
++        "sign_caregiver": "SIGNATURE OF CAREGIVER",
++        "sign_auth": "AUTHORIZED SIGNATORY"
++    },
++    "Hindi": {
++        "title": "देखभालकर्ता सेवा अनुबंध (Caregiver Retainer Agreement)",
++        "subtitle": "सेवा अनुबंध और आचरण संहिता",
++        "agreement_made": "यह अनुबंध",
++        "on_date": "को",
++        "between": "मध्य",
++        "and": "और",
++        "agency_desc": "वेसाक केयर फाउंडेशन, कोल्हापुर में पंजीकृत कार्यालय वाली एक फाउंडेशन कंपनी (इसके बाद \"एजेंसी\" कहा जाएगा)।",
++        "retainer_def": "(इसके बाद \"रिटेनर\" कहा जाएगा)",
++        "whereas": "प्रस्तावना:",
++        "whereas_a": "A. एजेंसी पेशेवर रोगी देखभाल और घरेलू स्वास्थ्य सेवाएं प्रदान करने के व्यवसाय में लगी हुई है।",
++        "whereas_b": "B. रिटेनर ने एजेंसी को यह बताया है कि उनके पास ऐसी सेवाएं प्रदान करने के लिए आवश्यक कौशल, प्रशिक्षण और शारीरिक फिटनेस है।",
++        "agreed": "अब, इसलिए, निम्नलिखित पर सहमति है:",
++        "sec_1": "1. नियुक्ति की प्रकृति",
++        "sec_1_1": "रिटेनर को अनुबंध के आधार पर 'प्रोफेशनल रिटेनर' के रूप में नियुक्त किया गया है, न कि स्थायी कर्मचारी के रूप में।",
++        "sec_2": "2. कर्तव्यों का दायरा (सख्त अनुपालन)",
++        "sec_2_intro": "रिटेनर केवल निम्नलिखित कर्तव्यों को निभाने के लिए सहमत है:",
++        "sec_2_1": "2.1 अपवर्जन खंड (घरेलू काम नहीं):",
++        "sec_2_1_text": "रिटेनर स्पष्ट रूप से सहमत है कि वे घरेलू सहायक (नौकरानी) नहीं हैं। रिटेनर विनम्रतापूर्वक लेकिन दृढ़ता से निम्नलिखित कार्य करने से मना करेगा:",
++        "refuse_list": ["परिवार के लिए बर्तन या कपड़े धोना।", "झाड़ू या पोछा लगाना (रोगी द्वारा आकस्मिक गंदगी को छोड़कर)।", "परिवार के लिए खाना बनाना।", "कोई भी कार्य जो रोगी के स्वास्थ्य से संबंधित नहीं है।"],
++        "sec_3": "3. अवैध शिकार विरोधी और गैर-याचिका (शून्य सहिष्णुता)",
++        "sec_3_1": "3.1 प्रतिबंध: देखभालकर्ता स्वीकार करता है कि ग्राहक/रोगी का परिचय केवल एजेंसी के प्रयासों और निवेश के माध्यम से किया गया है।",
++        "sec_3_2": "3.2 निषेध: देखभालकर्ता सहमत है कि इस अनुबंध के दौरान और एजेंसी छोड़ने के 24 महीने बाद तक, वे:",
++        "prohibit_list": ["एजेंसी द्वारा पेश किए गए किसी भी ग्राहक से सीधे रोजगार स्वीकार नहीं करेंगे।", "एजेंसी के कमीशन को दरकिनार करके ग्राहक को कम दर पर सेवाएं नहीं देंगे।", "एजेंसी को सूचित किए बिना ग्राहक से 'प्राइवेट ड्यूटी' या 'कैश' स्वीकार नहीं करेंगे।"],
++        "sec_4": "4. आचरण संहिता और अनुशासन",
++        "sec_4_1": "4.1. वर्दी: ड्यूटी के दौरान देखभालकर्ता को निर्धारित वर्दी और आईडी कार्ड पहनना होगा।",
++        "sec_4_2": "4.2. मोबाइल का उपयोग: ड्यूटी के घंटों के दौरान सोशल मीडिया (Reels/YouTube) या वीडियो कॉल के लिए मोबाइल फोन का उपयोग सख्त वर्जित है।",
++        "sec_4_3": "4.3. नशीले पदार्थ: ड्यूटी पर शराब, तंबाकू, गुटका, या ड्रग्स का सेवन करने पर तत्काल बर्खास्तगी होगी।",
++        "sec_5": "5. आपराधिक दायित्व और कानून",
++        "sec_5_text": "देखभालकर्ता देश के कानूनों से अवगत है:",
++        "sec_6": "6. समाप्ति और नोटिस अवधि",
++        "sec_6_1": "6.1. देखभालकर्ता को इस्तीफा देने से पहले 30 दिनों का लिखित नोटिस देना होगा।",
++        "witness": "साक्ष्य के रूप में, पार्टियों ने इस अनुबंध पर हस्ताक्षर किए हैं।",
++        "sign_caregiver": "देखभालकर्ता के हस्ताक्षर",
++        "sign_auth": "अधिकृत हस्ताक्षरकर्ता"
++    },
++    "Marathi": {
++        "title": "केअरगिव्हर सेवा करार (Caregiver Retainer Agreement)",
++        "subtitle": "सेवा करार आणि आचारसंहिता",
++        "agreement_made": "हा करार",
++        "on_date": "रोजी",
++        "between": "येथे",
++        "and": "आणि",
++        "agency_desc": "वेसाक केअर फाउंडेशन, कोल्हापूर येथे नोंदणीकृत कार्यालय असलेली फाउंडेशन कंपनी (यापुढे \"एजन्सी\" म्हणून संबोधली जाईल).",
++        "retainer_def": "(यापुढे \"रिटेनर\" म्हणून संबोधले जाईल)",
++        "whereas": "प्रस्तावना:",
++        "whereas_a": "A. एजन्सी व्यावसायिक रुग्ण सेवा आणि होम हेल्थ सेवा प्रदान करण्याच्या व्यवसायात आहे.",
++        "whereas_b": "B. रिटेनरने एजन्सीला असे दर्शविले आहे की त्यांच्याकडे अशा सेवा प्रदान करण्यासाठी आवश्यक कौशल्ये, प्रशिक्षण आणि शारीरिक तंदुरुस्ती आहे.",
++        "agreed": "म्हणून, खालीलप्रमाणे सहमती झाली आहे:",
++        "sec_1": "1. नियुक्तीचे स्वरूप",
++        "sec_2": "2. कर्तव्यांची व्याप्ती (कठोर पालन)",
++        "sec_2_intro": "रिटेनर फक्त खालील कर्तव्ये पार पाडण्यास सहमत आहे:",
++        "refuse_list": ["कुटुंबासाठी भांडी किंवा कपडे धुणे.", "झाडू किंवा लादी पुसणे (रुग्णामुळे झालेली घाण वगळता).", "कुटुंबासाठी जेवण बनवणे.", "रुग्णाच्या आरोग्याशी संबंधित नसलेले कोणतेही कार्य."],
++        "witness": "गोष्टींचे पुरावे म्हणून पक्षांनी या करारावर स्वाक्षरी केली.",
++        "sign_caregiver": "देखभालकर्त्याचे स्वाक्षरी",
++        "sign_auth": "अधिकृत सही"
++    }
++}
++
+*** End Patch
+*** Begin Patch
+*** Add/Replace File: ui/tab5_agreements.py
++# ui/tab5_agreements.py
++"""
++Agreement HTML generators used by the Create Agreements tab.
++Functions:
++- generate_caregiver_agreement_html(master_row, tab_inputs, lang)
++- generate_family_agreement_html(master_row, lang)
++- generate_warning_letter_html(master_row, staff_name, violations, fine_amount)
++"""
++
++from i18n import AGREEMENT_I18N
++from helpers_utils import construct_description_html, construct_amount_html
++import datetime
++import html
++
++def _esc(s):
++    return html.escape(str(s or ""))
++
++def generate_caregiver_agreement_html(master_row: dict, tab_inputs: dict, lang: str = "English") -> str:
++    i18n = AGREEMENT_I18N.get(lang, AGREEMENT_I18N["English"])
++    today = datetime.date.today().strftime("%d-%b-%Y")
++    caregiver = _esc(tab_inputs.get("nurse_name") or master_row.get("Nurse Name") or "")
++    client = _esc(master_row.get("Customer Name") or master_row.get("Customer", ""))
++    plan = _esc(master_row.get("Plan") or "")
++    body = f"""
++    <div>
++        <h2 style="text-align:center">{i18n['title']}</h2>
++        <h4 style="text-align:center">{i18n['subtitle']}</h4>
++        <p>{i18n['agreement_made']} {i18n.get('agency_desc')}</p>
++        <p><strong>{i18n['on_date']}</strong> {today}</p>
++
++        <h3>{i18n['sec_1']}</h3>
++        <p>{i18n['sec_1_1']}</p>
++
++        <h3>{i18n['sec_2']}</h3>
++        <p>{i18n['sec_2_intro']}</p>
++        <ul>
++    """
++    for item in i18n.get("refuse_list", []):
++        body += f"<li>{_esc(item)}</li>"
++    body += "</ul>"
++    body += f"""
++        <hr/>
++        <table width="100%">
++            <tr><td><strong>Client:</strong> {_esc(client)}</td><td><strong>Plan:</strong> {_esc(plan)}</td></tr>
++            <tr><td><strong>Caregiver:</strong> {_esc(caregiver)}</td><td><strong>Date:</strong> {today}</td></tr>
++        </table>
++        <br/>
++        <p>{i18n.get('sec_3','')}</p>
++        <p>{i18n.get('sec_3_1','')}</p>
++        <p>{i18n.get('sec_3_2','')}</p>
++    """
++    body += f"""
++        <br/><br/>
++        <div style="display:flex;justify-content:space-between;margin-top:40px;">
++            <div style="text-align:center">
++                _______________________<br/>
++                {i18n.get('sign_caregiver')}
++            </div>
++            <div style="text-align:center">
++                _______________________<br/>
++                {i18n.get('sign_auth')}
++            </div>
++        </div>
++    </div>
++    """
++    return body
++
++def generate_family_agreement_html(master_row: dict, lang: str = "English") -> str:
++    i18n = AGREEMENT_I18N.get(lang, AGREEMENT_I18N["English"])
++    client_name = _esc(master_row.get("Customer Name", ""))
++    plan = _esc(master_row.get("Plan", ""))
++    date = datetime.date.today().strftime("%d-%b-%Y")
++    body = f"""
++    <div>
++      <h2 style="text-align:center">{i18n.get('title','CLIENT / FAMILY AGREEMENT')}</h2>
++      <p><strong>Client: </strong>{client_name}</p>
++      <p><strong>Plan: </strong>{plan}</p>
++      <p>This Client / Family Agreement outlines the mutual expectations and payment terms for services provided by Vesak Care Foundation. By signing below, the client/family agrees to cooperate with the caregiver and the Agency as per standards described in the caregiver agreement.</p>
++      <br/>
++      <div style="display:flex;justify-content:space-between;margin-top:40px;">
++          <div style="text-align:center">
++              _______________________<br/>
++              Client / Family
++          </div>
++          <div style="text-align:center">
++              _______________________<br/>
++              Authorized Signatory, Vesak Care
++          </div>
++      </div>
++    </div>
++    """
++    return body
++
++def generate_warning_letter_html(master_row: dict, staff_name: str, violations: list, fine_amount: str = "0") -> str:
++    client = _esc(master_row.get("Customer Name", ""))
++    inv = _esc(master_row.get("Invoice Number", ""))
++    date = datetime.date.today().strftime("%d-%b-%Y")
++    viol_html = "".join(f"<li>{_esc(v)}</li>" for v in (violations or []))
++    body = f"""
++    <div>
++        <h3 style="text-align:center">Warning Letter</h3>
++        <p>Date: {date}</p>
++        <p>To: { _esc(staff_name) }</p>
++        <p>Ref: Invoice {inv} / Client: {client}</p>
++        <p>The following violations were observed:</p>
++        <ul>{viol_html}</ul>
++        <p>Fine Amount (if any): Rs. {_esc(fine_amount)}</p>
++        <p>Please consider this a formal warning. Continued violations may lead to termination or legal action as per the agreement.</p>
++        <br/>
++        <div style="display:flex;justify-content:space-between;margin-top:40px;">
++            <div style="text-align:center">_______________________<br/>Authorized Signatory</div>
++            <div style="text-align:center">_______________________<br/>Employee Signature</div>
++        </div>
++    </div>
++    """
++    return body
++
+*** End Patch
+*** Begin Patch
+*** Add/Replace File: app.py
++#!/usr/bin/env python3
++import os
++import json
++import re
++import datetime
++import time
++import logging
++from io import BytesIO
++import base64
++
++import streamlit as st
++import pandas as pd
++from PIL import Image, ImageFile
++import gspread
++from google.oauth2.service_account import Credentials
++
++# Local modular imports
++from helpers_agreements import (
++    convert_html_to_pdf,
++    generate_doc_hash,
++    save_to_nurses_sheet,
++    save_to_physio_sheet,
++    save_to_alacarte_sheet,
++    agreement_already_saved,
++    verify_doc_hash_in_spreadsheet,
++)
++from pdf_engine.pdf_utils import generate_qr_base64
++from pdf_engine.letterhead import render_vesak_letterhead_pdf
++from helpers_utils import (
++    normalize_id,
++    clean_referral_field,
++    get_cached_exclusion_list,
++    generate_filename,
++    get_base_lists,
++    construct_description_html,
++    construct_amount_html,
++    normalize_columns,
++    SHEET_HEADERS,
++    get_logo_b64,
++    get_gspread_client,
++    extract_id_from_url,
++    load_system_config,
++    render_invoice_ui,
++)
++from i18n import AGREEMENT_I18N
++from ui.tab5_agreements import (
++    generate_caregiver_agreement_html,
++    generate_family_agreement_html,
++    generate_warning_letter_html,
++)
++
++ImageFile.LOAD_TRUNCATED_IMAGES = True
++logging.basicConfig(level=logging.INFO)
++
++st.set_page_config(page_title="Vesak Care - Invoice Generator", layout="wide", page_icon="🏥")
++
++LOGO_FILE = "logo.png"
++SYSTEM_CONFIG_FILE = "system_config.json"
++
++def save_system_config(conf: dict):
++    try:
++        with open(SYSTEM_CONFIG_FILE, "w", encoding="utf-8") as f:
++            json.dump(conf, f)
++    except Exception as e:
++        st.error(f"Error saving system config: {e}")
++
++sys_config = load_system_config()
++
++with st.sidebar:
++    st.header("⚙️ System Configuration")
++    m_link = st.text_input("Master Workbook Link (Active):", value=sys_config.get("master_sheet_url", ""))
++    b_link = st.text_input("Backup Workbook Link (Archive):", value=sys_config.get("backup_sheet_url", ""))
++    if st.button("💾 Save Settings"):
++        sys_config["master_sheet_url"] = m_link
++        sys_config["backup_sheet_url"] = b_link
++        save_system_config(sys_config)
++        st.success("Settings saved.")
++        st.experimental_rerun()
++
++client = get_gspread_client()
++
++logo_b64 = get_logo_b64()
++
++tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
++    "🧾 Generate Invoice",
++    "©️ Duplicate Invoice",
++    "🛠 Manage Services",
++    "💰 Nurse Manage",
++    "🔍 Reports",
++    "📝 Create Agreements"
++])
++
++with tab1:
++    st.header("🧾 Generate Invoice")
++    master_df = pd.DataFrame()
++    if client and sys_config.get("master_sheet_url"):
++        try:
++            master_id = extract_id_from_url(sys_config["master_sheet_url"])
++            wb_master = client.open_by_key(master_id)
++            try:
++                ws_master = wb_master.worksheet("Master-26")
++                all_rows = ws_master.get_all_records()
++                master_df = pd.DataFrame(all_rows)
++            except Exception as e:
++                st.warning(f"Master sheet 'Master-26' missing or empty: {e}")
++        except Exception as e:
++            st.warning(f"Unable to load master sheet: {e}")
++    render_invoice_ui(master_df, mode="standard")
++
++with tab2:
++    st.header("©️ Duplicate Invoice")
++    st.info("Select a historical invoice to duplicate (from monthly sheets).")
++    if client and sys_config.get("master_sheet_url"):
++        try:
++            master_id = extract_id_from_url(sys_config["master_sheet_url"])
++            wb_master = client.open_by_key(master_id)
++            month_sel = st.date_input("Choose month", value=datetime.date.today())
++            month_name = month_sel.strftime("%b-%y")
++            try:
++                ws_month = wb_master.worksheet(month_name)
++                hist = pd.DataFrame(ws_month.get_all_records())
++                if hist.empty:
++                    st.info("No invoices found for that month.")
++                else:
++                    hist['Display'] = hist['Invoice Number'].astype(str) + " — " + hist['Customer Name']
++                    pick = st.selectbox("Pick invoice", [""] + hist['Display'].tolist())
++                    if pick:
++                        picked_row = hist[hist['Display'] == pick].iloc[0].to_dict()
++                        st.write(picked_row)
++                        if st.button("Duplicate invoice to Master-26"):
++                            try:
++                                ws_master = wb_master.worksheet("Master-26")
++                                new_row_vals = []
++                                for col in SHEET_HEADERS:
++                                    new_row_vals.append(picked_row.get(col, ""))
++                                try:
++                                    all_vals = ws_master.get_all_values()
++                                    existing_uids = [int(r[0]) for r in all_vals[1:] if r and r[0].isdigit()]
++                                    new_uid = max(existing_uids) + 1 if existing_uids else 1
++                                except Exception:
++                                    new_uid = int(time.time()) % 100000
++                                new_row_vals[0] = f"{new_uid:04d}"
++                                ws_master.append_row(new_row_vals, value_input_option="USER_ENTERED")
++                                st.success("Duplicated invoice into Master-26.")
++                            except Exception as e:
++                                st.error(f"Duplicate failed: {e}")
++            except Exception:
++                st.info("Monthly sheet not found.")
++        except Exception as e:
++            st.error(f"Error loading history: {e}")
++    else:
++        st.info("Configure Master Workbook in the sidebar to use this feature.")
++
++with tab3:
++    st.header("🛠 Manage Services")
++    st.info("Manage / add / remove plan templates (UI work in progress).")
++
++with tab4:
++    st.header("💰 Nurse Management")
++    st.info("Update nurse payments and settlements here (UI pending enhancements).")
++
++with tab5:
++    st.header("🔍 Reports")
++    st.info("Reporting and exports will be added here.")
++
++with tab6:
++    st.header("📝 Create Agreements")
++    df_master = pd.DataFrame()
++    if client and sys_config.get("master_sheet_url"):
++        try:
++            master_id = extract_id_from_url(sys_config["master_sheet_url"])
++            wb_master = client.open_by_key(master_id)
++            try:
++                master_ws = wb_master.worksheet("Master-26")
++                df_master = pd.DataFrame(master_ws.get_all_records())
++            except Exception:
++                df_master = pd.DataFrame()
++        except Exception:
++            df_master = pd.DataFrame()
++    st.subheader("Customer selection")
++    if not df_master.empty:
++        df_master['Display'] = df_master.get('Customer Name', '') + " | " + df_master.get('Invoice Number', '').astype(str)
++        selected = st.selectbox("Select existing customer (or blank for new)", [""] + df_master['Display'].tolist())
++        if selected:
++            master_row = df_master[df_master['Display'] == selected].iloc[0].to_dict()
++        else:
++            master_row = {}
++    else:
++        master_row = {}
++    client_name = st.text_input("Customer Name", value=master_row.get("Customer Name", ""))
++    plan_choice = st.selectbox("Plan", ["Plan A", "Plan B", "Plan C", "Plan D", "Plan E", "Plan F", "A-la-carte"])
++    sub_service = st.text_input("Sub Service", value=master_row.get("Sub Service", ""))
++    doc_type = st.radio("Document Type", ["Caregiver Service Agreement", "Client / Family Agreement", "Warning Letter"])
++    lang = st.selectbox("Language", ["English", "Hindi", "Marathi"], index=0)
++    st.subheader("Caregiver / Attendant Details")
++    c1, c2 = st.columns(2)
++    with c1:
++        nurse_name = st.text_input("Name", value=master_row.get("Nurse Name", ""))
++        nurse_age = st.text_input("Age", value="")
++        nurse_addr = st.text_input("Address", value="")
++        nurse_aadhar = st.text_input("Aadhaar No.", value="")
++    with c2:
++        nurse_age_extra = st.text_input("Age (Extra)", value="")
++        nurse_addr_extra = st.text_input("Address (Extra)", value="")
++        nurse_aadhar_extra = st.text_input("Aadhaar (Extra)", value="")
++        nurse_note = st.text_input("Note", value=master_row.get("Nurse Note", ""))
++    tab_inputs = {
++        "nurse_name": nurse_name,
++        "nurse_age": nurse_age,
++        "nurse_addr": nurse_addr,
++        "nurse_aadhar": nurse_aadhar,
++        "nurse_age_extra": nurse_age_extra,
++        "nurse_addr_extra": nurse_addr_extra,
++        "nurse_aadhar_extra": nurse_aadhar_extra,
++        "nurse_note": nurse_note
++    }
++    if st.button("Generate Agreement"):
++        if not client_name.strip():
++            st.warning("Customer name is required.")
++        else:
++            invoice_no = master_row.get("Invoice Number") or f"AG-{int(time.time())}"
++            is_physio = "Plan F" in plan_choice
++            is_alacarte = "alacarte" in plan_choice.lower()
++            target_ws = None
++            if client and sys_config.get("master_sheet_url"):
++                try:
++                    wb_master = client.open_by_key(extract_id_from_url(sys_config["master_sheet_url"]))
++                    if is_physio:
++                        target_ws = wb_master.worksheet("Physio")
++                    elif is_alacarte:
++                        target_ws = wb_master.worksheet("A-la-carte")
++                    else:
++                        target_ws = wb_master.worksheet("Nurses")
++                except Exception as e:
++                    st.warning(f"Could not locate target worksheet: {e}")
++                    target_ws = None
++            if target_ws and agreement_already_saved(target_ws, invoice_no, plan_choice, doc_type):
++                st.warning("Document already exists (duplicate prevented).")
++            else:
++                if doc_type == "Caregiver Service Agreement":
++                    html_body = generate_caregiver_agreement_html(master_row or {}, tab_inputs, lang)
++                elif doc_type == "Client / Family Agreement":
++                    html_body = generate_family_agreement_html(master_row or {}, lang)
++                else:
++                    violations = st.text_area("Violations (one per line)").splitlines()
++                    fine = st.text_input("Fine Amount (Rs.)", value="0")
++                    html_body = generate_warning_letter_html(master_row or {}, nurse_name, violations, fine)
++                doc_hash = generate_doc_hash(invoice_no, client_name, doc_type, datetime.date.today().isoformat())
++                qr_b64 = generate_qr_base64(doc_hash)
++                logo_b64_for_pdf = logo_b64 or ""
++                pdf_html = render_vesak_letterhead_pdf(
++                    body_html=html_body,
++                    logo_b64=logo_b64_for_pdf,
++                    title=doc_type,
++                    meta_html=f"<div>Date: {datetime.date.today().strftime('%d-%b-%Y')}</div>",
++                    doc_hash=doc_hash,
++                    qr_b64=qr_b64
++                )
++                try:
++                    pdf_bytes = convert_html_to_pdf(pdf_html)
++                except Exception as e:
++                    st.error(f"PDF generation failed: {e}")
++                    pdf_bytes = None
++                if pdf_bytes:
++                    fname = generate_filename(doc_type, invoice_no, client_name)
++                    st.download_button("⬇️ Download PDF", data=pdf_bytes, file_name=fname)
++                else:
++                    st.error("Failed to create PDF.")
++                saved = False
++                if target_ws:
++                    master_row_for_save = {
++                        "Invoice Number": invoice_no,
++                        "Customer Name": client_name,
++                        "Plan": plan_choice,
++                        "Doc Type": doc_type,
++                        "Doc Hash": doc_hash,
++                        **tab_inputs
++                    }
++                    try:
++                        if is_physio:
++                            saved = save_to_physio_sheet(master_row_for_save, tab_inputs, target_ws)
++                        elif is_alacarte:
++                            saved = save_to_alacarte_sheet(master_row_for_save, tab_inputs, target_ws)
++                        else:
++                            saved = save_to_nurses_sheet(master_row_for_save, tab_inputs, target_ws)
++                        if saved:
++                            st.success("Agreement saved to sheet.")
++                        else:
++                            st.warning("Agreement not saved (check logs or permissions).")
++                    except Exception as e:
++                        st.error(f"Save to sheet failed: {e}")
++                else:
++                    st.info("No target worksheet configured; agreement not saved to sheet (only PDF generated).")
++    st.subheader("Verify Document ID (Hash)")
++    doc_id_input = st.text_input("Enter Document ID (hash) to verify:")
++    if st.button("Verify"):
++        if not doc_id_input.strip():
++            st.warning("Enter a Document ID first.")
++        else:
++            found = False
++            if client and sys_config.get("master_sheet_url"):
++                try:
++                    wb_master = client.open_by_key(extract_id_from_url(sys_config["master_sheet_url"]))
++                    info = verify_doc_hash_in_spreadsheet(wb_master, doc_id_input.strip())
++                    if info:
++                        st.success(f"Found: {info}")
++                        found = True
++                except Exception as e:
++                    st.error(f"Verification failed: {e}")
++            if not found:
++                st.error("Document ID not found in saved agreements (or sheets inaccessible).")
++
+*** End Patch
