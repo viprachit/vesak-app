@@ -6,20 +6,29 @@ from sqlalchemy.orm import Session
 from .db import SessionLocal, engine
 from . import models, crud
 
-# Create DB tables (safe to call multiple times)
-models.Base.metadata.create_all(bind=engine)
-
+# ------------------------------------
+# App initialization
+# ------------------------------------
 app = FastAPI(title="Vesak Invoice App")
 
+# Templates
 templates = Jinja2Templates(directory="backend/templates")
 
-# Database dependency
+# ------------------------------------
+# Database
+# ------------------------------------
+models.Base.metadata.create_all(bind=engine)
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+# ------------------------------------
+# Routes
+# ------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request, db: Session = Depends(get_db)):
@@ -44,4 +53,11 @@ def view_client(client_id: int, request: Request, db: Session = Depends(get_db))
             "request": request,
             "client": client
         }
+    )
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    return templates.TemplateResponse(
+        "pages/dashboard.html",
+        {"request": request}
     )

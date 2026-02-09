@@ -1,0 +1,31 @@
+{% extends "layouts/admin.html" %}
+
+{% block title %}Dashboard — VesakCare{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-semibold mb-6">Dashboard</h1>
+
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+    <div class="bg-white p-5 rounded-xl shadow-sm">
+        <div class="text-sm text-gray-500">Clients</div>
+        <div class="text-3xl font-bold mt-2">—</div>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl shadow-sm">
+        <div class="text-sm text-gray-500">Active Services</div>
+        <div class="text-3xl font-bold mt-2">—</div>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl shadow-sm">
+        <div class="text-sm text-gray-500">Invoices</div>
+        <div class="text-3xl font-bold mt-2">—</div>
+    </div>
+
+    <div class="bg-white p-5 rounded-xl shadow-sm">
+        <div class="text-sm text-gray-500">Pending Payments</div>
+        <div class="text-3xl font-bold mt-2">—</div>
+    </div>
+
+</div>
+{% endblock %}
