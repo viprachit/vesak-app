@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VesakCare - Financial Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .text-royal-blue {
+            color: #002147;
+        }
+
+        .bg-royal-blue {
+            background-color: #002147;
+        }
+
+        .text-royal-gold {
+            color: #C5A065;
+        }
+
+        .bg-royal-gold {
+            background-color: #C5A065;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 33, 71, 0.08);
+        }
+
+        .royal-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f1f5f9;
+        }
+
+        .metric-value {
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .toggle-btn.active {
+            background-color: #002147;
+            color: white;
+            font-weight: bold;
+        }
+    </style>
+    <script src="templates/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const role = sessionStorage.getItem('userRole');
+            if (role !== 'Founder') {
+                alert('Access Denied. Founder exclusive area.');
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</head>
+
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass-nav h-20 w-full z-50 flex-none">
+        <div class="max-w-[1920px] mx-auto px-6 h-full flex items-center justify-between">
+            <div class="flex items-center gap-4 cursor-pointer group" onclick="window.location.href='index.html'">
+                <div class="w-10 h-10 relative">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                        <path d="M30 5 H70 L95 30 V70 L70 95 H30 L5 70 V30 L30 5Z" stroke="#002147" stroke-width="3"
+                            fill="none" />
+                        <circle cx="50" cy="50" r="15" fill="#C5A065" />
+                        <path d="M50 35 V65" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+                        <path d="M35 50 H65" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />
+                    </svg>
+                </div>
+                <div>
+                    <span class="font-serif text-xl font-bold text-royal-blue tracking-wide leading-none">Financial
+                        Command</span>
+                    <span class="block text-[10px] text-royal-gold uppercase tracking-[0.2em] font-medium mt-1">Founder
+                        Exclusive Vault</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <div class="bg-gray-100 p-1 rounded-lg flex text-xs">
+                    <button onclick="setFinancialYear('apr-mar')" id="fy-apr"
+                        class="px-3 py-1.5 rounded toggle-btn active transition-all">Apr - Mar</button>
+                    <button onclick="setFinancialYear('jan-dec')" id="fy-jan"
+                        class="px-3 py-1.5 rounded toggle-btn text-gray-500 hover:text-royal-blue transition-all">Jan -
+                        Dec</button>
+                </div>
+
+                <div class="border-l border-gray-200 pl-6">
+                    <button onclick="window.location.href='index.html'"
+                        class="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i> Back to Desk
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto p-8 max-w-[1920px] mx-auto w-full">
+
+        <!-- Header & Time Toggles -->
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h1 class="font-serif text-3xl font-bold text-royal-blue">Revenue Intelligence</h1>
+                <p class="text-gray-500 text-sm mt-1">Aggregated financial metrics from confirmed allocations.</p>
+            </div>
+
+            <div class="bg-white border border-gray-200 p-1 rounded-xl shadow-sm flex text-sm">
+                <button onclick="setPeriod('daily')" id="period-daily"
+                    class="px-5 py-2 rounded-lg text-gray-500 hover:text-royal-blue font-medium period-btn transition-colors">Daily</button>
+                <button onclick="setPeriod('monthly')" id="period-monthly"
+                    class="px-5 py-2 rounded-lg toggle-btn text-gray-500 hover:text-royal-blue font-medium period-btn active transition-colors">Monthly</button>
+                <button onclick="setPeriod('quarterly')" id="period-quarterly"
+                    class="px-5 py-2 rounded-lg text-gray-500 hover:text-royal-blue font-medium period-btn transition-colors">Quarterly</button>
+                <button onclick="setPeriod('yearly')" id="period-yearly"
+                    class="px-5 py-2 rounded-lg text-gray-500 hover:text-royal-blue font-medium period-btn transition-colors">Yearly</button>
+            </div>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+            <div class="royal-card p-6 border-l-4 border-l-royal-blue relative overflow-hidden">
+                <div class="absolute right-[-20px] top-[-20px] text-gray-50 opacity-10">
+                    <i class="fas fa-money-bill-wave text-8xl"></i>
+                </div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Total Payments Received</p>
+                <h2 id="kpi-payments" class="text-4xl font-bold metric-value text-slate-800">₹0</h2>
+                <div class="mt-4 flex items-center gap-2 text-xs">
+                    <span class="text-green-600 bg-green-50 px-2 py-1 rounded font-bold" id="kpi-payments-delta"><i
+                            class="fas fa-arrow-up mr-1"></i>0%</span>
+                    <span class="text-gray-400" id="kpi-payments-periodtext">vs last month</span>
+                </div>
+            </div>
+
+            <div class="royal-card p-6 border-l-4 border-l-royal-gold relative overflow-hidden">
+                <div class="absolute right-[-20px] top-[-20px] text-gray-50 opacity-10">
+                    <i class="fas fa-file-invoice-dollar text-8xl"></i>
+                </div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Authorized Earnings (Invoiced)
+                </p>
+                <h2 id="kpi-earnings" class="text-4xl font-bold metric-value text-slate-800">₹0</h2>
+                <div class="mt-4 flex items-center gap-2 text-xs">
+                    <span class="text-green-600 bg-green-50 px-2 py-1 rounded font-bold" id="kpi-earnings-delta"><i
+                            class="fas fa-arrow-up mr-1"></i>0%</span>
+                    <span class="text-gray-400">vs last month</span>
+                </div>
+            </div>
+
+            <div class="royal-card p-6 border-l-4 border-l-green-500 relative overflow-hidden">
+                <div class="absolute right-[-20px] top-[-20px] text-gray-50 opacity-10">
+                    <i class="fas fa-chart-line text-8xl"></i>
+                </div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Net Revenue Margin (Est.)</p>
+                <h2 id="kpi-margin" class="text-4xl font-bold metric-value text-slate-800">₹0</h2>
+                <div class="mt-4 flex items-center gap-2 text-xs">
+                    <span class="text-green-600 bg-green-50 px-2 py-1 rounded font-bold" id="kpi-margin-pct">0%</span>
+                    <span class="text-gray-400">Profit ratio</span>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Graph & Expenses Split -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 royal-card p-6">
+                <h3 class="font-serif text-xl font-bold text-royal-blue mb-6">Earnings Timeline</h3>
+                <div class="h-[400px] w-full">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+
+            <div class="royal-card p-6 flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-serif text-xl font-bold text-royal-blue">Office Expenses</h3>
+                    <span class="text-xs bg-red-50 text-red-600 px-2 py-1 rounded font-bold">Deductions</span>
+                </div>
+
+                <div class="space-y-4 flex-1">
+                    <div class="flex justify-between items-center p-3 border border-gray-100 rounded-lg bg-gray-50">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">Salaries (Internal)</p>
+                                <p class="text-xs text-gray-500">Auto-calc from Employee DB</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-gray-800" id="exp-salaries">₹0</span>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 border border-gray-100 rounded-lg bg-gray-50">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center">
+                                <i class="fas fa-building"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">Rent & Leases</p>
+                                <p class="text-xs text-gray-500">Via Admin Hub</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-gray-800" id="exp-rent">₹0</span>
+                    </div>
+
+                    <div class="flex justify-between items-center p-3 border border-gray-100 rounded-lg bg-gray-50">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">Utilities & Bills</p>
+                                <p class="text-xs text-gray-500">Via Admin Hub</p>
+                            </div>
+                        </div>
+                        <span class="font-bold text-gray-800" id="exp-util">₹0</span>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-gray-600 uppercase text-xs tracking-wider">Total Deductions</span>
+                        <span class="text-xl font-bold text-red-500" id="exp-total">₹0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="templates/shared.js"></script>
+    <script src="templates/financials.js"></script>
+</body>
+
+</html>

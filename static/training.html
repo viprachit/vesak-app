@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VesakCare - Training Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .text-royal-blue {
+            color: #002147;
+        }
+
+        .bg-royal-blue {
+            background-color: #002147;
+        }
+
+        .text-royal-gold {
+            color: #C5A065;
+        }
+
+        .bg-royal-gold {
+            background-color: #C5A065;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 33, 71, 0.08);
+        }
+
+        .royal-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f1f5f9;
+        }
+    </style>
+    <!-- Supabase Native Auth Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Auth Check -->
+    <script src="templates/auth.js"></script>
+</head>
+
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass-nav h-20 w-full z-50 flex-none">
+        <div class="max-w-[1920px] mx-auto px-6 h-full flex items-center justify-between">
+            <div class="flex items-center gap-4 cursor-pointer group" onclick="window.location.href='index.html'">
+                <div class="w-10 h-10 relative">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                        <path d="M30 5 H70 L95 30 V70 L70 95 H30 L5 70 V30 L30 5Z" stroke="#002147" stroke-width="3"
+                            fill="none" />
+                        <path d="M50 15 V35" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M50 65 V85" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M15 50 H35" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M65 50 H85" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M25 25 L40 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M60 60 L75 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M75 25 L60 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M40 60 L25 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <circle cx="50" cy="50" r="8" fill="#CC4E00" />
+                    </svg>
+                </div>
+                <div>
+                    <span class="font-serif text-xl font-bold text-royal-blue tracking-wide leading-none">Training
+                        Portal</span>
+                    <span class="block text-[10px] text-royal-gold uppercase tracking-[0.2em] font-medium mt-1">Global
+                        Standard SOPs</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 border-l border-gray-200 pl-6">
+                <button onclick="window.location.href='index.html'"
+                    class="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i> Back to Desk
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto p-8 max-w-5xl mx-auto w-full space-y-8">
+
+        <div class="text-center mb-8">
+            <h1 class="font-serif text-4xl font-bold text-royal-blue mb-4">Operator Guidelines</h1>
+            <p class="text-gray-500">Please review these standards strictly before attending client calls.</p>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="flex justify-center gap-4 mb-8">
+            <button onclick="setLang('en')" id="btn-lang-en"
+                class="lang-btn px-6 py-2 rounded-full font-bold text-sm bg-royal-blue text-white shadow transition-all">English</button>
+            <button onclick="setLang('hi')" id="btn-lang-hi"
+                class="lang-btn px-6 py-2 rounded-full font-bold text-sm bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-all">हिन्दी</button>
+            <button onclick="setLang('mr')" id="btn-lang-mr"
+                class="lang-btn px-6 py-2 rounded-full font-bold text-sm bg-white text-gray-500 border border-gray-200 hover:bg-gray-50 transition-all">मराठी</button>
+        </div>
+
+        <!-- Guideline Card 1 -->
+        <div class="royal-card p-8 border-l-4 border-l-royal-gold">
+            <div class="flex gap-4 items-start">
+                <div
+                    class="w-10 h-10 rounded-full bg-blue-50 text-royal-blue flex items-center justify-center font-bold text-lg flex-shrink-0">
+                    1
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 lang-content" data-en="Inquiry Intake"
+                        data-hi="पूछताछ दर्ज करना" data-mr="चौकशी नोंदवणे">Inquiry Intake</h3>
+                    <div class="text-gray-600 text-sm space-y-3 leading-relaxed">
+                        <p class="lang-content"
+                            data-en="Never say 'I don't know' immediately. If unsure, always say: 'Let me confirm this with my senior manager and get back to you.' Ask for the patient's age, medical history, and location immediately."
+                            data-hi="कभी भी यह न कहें 'मुझे नहीं पता'। यदि अनिश्चित हों, तो हमेशा कहें: 'मुझे अपने वरिष्ठ प्रबंधक से पुष्टि करने दीजिए और आपको वापस कॉल करने दीजिए।' तुरंत मरीज की उम्र, मेडिकल हिस्ट्री और पता पूछें।"
+                            data-mr="कधीही 'मला माहित नाही' असे सांगू नका. जर शंका असेल तर नेहमी म्हणा: 'मला माझ्या वरिष्ठ व्यवस्थापकाला विचारून तुम्हाला खात्री करून सांगू द्या.' ताबडतोब रुग्णाचे वय, वैद्यकीय इतिहास आणि पत्ता विचारा.">
+                            Never say 'I don't know' immediately. If unsure, always say: 'Let me confirm this with my
+                            senior manager and get back to you.' Ask for the patient's age, medical history, and
+                            location immediately.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guideline Card 2 -->
+        <div class="royal-card p-8 border-l-4 border-l-[#10B981]">
+            <div class="flex gap-4 items-start">
+                <div
+                    class="w-10 h-10 rounded-full bg-green-50 text-green-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                    2
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 lang-content" data-en="Rate Quoting & Negotiation"
+                        data-hi="दर बताना और बातचीत" data-mr="दर सांगणे आणि वाटाघाटी">Rate Quoting & Negotiation</h3>
+                    <div class="text-gray-600 text-sm space-y-3 leading-relaxed">
+                        <p class="lang-content"
+                            data-en="Always state the highest calculated 'Max Rate' (+15%) first. Only drop down to the 'Min Rate' (+8%) if the client attempts to dispute or negotiate. Do NOT quote below Min Rate without Super Admin approval."
+                            data-hi="हमेशा सबसे अधिक गणना की गई 'Max Rate' (+15%) पहले बताएं। केवल तभी 'Min Rate' (+8%) पर नीचे आएं जब क्लाइंट बातचीत करने का प्रयास करे। सुपर एडमिन की स्वीकृति के बिना Min Rate से नीचे का उद्धरण न दें।"
+                            data-mr="नेहमी प्रथम सर्वाधिक 'Max Rate' (+१५%) सांगा. जर क्लायंट वाटाघाटी करण्याचा प्रयत्न करत असेल तरच 'Min Rate' (+८%) वर या. सुपर एडमिनच्या मान्यतेशिवाय Min Rate पेक्षा कमी दर सांगू नका.">
+                            Always state the highest calculated 'Max Rate' (+15%) first. Only drop down to the 'Min
+                            Rate' (+8%) if the client attempts to dispute or negotiate. Do NOT quote below Min Rate
+                            without Super Admin approval.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guideline Card 3 -->
+        <div class="royal-card p-8 border-l-4 border-l-[#8B5CF6]">
+            <div class="flex gap-4 items-start">
+                <div
+                    class="w-10 h-10 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg flex-shrink-0">
+                    3
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-2 lang-content" data-en="Confirming the Service"
+                        data-hi="सेवा की पुष्टि करना" data-mr="सेवा निश्चित करणे">Confirming the Service</h3>
+                    <div class="text-gray-600 text-sm space-y-3 leading-relaxed">
+                        <p class="lang-content"
+                            data-en="Emphasize that the first invoice must be generated immediately upon assignment. No staff dispatch happens before the invoice is created and initial assurance is given by the client."
+                            data-hi="इस बात पर जोर दें कि स्टाफ को काम सौंपने पर पहला चालान (Invoice) तुरंत भेजा जाना चाहिए। चालान बनने और ग्राहक द्वारा प्रारंभिक आश्वासन देने से पहले स्टाफ नहीं भेजा जाता है।"
+                            data-mr="स्टाफची नियुक्ती झाल्यावर पहिले बिल ताबडतोब तयार केले जावे यावर भर द्या. बिल तयार होण्यापूर्वी आणि क्लायंटने प्राथमिक हमी देण्यापूर्वी स्टाफ पाठवला जात नाही.">
+                            Emphasize that the first invoice must be generated immediately upon assignment. No staff
+                            dispatch happens before the invoice is created and initial assurance is given by the client.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function setLang(lang) {
+            // Update buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('bg-royal-blue', 'text-white', 'shadow');
+                btn.classList.add('bg-white', 'text-gray-500');
+            });
+            const active = document.getElementById(`btn-lang-${lang}`);
+            if (active) {
+                active.classList.remove('bg-white', 'text-gray-500');
+                active.classList.add('bg-royal-blue', 'text-white', 'shadow');
+            }
+
+            // Update content
+            document.querySelectorAll('.lang-content').forEach(el => {
+                const text = el.getAttribute(`data-${lang}`);
+                if (text) {
+                    el.innerText = text;
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

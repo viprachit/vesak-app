@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VesakCare - Staff Portal Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .text-royal-blue {
+            color: #002147;
+        }
+
+        .bg-royal-blue {
+            background-color: #002147;
+        }
+
+        .text-royal-gold {
+            color: #C5A065;
+        }
+
+        .bg-royal-gold {
+            background-color: #C5A065;
+        }
+
+        .input-royal {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid #E2E8F0;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .input-royal:focus {
+            outline: none;
+            border-color: #C5A065;
+            box-shadow: 0 0 0 3px rgba(197, 160, 101, 0.1);
+        }
+    </style>
+</head>
+
+<body class="h-screen flex items-center justify-center relative overflow-hidden">
+    <div
+        class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-royal-blue opacity-5 rounded-full blur-3xl pointer-events-none">
+    </div>
+    <div
+        class="absolute bottom-[-10%] right-[-10%] w-[30rem] h-[30rem] bg-royal-gold opacity-10 rounded-full blur-3xl pointer-events-none">
+    </div>
+
+    <div class="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md relative z-10 border border-gray-100">
+        <div class="text-center mb-10">
+            <div
+                class="w-16 h-16 mx-auto mb-4 bg-royal-blue/5 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-royal-blue/10 shadow-inner">
+                <i class="fas fa-shield-alt text-4xl" style="color:#C5A065"></i>
+            </div>
+            <h1 class="font-serif text-3xl font-bold text-royal-blue tracking-tight">Staff Portal</h1>
+            <p class="text-gray-500 text-sm mt-2">Vesak Patient Care Services</p>
+        </div>
+
+        <form id="loginForm" class="space-y-6">
+            <div id="loginError"
+                class="hidden bg-red-50 text-red-600 text-xs p-3 rounded-lg border border-red-100 text-center font-bold">
+                Invalid credentials. Please try again.
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2"
+                    for="username">Username</label>
+                <div class="relative">
+                    <i class="fas fa-user absolute left-4 top-3.5 text-gray-400"></i>
+                    <input type="text" id="username" class="input-royal pl-10" placeholder="Enter your username"
+                        required>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2"
+                    for="password">Password</label>
+                <div class="relative">
+                    <i class="fas fa-lock absolute left-4 top-3.5 text-gray-400"></i>
+                    <input type="password" id="password" class="input-royal pl-10" placeholder="Enter your password"
+                        required>
+                </div>
+            </div>
+
+            <button type="submit" id="loginBtn"
+                class="w-full py-3.5 bg-royal-blue text-white rounded-xl font-bold hover:bg-blue-900 transition-all shadow-lg hover:shadow-xl text-sm uppercase tracking-widest flex items-center justify-center gap-2 mt-4">
+                <span id="loginBtnText">Secure Login</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+
+        <div class="mt-8 text-center pt-6 border-t border-gray-100">
+            <p class="text-[10px] text-gray-400 uppercase tracking-wider">Protected Area. Authorized personnel only.</p>
+        </div>
+    </div>
+
+    <!-- Supabase Native Auth Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="templates/auth.js"></script>
+</body>
+
+</html>

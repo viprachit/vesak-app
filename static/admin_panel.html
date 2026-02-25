@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VesakCare - Admin Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .text-royal-blue {
+            color: #002147;
+        }
+
+        .bg-royal-blue {
+            background-color: #002147;
+        }
+
+        .text-royal-gold {
+            color: #C5A065;
+        }
+
+        .bg-royal-gold {
+            background-color: #C5A065;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 33, 71, 0.08);
+        }
+
+        .royal-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f1f5f9;
+        }
+
+        .input-royal {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            border: 1px solid #E2E8F0;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .input-royal:focus {
+            outline: none;
+            border-color: #C5A065;
+            box-shadow: 0 0 0 3px rgba(197, 160, 101, 0.1);
+        }
+
+        .label-royal {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+    <!-- Auth Check -->
+    <!-- Supabase Native Auth Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="templates/auth.js"></script>
+    <script>
+        // Extra check just for this page
+        document.addEventListener('DOMContentLoaded', () => {
+            const role = sessionStorage.getItem('userRole');
+            if (role !== 'Super Admin' && role !== 'Founder') {
+                alert('Access Denied. Admin privileges required.');
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</head>
+
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass-nav h-20 w-full z-50 flex-none">
+        <div class="max-w-[1920px] mx-auto px-4 md:px-6 h-full flex items-center justify-between">
+            <div class="flex items-center gap-4 cursor-pointer group" onclick="window.location.href='index.html'">
+                <div class="w-10 h-10 md:w-12 md:h-12 relative">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#002147" />
+                                <stop offset="100%" style="stop-color:#003d7a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M50 5 L90 25 L90 75 L50 95 L10 75 L10 25 Z" fill="url(#logoGrad)" />
+                        <path d="M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z" stroke="#C5A065" stroke-width="2" />
+                        <path d="M25 25 L40 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M60 60 L75 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M75 25 L60 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M40 60 L25 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <circle cx="50" cy="50" r="8" fill="#CC4E00" />
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span
+                        class="font-serif text-lg md:text-xl font-bold text-royal-blue tracking-wide leading-none">VesakCare</span>
+                    <span class="text-[10px] text-royal-gold uppercase tracking-[0.2em] font-medium mt-1">Control
+                        Hub</span>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <button id="mobileMenuToggle" class="lg:hidden text-royal-blue text-2xl p-2 focus:outline-none">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden lg:flex items-center gap-6">
+                <!-- Unified Dropdown -->
+                <div class="relative group">
+                    <button
+                        class="flex items-center gap-2 px-5 py-2.5 bg-royal-blue text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-900/20 hover:scale-105 transition-all">
+                        <i class="fas fa-th-large"></i> Control Hub <i
+                            class="fas fa-chevron-down text-[10px] opacity-50"></i>
+                    </button>
+                    <div
+                        class="absolute right-0 top-full pt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-3 hidden group-hover:block animate-fade-in z-[100]">
+                        <div class="px-4 pb-2 mb-2 border-b border-gray-50">
+                            <span class="text-[9px] font-bold text-royal-gold uppercase tracking-[0.15em]">Operations &
+                                Personnel</span>
+                        </div>
+                        <a href="index.html#service-allocation"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600"><i
+                                    class="fas fa-tasks"></i></div>
+                            <div>
+                                <p>Operations Desk</p>
+                                <p class="text-[9px] font-normal text-gray-400">Registry & Allocations</p>
+                            </div>
+                        </a>
+                        <a href="hr_management.html"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                                <i class="fas fa-user-tie"></i>
+                            </div>
+                            <div>
+                                <p>HR Master Hub</p>
+                                <p class="text-[9px] font-normal text-gray-400">Staffing & Performance</p>
+                            </div>
+                        </a>
+                        <div class="px-4 py-2 mb-2 mt-2 border-y border-gray-50">
+                            <span
+                                class="text-[9px] font-bold text-royal-gold uppercase tracking-[0.15em]">Administration</span>
+                        </div>
+                        <a href="admin_panel.html"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-royal-blue bg-blue-50/50 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-royal-blue flex items-center justify-center text-white">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div>
+                                <p>Admin Hub</p>
+                                <p class="text-[9px] font-normal text-gray-400">Financials & Budgets</p>
+                            </div>
+                        </a>
+                        <a href="index.html#officialdocs"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+                                <i class="fas fa-file-contract"></i>
+                            </div>
+                            <div>
+                                <p>Official Docs</p>
+                                <p class="text-[9px] font-normal text-gray-400">Agreements & Verification</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pl-6 border-l border-gray-100 hidden md:flex">
+                    <div class="flex flex-col items-end">
+                        <span class="text-[11px] font-bold text-royal-blue leading-none"
+                            id="nav-user-display">Founder</span>
+                        <span class="text-[9px] text-royal-gold font-bold uppercase tracking-widest mt-1">System
+                            Master</span>
+                    </div>
+                    <div
+                        class="w-10 h-10 rounded-xl bg-royal-blue flex items-center justify-center text-white shadow-lg shadow-blue-900/20">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Navigation Overlay -->
+    <div id="mobileMenuOverlay"
+        class="fixed inset-0 bg-white z-[60] transform translate-x-full transition-transform duration-300 lg:hidden flex flex-col">
+        <div class="h-20 px-6 flex items-center justify-between border-b border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 relative">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                        <path d="M50 5 L90 25 L90 75 L50 95 L10 75 L10 25 Z" fill="url(#logoGrad)" />
+                        <circle cx="50" cy="50" r="8" fill="#CC4E00" />
+                    </svg>
+                </div>
+                <span class="font-serif text-lg font-bold text-royal-blue">VesakCare</span>
+            </div>
+            <button onclick="toggleMobileMenu()" class="text-gray-400 p-2"><i
+                    class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto py-6 px-6 space-y-8">
+            <div class="space-y-4">
+                <button onclick="window.location.href='index.html'"
+                    class="w-full text-left px-4 py-3 rounded-xl bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                    <i class="fas fa-home w-5"></i> Back to Desk
+                </button>
+                <button onclick="window.location.href='index.html#dashboard'"
+                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                    <i class="fas fa-chart-pie w-5"></i> Dashboard
+                </button>
+            </div>
+
+            <div class="space-y-4 pt-6 border-t border-gray-100">
+                <h3 class="text-[10px] font-bold text-royal-gold uppercase tracking-widest px-4">Management Hub</h3>
+                <div class="grid grid-cols-1 gap-2">
+                    <button onclick="window.location.href='index.html#service-allocation'"
+                        class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                        <i class="fas fa-tasks w-5 text-blue-600"></i> Operations Desk
+                    </button>
+                    <button onclick="window.location.href='hr_management.html'"
+                        class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                        <i class="fas fa-user-tie w-5"></i> HR Master Hub
+                    </button>
+                    <button onclick="window.location.href='admin_panel.html'"
+                        class="w-full text-left px-4 py-3 rounded-xl bg-royal-blue text-white font-bold flex items-center gap-3">
+                        <i class="fas fa-chart-line w-5"></i> Admin Hub
+                    </button>
+                    <button onclick="window.location.href='index.html#officialdocs'"
+                        class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                        <i class="fas fa-file-contract w-5 text-amber-600"></i> Official Docs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto p-4 md:p-8 max-w-[1920px] mx-auto w-full grid grid-cols-1 lg:grid-cols-4 gap-8">
+
+        <!-- Sidebar Navigation -->
+        <aside class="xl:col-span-1 space-y-2">
+            <button onclick="switchTab('overview')" id="tab-overview"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-royal-blue text-white shadow-md transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-chart-pie w-5"></i> Overview</span>
+                <i class="fas fa-chevron-right opacity-50 text-xs"></i>
+            </button>
+            <button onclick="switchTab('users')" id="tab-users"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-white text-gray-500 hover:bg-gray-50 border border-gray-100 transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-users-cog w-5"></i> Login & Users</span>
+                <i class="fas fa-chevron-right opacity-0 group-hover:opacity-50 text-xs transition-opacity"></i>
+            </button>
+            <button onclick="switchTab('rates')" id="tab-rates"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-white text-gray-500 hover:bg-gray-50 border border-gray-100 transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-rupee-sign w-5"></i> Market Rates</span>
+                <i class="fas fa-chevron-right opacity-0 group-hover:opacity-50 text-xs transition-opacity"></i>
+            </button>
+            <button onclick="switchTab('locations')" id="tab-locations"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-white text-gray-500 hover:bg-gray-50 border border-gray-100 transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-map-marked-alt w-5"></i> Locations</span>
+                <i class="fas fa-chevron-right opacity-0 group-hover:opacity-50 text-xs transition-opacity"></i>
+            </button>
+            <button onclick="switchTab('budgets')" id="tab-budgets"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-white text-gray-500 hover:bg-gray-50 border border-gray-100 transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-wallet w-5"></i> Budget</span>
+                <i class="fas fa-chevron-right opacity-0 group-hover:opacity-50 text-xs transition-opacity"></i>
+            </button>
+            <button onclick="switchTab('expenses')" id="tab-expenses"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-white text-gray-500 hover:bg-gray-50 border border-gray-100 transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-file-invoice-dollar w-5"></i> Expenses</span>
+                <i class="fas fa-chevron-right opacity-0 group-hover:opacity-50 text-xs transition-opacity"></i>
+            </button>
+            <button onclick="switchTab('financials')" id="tab-financials"
+                class="w-full text-left px-5 py-4 rounded-xl font-bold text-sm bg-white text-gray-500 hover:bg-gray-50 border border-gray-100 transition-all flex justify-between items-center group">
+                <span class="flex items-center gap-3"><i class="fas fa-chart-line w-5"></i> Financials</span>
+                <i class="fas fa-chevron-right opacity-0 group-hover:opacity-50 text-xs transition-opacity"></i>
+            </button>
+        </aside>
+
+        <!-- Dynamic Content Area -->
+        <div class="xl:col-span-3">
+
+            <!-- TAB 0: OVERVIEW -->
+            <div id="content-overview" class="space-y-6">
+                <div>
+                    <h2 class="font-serif text-2xl font-bold text-royal-blue">Admin Panel Overview</h2>
+                    <p class="text-sm text-gray-500 mt-1">Consolidated view of platform health and financial
+                        performance.</p>
+                </div>
+
+                <!-- Metric Cards - 6 cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="royal-card p-5 bg-gradient-to-br from-blue-50 to-white">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                <i class="fas fa-users text-royal-blue"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Total Users</p>
+                                <p class="text-2xl font-bold text-royal-blue leading-none" id="ov_total_users">—</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="royal-card p-5 bg-gradient-to-br from-green-50 to-white">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                                <i class="fas fa-user-tie text-green-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Total Employees</p>
+                                <div class="flex items-end gap-2 mt-0.5">
+                                    <p class="text-2xl font-bold text-green-600 leading-none" id="ov_total_employees">—
+                                    </p>
+                                    <div class="flex gap-1">
+                                        <span
+                                            class="text-[9px] bg-blue-50 text-blue-600 px-1 py-0.5 rounded font-bold uppercase"
+                                            id="ov_office_count">Off: 0</span>
+                                        <span
+                                            class="text-[9px] bg-amber-50 text-amber-600 px-1 py-0.5 rounded font-bold uppercase"
+                                            id="ov_field_count">Fld: 0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="royal-card p-5 bg-gradient-to-br from-yellow-50 to-white">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center">
+                                <i class="fas fa-clipboard-list text-yellow-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Total Inquiries</p>
+                                <p class="text-2xl font-bold text-yellow-600 leading-none" id="ov_total_inquiries">—</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="royal-card p-5 bg-gradient-to-br from-emerald-50 to-white">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                <i class="fas fa-indian-rupee-sign text-emerald-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Total Revenue</p>
+                                <p class="text-xl font-bold text-emerald-600" id="ov_total_revenue">—</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="royal-card p-5 bg-gradient-to-br from-red-50 to-white">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                                <i class="fas fa-file-invoice-dollar text-red-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Total Expenses</p>
+                                <p class="text-xl font-bold text-red-600" id="ov_total_expenses">—</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="royal-card p-5 bg-gradient-to-br from-indigo-50 to-white">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                <i class="fas fa-chart-line text-indigo-600"></i>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Total Earnings</p>
+                                <p class="text-xl font-bold text-indigo-600" id="ov_total_earnings">—</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Trend Chart -->
+                <div class="royal-card p-6">
+                    <h3 class="font-bold text-sm text-gray-600 uppercase tracking-wider mb-4">Financial Trend (Revenue
+                        vs Expenses)</h3>
+                    <canvas id="overviewChart" height="100"></canvas>
+                </div>
+            </div>
+
+            <!-- TAB 1: USER MANAGEMENT -->
+            <div id="content-users" class="space-y-6 hidden">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="font-serif text-2xl font-bold text-royal-blue">User Management</h2>
+                        <p class="text-sm text-gray-500 mt-1">Create accounts and assign RBAC levels.</p>
+                    </div>
+                    <button
+                        class="px-5 py-2.5 bg-royal-gold text-white font-bold text-xs rounded-lg uppercase tracking-wider"
+                        onclick="document.getElementById('userFormContainer').classList.toggle('hidden')">
+                        <i class="fas fa-plus mr-2"></i>New User
+                    </button>
+                </div>
+
+                <!-- Create User Form (Hidden by default) -->
+                <form id="userForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="label-royal">Full Name</label>
+                        <input type="text" id="nu_display_name" class="input-royal" placeholder="e.g. Rahul Sharma">
+                    </div>
+                    <div>
+                        <label class="label-royal">Username</label>
+                        <input type="text" id="nu_username" class="input-royal" required>
+                    </div>
+                    <div>
+                        <label class="label-royal">Password</label>
+                        <input type="text" id="nu_password" class="input-royal" placeholder="Raw password" required>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="label-royal">Role</label>
+                        <select id="nu_role" class="input-royal font-bold text-royal-blue">
+                            <option value="Employee">Employee</option>
+                            <option value="Top Management">Top Management</option>
+                            <option value="Director">Director</option>
+                            <option value="Founding Member">Founding Member</option>
+                            <option value="View Only">View Only (Audits)</option>
+                            <option disabled>--- Legacy ---</option>
+                            <option value="HR">HR</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Operator">Operator</option>
+                        </select>
+                    </div>
+
+                    <!-- MODULAR PERMISSIONS -->
+                    <div class="md:col-span-4 bg-white/50 p-4 rounded-xl border border-blue-100 mt-2">
+                        <label class="label-royal mb-3">Modular Permissions (Granular Access)</label>
+                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="p_financials"
+                                    class="rounded border-gray-300 text-royal-blue focus:ring-royal-blue">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-royal-blue transition-colors">Financials/Analytics</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="p_rates"
+                                    class="rounded border-gray-300 text-royal-blue focus:ring-royal-blue">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-royal-blue transition-colors">Edit
+                                    Master Rates</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="p_registry"
+                                    class="rounded border-gray-300 text-royal-blue focus:ring-royal-blue">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-royal-blue transition-colors">Client
+                                    Corrections</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="p_hr_basic"
+                                    class="rounded border-gray-300 text-royal-blue focus:ring-royal-blue" checked>
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-royal-blue transition-colors">Basic
+                                    HR Hub</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="p_hr_sensitive"
+                                    class="rounded border-gray-300 text-royal-blue focus:ring-royal-blue">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-royal-blue transition-colors">Sensitive
+                                    HR Data</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="p_rbac"
+                                    class="rounded border-gray-300 text-royal-blue focus:ring-royal-blue">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-royal-blue transition-colors">Manage
+                                    Access/RBAC</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- PAGE ACCESS PERMISSIONS -->
+                    <div class="md:col-span-4 bg-white/50 p-4 rounded-xl border border-green-100 mt-2">
+                        <label class="label-royal mb-3">Page Access (Which pages this user can view)</label>
+                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="pa_operations"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500" checked>
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-green-600 transition-colors">
+                                    <i class="fas fa-tasks text-blue-400 mr-1"></i>Operations Desk</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="pa_hr"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500" checked>
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-green-600 transition-colors">
+                                    <i class="fas fa-user-tie text-blue-400 mr-1"></i>HR Master Hub</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="pa_admin"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-green-600 transition-colors">
+                                    <i class="fas fa-chart-line text-blue-400 mr-1"></i>Admin Hub</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="pa_inquiries"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500" checked>
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-green-600 transition-colors">
+                                    <i class="fas fa-file-alt text-blue-400 mr-1"></i>Inquiry Form</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="pa_training"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500" checked>
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-green-600 transition-colors">
+                                    <i class="fas fa-graduation-cap text-blue-400 mr-1"></i>Training Module</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer group">
+                                <input type="checkbox" id="pa_registry"
+                                    class="rounded border-gray-300 text-green-600 focus:ring-green-500">
+                                <span
+                                    class="text-xs font-bold text-gray-600 group-hover:text-green-600 transition-colors">
+                                    <i class="fas fa-address-book text-blue-400 mr-1"></i>Client Registry</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-4 flex justify-end">
+                        <button type="button" onclick="createUser()"
+                            class="px-8 py-2.5 bg-royal-blue text-white font-bold rounded-lg hover:bg-blue-900 transition-all text-sm shadow-lg shadow-blue-900/10">
+                            Save User Profile
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Users Table -->
+                <div class="royal-card overflow-hidden">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">User</th>
+                                <th class="px-4 py-3 font-bold">Role</th>
+                                <th class="px-4 py-3 font-bold">Status</th>
+                                <th class="px-4 py-3 font-bold">Created By</th>
+                                <th class="px-4 py-3 font-bold">Dates</th>
+                                <th class="px-4 py-3 font-bold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody" class="divide-y divide-gray-100 bg-white">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 2: RATES MANAGEMENT -->
+            <div id="content-rates" class="space-y-6 hidden">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="font-serif text-2xl font-bold text-royal-blue">Master Rate Configurator</h2>
+                        <p class="text-sm text-gray-500 mt-1">Define service rates. Quote Rate = Maximum rate to quote
+                            to the client.</p>
+                    </div>
+                </div>
+
+                <!-- Add Rate Form -->
+                <div class="royal-card p-6 bg-gradient-to-r from-gray-50 to-white">
+                    <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4 items-end">
+                        <div>
+                            <label class="label-royal">Location</label>
+                            <select id="ar_location" class="input-royal dynamic-locations"
+                                onchange="updateRateSubLocations()"></select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Sub-Location</label>
+                            <select id="ar_sub_location" class="input-royal">
+                                <option value="">Entire Location</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Service Plan</label>
+                            <select id="ar_plan" class="input-royal" onchange="updateSubServices()">
+                                <option value="Patient Attendant Care">Patient Attendant Care</option>
+                                <option value="Skilled Nursing">Skilled Nursing</option>
+                                <option value="Chronic Management">Chronic Management</option>
+                                <option value="Elderly Companion">Elderly Companion</option>
+                                <option value="Maternal & Newborn">Maternal & Newborn</option>
+                                <option value="Rehabilitative Care">Rehabilitative Care</option>
+                                <option value="A-la-carte Services">A-la-carte Services</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Sub Service</label>
+                            <select id="ar_sub_service" class="input-royal">
+                                <option value="All">All</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Shift Type</label>
+                            <select id="ar_shift" class="input-royal">
+                                <option value="12-hr Day">12-hr Day</option>
+                                <option value="12-hr Night">12-hr Night</option>
+                                <option value="24-hr">24-hr</option>
+                                <option value="Per Visit">Per Visit</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end mt-4">
+                        <div>
+                            <label class="label-royal">Recurring Service</label>
+                            <select id="ar_recurring" class="input-royal"
+                                onchange="if(window.enforceMarketRatePeriodLogic) window.enforceMarketRatePeriodLogic();">
+                                <option value="No">No</option>
+                                <option value="Yes">Yes</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Period</label>
+                            <select id="ar_period" class="input-royal">
+                                <option value="Per Day">Per Day</option>
+                                <option value="Per Week">Per Week</option>
+                                <option value="Per Month">Per Month</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal text-blue-600">Market Rate (₹)</label>
+                            <input type="number" id="ar_market" class="input-royal font-bold border-blue-200"
+                                placeholder="Base value" oninput="calculateMinMax()">
+                        </div>
+                        <div>
+                            <label class="label-royal text-green-600">Min Rate (+8%)</label>
+                            <input type="number" id="ar_min" class="input-royal bg-gray-50 text-gray-500 font-bold"
+                                readonly>
+                        </div>
+                        <div>
+                            <label class="label-royal text-amber-600">Quote Rate (+15%)</label>
+                            <input type="number" id="ar_max" class="input-royal bg-gray-50 text-amber-600 font-bold"
+                                readonly>
+                        </div>
+                        <button type="button" onclick="saveRate()"
+                            class="w-full py-2.5 bg-royal-blue text-white font-bold rounded-lg hover:bg-blue-900 transition-all text-sm h-[42px]">
+                            Save Rate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Rate Filter -->
+                <div class="flex gap-4 items-center">
+                    <label class="text-xs font-bold text-gray-500 uppercase">Filter by Location:</label>
+                    <select id="rates_filter_location" class="input-royal w-48 text-xs" onchange="fetchRates()">
+                        <option value="">All Locations</option>
+                    </select>
+                </div>
+
+                <!-- Rates Table -->
+                <div class="royal-card overflow-hidden">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-100">
+                            <tr>
+                                <th class="px-3 py-3 font-bold">Location</th>
+                                <th class="px-3 py-3 font-bold">Sub-Location</th>
+                                <th class="px-3 py-3 font-bold">Service Plan</th>
+                                <th class="px-3 py-3 font-bold">Sub Service</th>
+                                <th class="px-3 py-3 font-bold">Shift</th>
+                                <th class="px-3 py-3 font-bold">Recurring</th>
+                                <th class="px-3 py-3 font-bold">Period</th>
+                                <th class="px-3 py-3 font-bold text-amber-600">Quote Rate (₹)</th>
+                                <th class="px-3 py-3 font-bold text-green-600">Min Rate (₹)</th>
+                                <th class="px-3 py-3 font-bold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ratesTableBody" class="divide-y divide-gray-100 bg-white">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 3: LOCATIONS DIRECTORY -->
+            <div id="content-locations" class="space-y-6 hidden">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="font-serif text-2xl font-bold text-royal-blue">Locations Directory</h2>
+                        <p class="text-sm text-gray-500 mt-1">Manage areas. Active locations show in Inquiry form
+                            dropdowns. Inactive locations disable all related rates.</p>
+                    </div>
+                </div>
+
+                <!-- Add Location Form -->
+                <div class="royal-card p-6">
+                    <form class="flex gap-4 items-end w-full">
+                        <div class="flex-1">
+                            <label class="label-royal">Location Name</label>
+                            <input type="text" id="loc_name" class="input-royal" placeholder="e.g. Nagpur">
+                        </div>
+                        <div class="flex-1">
+                            <label class="label-royal">Abbreviation (3 letters)</label>
+                            <input type="text" id="loc_abbr" class="input-royal uppercase font-mono" placeholder="NAG"
+                                maxlength="3">
+                        </div>
+                        <div class="flex-[2]">
+                            <label class="label-royal">Sub-Locations (comma separated)</label>
+                            <input type="text" id="loc_sub" class="input-royal"
+                                placeholder="e.g. Sadar, Dharampeth, Medical Square">
+                        </div>
+                        <button type="button" onclick="createLocation()"
+                            class="px-8 py-2.5 bg-royal-blue text-white font-bold rounded-lg hover:bg-blue-900 transition-all text-sm h-[42px]">
+                            <i class="fas fa-plus mr-2"></i>Add Location
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Locations Table -->
+                <div class="royal-card overflow-hidden max-w-3xl">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-100">
+                            <tr>
+                                <th class="px-6 py-3 font-bold">Location & Abbr</th>
+                                <th class="px-6 py-3 font-bold">Zones (Sub-Locations)</th>
+                                <th class="px-6 py-3 font-bold">Status</th>
+                                <th class="px-6 py-3 font-bold text-right">Active Toggle</th>
+                            </tr>
+                        </thead>
+                        <tbody id="locationsTableBody" class="divide-y divide-gray-100 bg-white">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 4: EXPENSES (Comprehensive) -->
+            <div id="content-expenses" class="space-y-6 hidden">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="font-serif text-2xl font-bold text-royal-blue">Company Expense Tracker</h2>
+                        <p class="text-sm text-gray-500 mt-1">Log, categorize, and track all expenditures. Includes
+                            salary breakdown and profit summary.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs font-bold text-gray-500 uppercase">Period:</label>
+                        <select id="exp_period_filter" class="input-royal w-40 text-xs" onchange="fetchExpenses()">
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="half-yearly">Half Yearly</option>
+                            <option value="yearly" selected>Yearly</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Revenue & Profit Summary Panel (Moved to top) -->
+                <div class="royal-card p-6 bg-gradient-to-r from-emerald-50 to-white border-l-4 border-l-emerald-500">
+                    <h3 class="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-4">
+                        <i class="fas fa-chart-pie mr-2"></i>Revenue & Profit Summary
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Total Revenue</p>
+                            <p class="text-[10px] text-gray-400 mt-0.5 leading-tight">Sum of Rate Agreed
+                                (Confirmed/Active)</p>
+                            <p class="text-xl font-bold text-emerald-600 mt-1" id="exp_total_revenue">₹ 0</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Gross Profit</p>
+                            <p class="text-[10px] text-gray-400 mt-0.5 leading-tight">Revenue − All Staff Payments</p>
+                            <p class="text-xl font-bold text-blue-600 mt-1" id="exp_gross_profit">₹ 0</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Net Profit</p>
+                            <p class="text-[10px] text-gray-400 mt-0.5 leading-tight">Gross Profit − Other Expenses</p>
+                            <p class="text-xl font-bold text-indigo-600 mt-1" id="exp_net_profit">₹ 0</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Total Expenses Logged</p>
+                            <p class="text-[10px] text-gray-400 mt-0.5 leading-tight">Sum of all entries below</p>
+                            <p class="text-xl font-bold text-red-600 mt-1" id="exp_total_logged">₹ 0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Expense Form -->
+                <div class="royal-card p-6 border-l-4 border-l-red-500 bg-red-50/10">
+                    <form id="expenseForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="label-royal">Expense Date</label>
+                                <input type="date" id="exp_date" class="input-royal" required>
+                            </div>
+                            <div>
+                                <label class="label-royal">Category</label>
+                                <select id="exp_category" class="input-royal" required>
+                                    <option value="Rent">Office Rent</option>
+                                    <option value="Electricity">Electricity Bill</option>
+                                    <option value="Phone">Phone Bill</option>
+                                    <option value="Internet">Internet / WiFi</option>
+                                    <option value="Stationery">Office Stationery</option>
+                                    <option value="Hardware">Office Hardware</option>
+                                    <option value="Furniture">Office Furniture</option>
+                                    <option value="Cleaning">Office Cleaning</option>
+                                    <option value="Marketing">Marketing & Ads</option>
+                                    <option value="Salaries">Staff Salaries</option>
+                                    <option value="Travel">Travel / Logistics</option>
+                                    <option value="Software">Software & Subscriptions</option>
+                                    <option value="Legal">Legal & Compliance</option>
+                                    <option value="Insurance">Insurance Premiums</option>
+                                    <option value="Maintenance">Office Maintenance</option>
+                                    <option value="Courier">Courier & Postage</option>
+                                    <option value="Training">Training & Development</option>
+                                    <option value="Taxes">Taxes & Fees</option>
+                                    <option value="Misc">Miscellaneous</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label-royal">Sub-Category</label>
+                                <input type="text" id="exp_subcategory" class="input-royal"
+                                    placeholder="Optional specifics">
+                            </div>
+                            <div>
+                                <label class="label-royal text-red-600">Amount (₹)</label>
+                                <input type="number" id="exp_amount" class="input-royal border-red-200 font-bold"
+                                    placeholder="0.00" required>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="label-royal">Recurrence</label>
+                                <select id="exp_recurrence" class="input-royal">
+                                    <option value="One-time">One-time</option>
+                                    <option value="Weekly">Weekly</option>
+                                    <option value="Bi-weekly">Bi-weekly</option>
+                                    <option value="Monthly">Monthly</option>
+                                    <option value="Bi-monthly">Bi-monthly</option>
+                                    <option value="Quarterly">Quarterly</option>
+                                    <option value="Yearly">Yearly</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="label-royal">Description</label>
+                                <input type="text" id="exp_desc" class="input-royal"
+                                    placeholder="Details about this expense">
+                            </div>
+                            <div class="flex items-end">
+                                <button type="button" onclick="createExpense()"
+                                    class="w-full px-6 py-2.5 bg-red-600 text-white font-bold rounded-lg hover:bg-red-800 transition-all text-sm h-[42px]">
+                                    <i class="fas fa-plus mr-2"></i>Log Expense
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Salary Breakdown (Auto-imported from Employee Data) -->
+                <div class="royal-card p-6 border-l-4 border-l-blue-400 bg-blue-50/10">
+                    <h3 class="text-xs font-bold text-royal-blue uppercase tracking-wider mb-3">
+                        <i class="fas fa-users mr-2"></i>Salary Breakdown (from HR)
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="salaryBreakdownContainer">
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Office Staff Total</p>
+                            <p class="text-xl font-bold text-blue-600" id="exp_office_salary">₹ 0</p>
+                            <p class="text-[10px] text-gray-400 mt-1" id="exp_office_count">0 employees</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Field Staff Total</p>
+                            <p class="text-xl font-bold text-amber-600" id="exp_field_salary">₹ 0</p>
+                            <p class="text-[10px] text-gray-400 mt-1" id="exp_field_count">0 employees</p>
+                        </div>
+                        <div class="p-4 bg-white rounded-xl border">
+                            <p class="text-[10px] text-gray-400 uppercase font-bold">Total Payroll</p>
+                            <p class="text-xl font-bold text-royal-blue" id="exp_total_payroll">₹ 0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expenses Table -->
+                <div class="royal-card overflow-hidden">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">Date</th>
+                                <th class="px-4 py-3 font-bold">Category</th>
+                                <th class="px-4 py-3 font-bold">Description</th>
+                                <th class="px-4 py-3 font-bold">Recurrence</th>
+                                <th class="px-4 py-3 font-bold">Amount</th>
+                                <th class="px-4 py-3 font-bold text-right">Logged By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesTableBody" class="divide-y divide-gray-100 bg-white">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+
+            <!-- TAB 5: BUDGET -->
+            <div id="content-budgets" class="space-y-6 hidden">
+                <div>
+                    <h2 class="font-serif text-2xl font-bold text-royal-blue">Budget Definition</h2>
+                    <p class="text-sm text-gray-500 mt-1">Set spending limits. For Miscellaneous, type a name — existing
+                        items auto-suggest.</p>
+                </div>
+
+                <!-- Add Budget Form -->
+                <div class="royal-card p-6 border-l-4 border-l-purple-500 bg-purple-50/10">
+                    <form id="budgetForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <div>
+                                <label class="label-royal">Category</label>
+                                <select id="bgt_category" class="input-royal" onchange="onBudgetCategoryChange()">
+                                    <option value="Rent">Office Rent</option>
+                                    <option value="Electricity">Electricity</option>
+                                    <option value="Phone">Phone</option>
+                                    <option value="Marketing">Marketing</option>
+                                    <option value="Salaries">Salaries</option>
+                                    <option value="Travel">Travel</option>
+                                    <option value="Hardware">Hardware</option>
+                                    <option value="Software">Software</option>
+                                    <option value="Misc">Miscellaneous</option>
+                                </select>
+                            </div>
+                            <!-- Custom Item Details (Always visible) -->
+                            <div id="bgt_misc_container" class="relative">
+                                <label class="label-royal text-purple-600">Details / Name</label>
+                                <input type="text" id="bgt_custom_category" class="input-royal border-purple-200"
+                                    placeholder="Type to search or add..." oninput="searchMiscCategories(this.value)">
+                                <div id="bgt_misc_suggestions"
+                                    class="absolute z-10 w-full bg-white border rounded-lg shadow-lg mt-1 hidden max-h-40 overflow-y-auto">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="label-royal">Period</label>
+                                <select id="bgt_period" class="input-royal">
+                                    <option value="One-time">One-time</option>
+                                    <option value="Weekly">Weekly</option>
+                                    <option value="Monthly" selected>Monthly</option>
+                                    <option value="Quarterly">Quarterly</option>
+                                    <option value="Half Yearly">Half Yearly</option>
+                                    <option value="Yearly">Yearly</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label-royal">Fiscal Year</label>
+                                <select id="bgt_year" class="input-royal">
+                                    <option value="2025">2025</option>
+                                    <option value="2026" selected>2026</option>
+                                    <option value="2027">2027</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                            <div>
+                                <label class="label-royal">Occurrence (times)</label>
+                                <input type="number" id="bgt_occurrence" class="input-royal" value="1" min="1"
+                                    oninput="calculateBudgetTotal()">
+                            </div>
+                            <div>
+                                <label class="label-royal">For how many periods</label>
+                                <input type="number" id="bgt_occurrence_count" class="input-royal" value="1" min="1"
+                                    oninput="calculateBudgetTotal()">
+                            </div>
+                            <div>
+                                <label class="label-royal text-purple-600">Unit Amount (₹)</label>
+                                <input type="number" id="bgt_unit_amount"
+                                    class="input-royal border-purple-200 font-bold" placeholder="One-time charge"
+                                    oninput="calculateBudgetTotal()">
+                            </div>
+                            <div>
+                                <label class="label-royal text-green-600">Total Amount (₹)</label>
+                                <input type="number" id="bgt_amount"
+                                    class="input-royal border-green-200 font-bold bg-green-50"
+                                    placeholder="Auto-calculated">
+                                <p class="text-[9px] text-gray-400 mt-1">= Unit × Occurrence × Periods</p>
+                            </div>
+                            <div>
+                                <button type="button" onclick="saveBudget()"
+                                    class="w-full px-6 py-2.5 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-800 transition-all text-sm h-[42px]">
+                                    <i class="fas fa-save mr-2"></i>Set Budget
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Budgets Table -->
+                <div class="royal-card overflow-hidden">
+                    <table class="w-full text-left text-sm whitespace-nowrap">
+                        <thead class="bg-gray-50 text-xs uppercase text-gray-500 border-b border-gray-100">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">Category</th>
+                                <th class="px-4 py-3 font-bold">Period</th>
+                                <th class="px-4 py-3 font-bold">Occurrence</th>
+                                <th class="px-4 py-3 font-bold">Unit (₹)</th>
+                                <th class="px-4 py-3 font-bold">Budget (₹)</th>
+                                <th class="px-4 py-3 font-bold">Fiscal Year</th>
+                                <th class="px-4 py-3 font-bold text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="budgetsTableBody" class="divide-y divide-gray-100 bg-white">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TAB 6: FINANCIALS -->
+            <div id="content-financials" class="space-y-6 hidden">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <h2 class="font-serif text-2xl font-bold text-royal-blue">Financial Intelligence</h2>
+                        <p class="text-sm text-gray-500 mt-1">Revenue, expenses, earnings summary with trend analysis.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs font-bold text-gray-500 uppercase">Period:</label>
+                        <select id="fin_period_filter" class="input-royal w-40 text-xs" onchange="fetchFinancialData()">
+                            <option value="monthly">Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="half-yearly">Half Yearly</option>
+                            <option value="yearly" selected>Yearly</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Financial Summary Cards - 5 cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div class="royal-card p-5 border-l-4 border-l-green-500">
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">Total Revenue</p>
+                        <p class="text-2xl font-bold text-green-600" id="fin_revenue">₹ 0</p>
+                    </div>
+                    <div class="royal-card p-5 border-l-4 border-l-red-500">
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">Total Expenses</p>
+                        <p class="text-2xl font-bold text-red-600" id="fin_expenses">₹ 0</p>
+                    </div>
+                    <div class="royal-card p-5 border-l-4 border-l-blue-500">
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">Gross Earnings</p>
+                        <p class="text-2xl font-bold text-blue-600" id="fin_gross">₹ 0</p>
+                    </div>
+                    <div class="royal-card p-5 border-l-4 border-l-indigo-500">
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">Net Earnings</p>
+                        <p class="text-2xl font-bold text-indigo-600" id="fin_earnings">₹ 0</p>
+                    </div>
+                    <div class="royal-card p-5 border-l-4 border-l-yellow-500">
+                        <p class="text-[10px] text-gray-400 uppercase font-bold">Budget Utilised</p>
+                        <p class="text-2xl font-bold text-yellow-600" id="fin_budget_util">0%</p>
+                    </div>
+                </div>
+
+                <!-- Smart Advice -->
+                <div id="fin_advice_panel"
+                    class="royal-card p-5 bg-gradient-to-r from-blue-50 to-white border-l-4 border-l-royal-blue">
+                    <h4 class="text-xs font-bold text-royal-blue uppercase tracking-wider mb-2"><i
+                            class="fas fa-lightbulb mr-2 text-yellow-500"></i>Smart Financial Advice</h4>
+                    <p class="text-sm text-gray-600" id="fin_advice_text">Analyzing your financial data...</p>
+                </div>
+
+                <!-- Trend Graph -->
+                <div class="royal-card p-6">
+                    <h3 class="font-bold text-sm text-gray-600 uppercase tracking-wider mb-4">Revenue vs Expenses Trend
+                    </h3>
+                    <canvas id="financialChart" height="120"></canvas>
+                </div>
+
+                <!-- Budget vs Actual -->
+                <div class="royal-card p-6">
+                    <h3 class="font-bold text-sm text-gray-600 uppercase tracking-wider mb-4">Budget vs Actual Spend
+                    </h3>
+                    <div id="budgetVsActualContainer" class="space-y-3">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="templates/shared.js"></script>
+    <script src="templates/hr_management.js"></script>
+    <script src="templates/admin_hub.js"></script>
+    <script>
+        function toggleMobileMenu() {
+            const overlay = document.getElementById('mobileMenuOverlay');
+            const isHidden = overlay.classList.contains('translate-x-full');
+            if (isHidden) {
+                overlay.classList.remove('translate-x-full');
+                overlay.classList.add('translate-x-0');
+                document.body.style.overflow = 'hidden';
+            } else {
+                overlay.classList.remove('translate-x-0');
+                overlay.classList.add('translate-x-full');
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close menu on resize if above mobile breakpoint
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+                const overlay = document.getElementById('mobileMenuOverlay');
+                if (overlay && overlay.classList.contains('translate-x-0')) {
+                    toggleMobileMenu();
+                }
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const mobileBtn = document.getElementById('mobileMenuToggle');
+            if (mobileBtn) {
+                mobileBtn.addEventListener('click', toggleMobileMenu);
+            }
+        });
+    </script>
+</body>
+
+</html>

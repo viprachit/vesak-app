@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vesak Care - Rate Management</title>
+    <!-- Tailwind CSS (via CDN for simplicity as per project) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://kit.fontawesome.com/f20653c391.js" crossorigin="anonymous"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Lato:wght@300;400;700&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Royal Theme Base */
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .font-sans {
+            font-family: 'Lato', sans-serif;
+        }
+
+        .bg-royal-blue {
+            background-color: #002147;
+        }
+
+        .text-royal-blue {
+            color: #002147;
+        }
+
+        .border-royal-blue {
+            border-color: #002147;
+        }
+
+        .bg-royal-gold {
+            background-color: #C5A065;
+        }
+
+        .text-royal-gold {
+            color: #C5A065;
+        }
+
+        .border-royal-gold {
+            border-color: #C5A065;
+        }
+
+        .btn-primary {
+            background-color: #002147;
+            color: white;
+            font-weight: bold;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.25rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.15s ease-in-out;
+        }
+
+        .btn-primary:hover {
+            background-color: #00152e;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: #002147;
+            font-weight: bold;
+            padding: 0.5rem 1.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid #002147;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            background-color: #002147;
+            color: white;
+        }
+
+        .input-royal {
+            width: 100%;
+            padding: 0.5rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            transition: all 0.2s;
+        }
+
+        .input-royal:focus {
+            outline: none;
+            border-color: #002147;
+            box-shadow: 0 0 0 1px #002147;
+        }
+
+        .label-royal {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans text-gray-800">
+
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-royal-blue text-white shadow-lg sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-royal-gold">
+                        <i class="fas fa-shield-alt text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-serif text-xl font-bold tracking-wide">Vesak Care <span
+                                class="text-royal-gold font-light">Admin</span></h1>
+                        <p class="text-[10px] text-gray-400 uppercase tracking-widest">Rate Management Console</p>
+                    </div>
+                </div>
+                <div>
+                    <a href="/index.html"
+                        class="text-xs text-gray-300 hover:text-white border border-white/20 px-3 py-1 rounded transition">Back
+                        to App</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow p-6">
+            <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+                <!-- Left: Rate Form -->
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-royal-blue">
+                        <h2 class="font-serif text-lg font-bold text-royal-blue mb-4 flex items-center gap-2">
+                            <i class="fas fa-plus-circle text-royal-gold"></i> Add / Update Rate
+                        </h2>
+
+                        <form id="rateForm" class="space-y-4">
+                            <input type="hidden" id="rateId">
+
+                            <!-- Location -->
+                            <div>
+                                <label class="label-royal">Location</label>
+                                <div class="flex gap-2">
+                                    <select id="locationSelect" class="input-royal" onchange="checkNewLocation(this)">
+                                        <option value="">Select...</option>
+                                        <option value="Pune">Pune</option>
+                                        <option value="Mumbai">Mumbai</option>
+                                        <option value="Thane">Thane</option>
+                                        <option value="Kolhapur">Kolhapur</option>
+                                        <option value="NEW">+ Add New</option>
+                                    </select>
+                                    <input type="text" id="newLocationInput" class="input-royal hidden"
+                                        placeholder="Enter City Name">
+                                    <button type="button" id="cancelNewLoc"
+                                        class="hidden text-red-500 hover:text-red-700 px-2" onclick="resetLocation()"><i
+                                            class="fas fa-times"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Service Category -->
+                            <div>
+                                <label class="label-royal">Service Category</label>
+                                <select id="serviceCategory" class="input-royal" required>
+                                    <option value="Elderly Care">Elderly Care</option>
+                                    <option value="Baby Care">Baby Care</option>
+                                    <option value="Patient Care">Patient Care</option>
+                                    <option value="Physiotherapy">Physiotherapy</option>
+                                </select>
+                            </div>
+
+                            <!-- Plan Type (Input with Datalist) -->
+                            <div>
+                                <label class="label-royal">Plan Type / Sub-Service</label>
+                                <input list="planOptions" id="planType" class="input-royal"
+                                    placeholder="Select or Type..." required>
+                                <datalist id="planOptions">
+                                    <option value="Plan A: Patient Attendant Care">
+                                    <option value="Plan B: Skilled Nursing">
+                                    <option value="Plan C: Chronic Management">
+                                    <option value="Plan D: Elderly Companion">
+                                    <option value="Plan E: Maternal & Newborn">
+                                    <option value="Plan F: Rehabilitative Care">
+                                    <option value="AlaCarte">
+                                    <option value="Japa Maid">
+                                    <option value="Semi-trained">
+                                    <option value="Trained Nurse">
+                                </datalist>
+                                <p class="text-[10px] text-gray-400 mt-1">Select from list or type exact sub-service
+                                    name.</p>
+                            </div>
+
+                            <!-- Shift Type -->
+                            <div>
+                                <label class="label-royal">Shift Type</label>
+                                <select id="shiftType" class="input-royal" required>
+                                    <option value="12-hr Day">12-hr Day</option>
+                                    <option value="12-hr Night">12-hr Night</option>
+                                    <option value="24-hr">24-hr</option>
+                                    <option value="Per Visit">Per Visit</option>
+                                </select>
+                            </div>
+
+                            <!-- Market Rate -->
+                            <div>
+                                <label class="label-royal">Market Rate (₹)</label>
+                                <input type="number" id="marketRate" class="input-royal font-bold text-royal-blue"
+                                    placeholder="e.g. 1000" oninput="calculateRates()" required>
+                            </div>
+
+                            <!-- Auto-Calculated Previews -->
+                            <div class="grid grid-cols-2 gap-3 bg-gray-50 p-3 rounded border border-gray-100">
+                                <div>
+                                    <label class="text-[10px] text-gray-400 uppercase font-bold">Min Rate (+8%)</label>
+                                    <div id="previewMin" class="text-sm font-mono font-bold text-green-600">₹0</div>
+                                </div>
+                                <div>
+                                    <label class="text-[10px] text-gray-400 uppercase font-bold">Max Rate (+15%)</label>
+                                    <div id="previewMax" class="text-sm font-mono font-bold text-red-600">₹0</div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn-primary w-full flex justify-center items-center gap-2">
+                                <i class="fas fa-save"></i> Save Rate
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Right: Rate List -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-xl shadow-md overflow-hidden border-t-4 border-royal-gold">
+                        <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h2 class="font-serif text-lg font-bold text-royal-blue">Existing Rates</h2>
+                            <div>
+                                <input type="text" id="searchRates" placeholder="Search location/plan..."
+                                    class="input-royal text-xs w-48" oninput="filterRates()">
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-royal-blue text-white text-xs uppercase">
+                                    <tr>
+                                        <th class="p-3">Location</th>
+                                        <th class="p-3">Plan / Service</th>
+                                        <th class="p-3">Shift</th>
+                                        <th class="p-3 text-right">Market (₹)</th>
+                                        <th class="p-3 text-right">Min (₹)</th>
+                                        <th class="p-3 text-right">Max (₹)</th>
+                                        <th class="p-3 text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ratesTableBody" class="text-sm divide-y divide-gray-100">
+                                    <!-- Dynamic Content -->
+                                    <tr>
+                                        <td colspan="7" class="p-4 text-center text-gray-400">Loading rates...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Logic -->
+    <script>
+        let allRates = [];
+
+        async function fetchRates() {
+            try {
+                const res = await fetch('/api/rates/');
+                if (res.ok) {
+                    allRates = await res.json();
+                    renderRates(allRates);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderRates(data) {
+            const tbody = document.getElementById('ratesTableBody');
+            tbody.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-gray-400">No rates found. Add one!</td></tr>';
+                return;
+            }
+
+            data.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-royal-blue">${r.location}</td>
+                    <td class="p-3">
+                        <div class="font-bold text-xs text-gray-600">${r.service_category}</div>
+                        <div class="text-xs text-royal-gold">${r.plan_type}</div>
+                    </td>
+                    <td class="p-3 text-xs">${r.shift_type}</td>
+                    <td class="p-3 text-right font-mono font-bold">${r.market_rate}</td>
+                    <td class="p-3 text-right font-mono text-green-600">${r.min_rate}</td>
+                    <td class="p-3 text-right font-mono text-red-600">${r.max_rate}</td>
+                    <td class="p-3 text-center">
+                        <button onclick="editRate('${r.id}')" class="text-blue-500 hover:text-blue-700 mx-1"><i class="fas fa-edit"></i></button>
+                        <button onclick="deleteRate('${r.id}')" class="text-red-400 hover:text-red-600 mx-1"><i class="fas fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function calculateRates() {
+            const market = parseFloat(document.getElementById('marketRate').value) || 0;
+            const min = Math.round(market * 1.08); // 8%
+            const max = Math.round(market * 1.15); // 15%
+
+            document.getElementById('previewMin').innerText = '₹' + min;
+            document.getElementById('previewMax').innerText = '₹' + max;
+        }
+
+        async function saveRate(e) {
+            e.preventDefault();
+            const getVal = id => document.getElementById(id).value;
+
+            // Handle New Location
+            let loc = getVal('locationSelect');
+            if (loc === 'NEW') loc = getVal('newLocationInput');
+            if (!loc) return alert("Location is required");
+
+            const payload = {
+                id: document.getElementById('rateId').value || null, // null for new
+                location: loc,
+                service_category: getVal('serviceCategory'),
+                plan_type: getVal('planType'),
+                shift_type: getVal('shiftType'),
+                market_rate: parseFloat(getVal('marketRate'))
+            };
+
+            try {
+                const res = await fetch('/api/rates/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert("Rate Saved Successfully!");
+                    document.getElementById('rateForm').reset();
+                    resetLocation();
+                    calculateRates(); // reset preview
+                    document.getElementById('rateId').value = ""; // clear ID
+                    fetchRates();
+                } else {
+                    const err = await res.json();
+                    alert("Error: " + (err.detail || "Failed to save"));
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Network error");
+            }
+        }
+
+        async function deleteRate(id) {
+            if (!confirm("Are you sure you want to delete this rate?")) return;
+            try {
+                await fetch(`/api/rates/${id}`, { method: 'DELETE' });
+                fetchRates();
+            } catch (e) { alert("Delete failed"); }
+        }
+
+        function editRate(id) {
+            const r = allRates.find(x => x.id === id);
+            if (!r) return;
+
+            document.getElementById('rateId').value = r.id;
+
+            // Set Location
+            const locSelect = document.getElementById('locationSelect');
+            // Check if option exists, if not, create it or handle custom
+            // Simplified: Assuming standard list + NEW logic for now. 
+            // Better: update options if not found.
+            let found = false;
+            for (let opt of locSelect.options) {
+                if (opt.value === r.location) {
+                    locSelect.value = r.location;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                // If custom location not in list, set to NEW and fill input
+                locSelect.value = 'NEW';
+                checkNewLocation(locSelect);
+                document.getElementById('newLocationInput').value = r.location;
+            } else {
+                resetLocation(); // ensure input is hidden
+            }
+
+            document.getElementById('serviceCategory').value = r.service_category;
+            document.getElementById('planType').value = r.plan_type;
+            document.getElementById('shiftType').value = r.shift_type;
+            document.getElementById('marketRate').value = r.market_rate;
+            calculateRates();
+
+            // Scroll to form
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function checkNewLocation(select) {
+            const input = document.getElementById('newLocationInput');
+            const cancel = document.getElementById('cancelNewLoc');
+            if (select.value === 'NEW') {
+                select.classList.add('hidden');
+                input.classList.remove('hidden');
+                cancel.classList.remove('hidden');
+                input.focus();
+            }
+        }
+
+        function resetLocation() {
+            const select = document.getElementById('locationSelect');
+            const input = document.getElementById('newLocationInput');
+            const cancel = document.getElementById('cancelNewLoc');
+
+            select.value = "";
+            select.classList.remove('hidden');
+            input.classList.add('hidden');
+            cancel.classList.add('hidden');
+            input.value = "";
+        }
+
+        function filterRates() {
+            const term = document.getElementById('searchRates').value.toLowerCase();
+            const filtered = allRates.filter(r =>
+                r.location.toLowerCase().includes(term) ||
+                r.plan_type.toLowerCase().includes(term) ||
+                r.service_category.toLowerCase().includes(term)
+            );
+            renderRates(filtered);
+        }
+
+        // Init
+        document.getElementById('rateForm').addEventListener('submit', saveRate);
+        fetchRates();
+
+    </script>
+</body>
+
+</html>

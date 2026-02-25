@@ -1,0 +1,4479 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Vesak Care Foundation | Patient Care Services</title>
+
+	<!-- Tailwind CSS -->
+	<script src="https://cdn.tailwindcss.com"></script>
+
+	<!-- Google Fonts -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link
+		href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap"
+		rel="stylesheet">
+
+	<!-- Font Awesome -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+	<!-- Chart.js -->
+	<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+	<!-- Supabase Native Auth Client -->
+	<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+	<!-- html2pdf.js for Client-Side PDF Generation -->
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+	<!-- Document Modules -->
+	<script src="templates/shared.js?v=4"></script>
+	<script src="templates/invoice.js?v=3"></script>
+	<script src="templates/official.js?v=3"></script>
+	<script src="templates/agreements.js?v=3"></script>
+	<script src="templates/download.js?v=3"></script>
+
+	<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+	<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+	<script src="templates/api_inquiry.js"></script>
+	<script src="templates/numbering.js"></script>
+	<script src="templates/api_official.js"></script>
+	<script src="templates/dashboard.js?v=6"></script>
+
+	<!-- Tailwind Config -->
+	<script>
+		tailwind.config = {
+			theme: {
+				extend: {
+					colors: {
+						royal: {
+							blue: '#002147',
+							gold: '#C5A065',
+							goldLight: '#E5C085',
+							orange: '#CC4E00',
+							light: '#F8F9FA',
+							card: '#FFFFFF',
+							border: '#E2E8F0'
+						}
+					},
+					fontFamily: {
+						serif: ['Cinzel', 'serif'],
+						sans: ['Plus Jakarta Sans', 'sans-serif'],
+					},
+					boxShadow: {
+						'royal': '0 10px 40px -10px rgba(0, 33, 71, 0.08)',
+						'royal-hover': '0 20px 50px -10px rgba(197, 160, 101, 0.15)',
+					}
+				}
+			}
+		}
+	</script>
+
+	<link
+		href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap"
+		rel="stylesheet">
+
+	<style>
+		body {
+			background-color: #F8F9FA;
+			overflow-x: hidden;
+		}
+
+		/* Custom Scrollbar */
+		::-webkit-scrollbar {
+			width: 8px;
+			height: 8px;
+		}
+
+		::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: #C5A065;
+			border-radius: 10px;
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: #002147;
+		}
+
+		/* Glassmorphism Navbar */
+		.glass-nav {
+			background: rgba(255, 255, 255, 0.95);
+			backdrop-filter: blur(12px);
+			border-bottom: 1px solid rgba(197, 160, 101, 0.3);
+			box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+		}
+
+		/* Card Styling */
+		.royal-card {
+			background: white;
+			border-radius: 16px;
+			box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+			transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+			border: 1px solid transparent;
+			position: relative;
+			overflow: hidden;
+		}
+
+		.royal-card:hover {
+			transform: translateY(-4px);
+			box-shadow: 0 20px 40px -10px rgba(197, 160, 101, 0.15);
+			border-color: rgba(197, 160, 101, 0.2);
+		}
+
+		/* Subtle Gold Accent Line on Hover */
+		.royal-card::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 3px;
+			background: linear-gradient(90deg, #002147, #C5A065);
+			transform: scaleX(0);
+			transition: transform 0.4s ease;
+			transform-origin: left;
+		}
+
+		.royal-card:hover::before {
+			transform: scaleX(1);
+		}
+
+		/* Inputs - "Feel Good" Vibe */
+		.input-royal {
+			background-color: #FAFAFA;
+			border: 1px solid #E2E8F0;
+			transition: all 0.2s ease;
+			font-size: 0.85rem;
+			color: #1e293b;
+			padding: 0.6rem 0.8rem;
+			width: 100%;
+			border-radius: 0.5rem;
+		}
+
+		.input-royal:focus {
+			background-color: #FFFFFF;
+			border-color: #C5A065;
+			box-shadow: 0 0 0 3px rgba(197, 160, 101, 0.1);
+			outline: none;
+		}
+
+		.label-royal {
+			font-size: 0.7rem;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			color: #64748b;
+			margin-bottom: 0.25rem;
+			display: block;
+		}
+
+		/* Buttons */
+		.btn-primary {
+			background: linear-gradient(135deg, #002147 0%, #0f3566 100%);
+			color: #C5A065;
+			font-weight: 600;
+			transition: all 0.3s;
+		}
+
+		.btn-primary:hover {
+			box-shadow: 0 4px 12px rgba(0, 33, 71, 0.25);
+			transform: translateY(-1px);
+		}
+
+		/* Table Styling */
+		.table-royal thead th {
+			background-color: #F8FAFC;
+			color: #475569;
+			font-family: 'Cinzel', serif;
+			font-weight: 700;
+			letter-spacing: 0.05em;
+			border-bottom: 2px solid #E2E8F0;
+			font-size: 0.75rem;
+			padding: 1rem;
+			white-space: nowrap;
+		}
+
+		.table-royal tbody td {
+			padding: 1rem;
+			font-size: 0.85rem;
+			white-space: nowrap;
+		}
+
+		.table-royal tbody tr:hover {
+			background-color: #FDFBF7;
+		}
+
+		/* View More Fade Effect */
+		.view-more-container {
+			position: relative;
+		}
+
+		.view-more-fade {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			height: 60px;
+			background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #FFFFFF);
+			display: flex;
+			align-items: flex-end;
+			justify-content: center;
+			padding-bottom: 5px;
+			pointer-events: none;
+		}
+
+		.merged-btn {
+			pointer-events: auto;
+			background: rgba(255, 255, 255, 0.9);
+			border: 1px solid #E2E8F0;
+			color: #002147;
+			font-size: 0.75rem;
+			padding: 4px 12px;
+			border-radius: 20px;
+			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+			transition: all 0.2s;
+		}
+
+		.merged-btn:hover {
+			background: #002147;
+			color: #C5A065;
+		}
+
+		/* =========================================
+           INVOICE & LETTERHEAD TYPOGRAPHY UPGRADE
+           ========================================= */
+
+		.watermark-container {
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			pointer-events: none;
+			z-index: 1;
+			text-align: center;
+		}
+
+		.watermark-text {
+			font-family: 'Playfair Display', serif;
+			font-size: 80px;
+			font-weight: 800;
+			color: rgba(0, 33, 71, 0.04);
+			letter-spacing: 0.25em;
+		}
+
+		/* Font overrides for Letterhead within the app */
+		.font-serif-invoice {
+			font-family: 'Cormorant Garamond', serif;
+			letter-spacing: 0.02em;
+		}
+
+		.font-sans-invoice {
+			font-family: 'Inter', sans-serif;
+			font-feature-settings: "tnum" 1, "cv05" 1;
+			/* tnum = Tabular Numbers (Perfect alignment) */
+		}
+
+		/* ------ Quill CSS/JS - Start ---------*/
+		/* PDF Text Wrapping & Formatting Fixes */
+		.wrap-text {
+			white-space: pre-wrap;
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+			max-width: 100%;
+		}
+
+		/* Editor Specific Styles */
+		.ql-editor {
+			font-family: 'Inter', sans-serif;
+			font-size: 14px;
+			line-height: 1.6;
+		}
+
+		/* Force list styles in PDF preview */
+		.invoice-page ul:not(.list-none) {
+			list-style-type: disc;
+			padding-left: 1.5em;
+			margin-bottom: 1em;
+		}
+
+		.invoice-page ol {
+			list-style-type: decimal;
+			padding-left: 1.5em;
+			margin-bottom: 1em;
+		}
+
+		.invoice-page li {
+			margin-bottom: 0.5em;
+		}
+
+		/* Quill Toolbar Customization */
+		.ql-toolbar.ql-snow {
+			border-color: #E2E8F0;
+			background: #F8FAFC;
+			border-radius: 8px 8px 0 0;
+		}
+
+		.ql-container.ql-snow {
+			border-color: #E2E8F0;
+			background: #FFFFFF;
+			border-radius: 0 0 8px 8px;
+		}
+
+		/* ------ Quill CSS/JS - End ---------*/
+
+		/* PDF-specific rendering fixes */
+		@media print {
+			.invoice-page {
+				transform: none !important;
+				margin: 0 !important;
+				box-shadow: none !important;
+			}
+
+			.watermark-container {
+				position: absolute !important;
+				print-color-adjust: exact;
+				-webkit-print-color-adjust: exact;
+			}
+
+			footer {
+				position: absolute !important;
+				bottom: 40px !important;
+			}
+		}
+
+		/* IMPROVED: Professional PDF Layout */
+		.invoice-page {
+			position: relative;
+			background: white;
+			width: 210mm;
+			height: 297mm;
+			padding: 35px 45px 35px 45px;
+			box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+			font-family: 'Inter', sans-serif;
+			box-sizing: border-box;
+			overflow: hidden;
+			word-break: break-word;
+			overflow-wrap: break-word;
+		}
+
+		/* Main content area needs bottom padding to not overlap footer */
+		.invoice-page>main {
+			padding-bottom: 140px;
+			position: relative;
+			z-index: 5;
+		}
+
+		/* FIXED: Footer pinned to bottom via absolute positioning */
+		.invoice-page footer {
+			position: absolute !important;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			padding: 17px 45px 35px 45px;
+			z-index: 20;
+			background: white;
+		}
+
+		/* Page number at very bottom */
+		.invoice-page .page-number {
+			position: absolute;
+			bottom: 8px;
+			left: 0;
+			right: 0;
+			text-align: center;
+			font-size: 8px;
+			color: #9ca3af;
+			font-family: 'Inter', sans-serif;
+			z-index: 25;
+		}
+
+
+		/* IMPROVED: Professional Header with Better Alignment */
+		.invoice-page header {
+			position: relative;
+			z-index: 10;
+			margin-bottom: 32px;
+			/* Better spacing */
+		}
+
+		.invoice-page header .header-flex {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			/* FIXED: Vertical centering */
+
+			padding-bottom: 24px;
+		}
+
+		/* Left side - Logo and Company Name */
+		.invoice-page header .header-left {
+			display: flex;
+			align-items: center;
+			gap: 20px;
+		}
+
+		/* Right side - Date and Invoice Info - VERTICALLY CENTERED */
+		.invoice-page header .header-right {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			/* FIXED: Vertical centering */
+			align-items: flex-end;
+			text-align: right;
+		}
+
+		/* IMPROVED: Client Details Box */
+		.client-details-box {
+			background: linear-gradient(135deg, #F8F9FA 0%, #FFFFFF 100%);
+			border: 1px solid #E5E7EB;
+			border-left: 4px solid #002147;
+			border-radius: 8px;
+			padding: 20px;
+			margin-bottom: 28px;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 16px;
+		}
+
+		/* IMPROVED: Table styling for better readability */
+		.invoice-page table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-bottom: 24px;
+		}
+
+		.invoice-page table thead {
+			background-color: #002147;
+			color: white;
+		}
+
+		.invoice-page table thead th {
+			padding: 14px 16px;
+			font-size: 11px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.05em;
+			text-align: left;
+		}
+
+		.invoice-page table tbody td {
+			padding: 16px;
+			border-bottom: 1px solid #E5E7EB;
+			font-size: 13px;
+			line-height: 1.6;
+			word-break: break-word;
+			overflow-wrap: break-word;
+		}
+
+		/* IMPROVED: Amount section styling */
+		.amount-section {
+			background: #F8F9FA;
+			border: 1px solid #E5E7EB;
+			border-radius: 8px;
+			padding: 20px;
+			margin-bottom: 24px;
+		}
+
+		/* IMPROVED: Notes section */
+		.notes-section {
+			background: #FFFBF0;
+			border-left: 4px solid #C5A065;
+			padding: 16px;
+			margin-bottom: 24px;
+			border-radius: 4px;
+			word-break: break-word;
+			overflow-wrap: break-word;
+		}
+
+		/* PART 3: PAGE BREAK UTILITIES */
+		tr {
+			page-break-inside: avoid;
+		}
+
+		.page-break-inside-avoid {
+			page-break-inside: avoid;
+		}
+
+
+
+		/* Utility */
+		.hidden {
+			display: none;
+		}
+
+		.block {
+			display: block;
+		}
+
+		.animate-fade-in {
+			animation: fadeIn 0.4s ease-out forwards;
+		}
+
+		@keyframes fadeIn {
+			from {
+				opacity: 0;
+				transform: translateY(10px);
+			}
+
+			to {
+				opacity: 1;
+				transform: translateY(0);
+			}
+		}
+	</style>
+	<!-- Auth Enforcement Script (Runs before body rendering) -->
+	<script src="templates/auth.js"></script>
+</head>
+
+<body class="text-slate-800 antialiased font-sans">
+
+	<!-- Top Navbar -->
+	<nav class="fixed top-0 w-full z-50 glass-nav h-20 transition-all duration-300">
+		<div class="max-w-[1920px] mx-auto px-6 h-full flex items-center justify-between">
+
+			<!-- Brand -->
+			<div class="flex items-center gap-4 cursor-pointer group" onclick="navigateTo('dashboard')">
+				<!-- Logo SVG -->
+				<div class="w-16 h-16 relative">
+					<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+						<path d="M30 5 H70 L95 30 V70 L70 95 H30 L5 70 V30 L30 5Z" stroke="#002147" stroke-width="3"
+							fill="none" />
+						<path d="M50 15 V35" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M50 65 V85" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M15 50 H35" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M65 50 H85" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M25 25 L40 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M60 60 L75 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M75 25 L60 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M40 60 L25 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<circle cx="50" cy="50" r="8" fill="#CC4E00" />
+					</svg>
+				</div>
+				<div class="flex flex-col">
+					<span
+						class="font-serif text-lg font-bold text-royal-blue tracking-wide leading-none group-hover:text-royal-gold transition-colors">Vesak
+						Care Foundation</span>
+					<span class="text-[10px] text-royal-gold uppercase tracking-[0.2em] font-medium mt-1">Control
+						Hub</span>
+				</div>
+			</div>
+
+			<!-- Mobile Menu Toggle -->
+			<button id="mobileMenuToggle" class="lg:hidden text-royal-blue text-2xl p-2 focus:outline-none">
+				<i class="fas fa-bars"></i>
+			</button>
+
+			<!-- Consolidated Navigation -->
+			<div class="hidden lg:flex items-center gap-6">
+				<button onclick="navigateTo('dashboard')"
+					class="nav-item text-sm font-bold text-gray-500 hover:text-royal-blue transition-colors px-4 py-2"
+					data-target="dashboard">Dashboard</button>
+
+				<button onclick="navigateTo('inquiry')"
+					class="nav-item text-sm font-bold text-gray-500 hover:text-royal-blue transition-colors px-4 py-2"
+					data-target="inquiry">New Inquiry</button>
+
+				<!-- Control Hub Dropdown -->
+				<div class="relative group mx-2">
+					<button
+						class="flex items-center gap-2 px-5 py-2.5 bg-royal-blue text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-900/20 hover:scale-105 transition-all">
+						<i class="fas fa-th-large"></i> Management Hub <i
+							class="fas fa-chevron-down text-[10px] opacity-50"></i>
+					</button>
+					<div
+						class="absolute right-0 top-full pt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-3 hidden group-hover:block animate-fade-in z-[100]">
+						<div class="px-4 pb-2 mb-2 border-b border-gray-50">
+							<span class="text-[9px] font-bold text-royal-gold uppercase tracking-[0.15em]">Operations &
+								Personnel</span>
+						</div>
+						<a href="#" onclick="showServiceAllocation('All'); return false;"
+							class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+							<div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600"><i
+									class="fas fa-tasks"></i></div>
+							<div>
+								<p>Operations Desk</p>
+								<p class="text-[9px] font-normal text-gray-400">Registry & Allocations</p>
+							</div>
+						</a>
+						<a href="hr_management.html"
+							class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+							<div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+								<i class="fas fa-user-tie"></i>
+							</div>
+							<div>
+								<p>HR Master Hub</p>
+								<p class="text-[9px] font-normal text-gray-400">Staffing & Performance</p>
+							</div>
+						</a>
+						<div class="px-4 py-2 mb-2 mt-2 border-y border-gray-50">
+							<span
+								class="text-[9px] font-bold text-royal-gold uppercase tracking-[0.15em]">Administration</span>
+						</div>
+						<a href="admin_panel.html"
+							class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+							<div
+								class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+								<i class="fas fa-chart-line"></i>
+							</div>
+							<div>
+								<p>Admin Hub</p>
+								<p class="text-[9px] font-normal text-gray-400">Financials & Budgets</p>
+							</div>
+						</a>
+						<a href="#" onclick="navigateTo('officialdocs'); return false;"
+							class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+							<div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+								<i class="fas fa-file-contract"></i>
+							</div>
+							<div>
+								<p>Official Docs</p>
+								<p class="text-[9px] font-normal text-gray-400">Agreements & Verification</p>
+							</div>
+						</a>
+					</div>
+				</div>
+			</div>
+
+			<!-- Admin Profile -->
+			<div class="flex items-center gap-4 pl-8 border-l border-gray-200">
+				<div class="text-right hidden md:block">
+					<p id="userRoleDisplay"
+						class="text-sm font-bold text-royal-blue leading-tight uppercase tracking-tighter">
+						Authenticating...</p>
+					<div class="flex items-center gap-1 justify-end mt-1">
+						<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+						<p id="userNameDisplay" class="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+							Please Wait</p>
+					</div>
+				</div>
+				<div class="relative group cursor-pointer">
+					<div
+						class="w-11 h-11 rounded-xl bg-royal-blue flex items-center justify-center text-white shadow-lg shadow-blue-900/20 hover:scale-110 transition-transform">
+						<i class="fa-solid fa-user-shield"></i>
+					</div>
+					<!-- Dropdown Menu -->
+					<div
+						class="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-2xl py-2 hidden group-hover:block border border-gray-100 z-[100] animate-fade-in">
+						<button onclick="logoutUser()"
+							class="w-full text-left px-4 py-3 text-xs text-red-600 hover:bg-red-50 font-bold transition-colors flex items-center gap-3">
+							<i class="fas fa-sign-out-alt"></i> Secure Logout
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</nav>
+
+	<!-- Mobile Navigation Overlay (New) -->
+	<div id="mobileMenuOverlay"
+		class="fixed inset-0 bg-white z-[60] transform translate-x-full transition-transform duration-300 lg:hidden flex flex-col">
+		<!-- Header with Logo and Close -->
+		<div class="h-20 px-6 flex items-center justify-between border-b border-gray-100">
+			<div class="flex items-center gap-3">
+				<div class="w-10 h-10">
+					<!-- Re-use SVG from Nav -->
+					<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+						<path d="M30 5 H70 L95 30 V70 L70 95 H30 L5 70 V30 L30 5Z" stroke="#002147" stroke-width="3"
+							fill="none" />
+						<path d="M50 15 V35" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M50 65 V85" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M15 50 H35" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M65 50 H85" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M25 25 L40 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M60 60 L75 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M75 25 L60 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<path d="M40 60 L25 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+						<circle cx="50" cy="50" r="8" fill="#CC4E00" />
+					</svg>
+				</div>
+				<span class="font-serif font-bold text-royal-blue">Vesak Care</span>
+			</div>
+			<button id="closeMobileMenu" class="text-gray-500 text-2xl p-2">
+				<i class="fas fa-times"></i>
+			</button>
+		</div>
+
+		<!-- Menu Links -->
+		<div class="flex-1 overflow-y-auto p-6 space-y-6">
+			<div class="space-y-4">
+				<button onclick="mobileNavigate('dashboard')"
+					class="w-full text-left flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+					<div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+						<i class="fas fa-chart-pie"></i>
+					</div>
+					<span class="font-bold text-gray-700">Dashboard</span>
+				</button>
+				<button onclick="mobileNavigate('inquiry')"
+					class="w-full text-left flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+					<div class="w-10 h-10 rounded-lg bg-royal-gold/10 flex items-center justify-center text-royal-gold">
+						<i class="fas fa-plus"></i>
+					</div>
+					<span class="font-bold text-gray-700">New Inquiry</span>
+				</button>
+			</div>
+
+			<div class="pt-6 border-t border-gray-100">
+				<span class="text-[10px] font-bold text-royal-gold uppercase tracking-[0.2em] mb-4 block">Management
+					Hub</span>
+				<div class="space-y-2">
+					<a href="#" onclick="showServiceAllocation('All'); toggleMobileMenu(false); return false;"
+						class="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+						<div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600"><i
+								class="fas fa-tasks"></i></div>
+						<div>
+							<p class="font-bold text-gray-700">Operations Desk</p>
+							<p class="text-[10px] text-gray-400">Registry & Allocations</p>
+						</div>
+					</a>
+					<a href="hr_management.html"
+						class="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+						<div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600"><i
+								class="fas fa-user-tie"></i></div>
+						<div>
+							<p class="font-bold text-gray-700">HR Master Hub</p>
+							<p class="text-[10px] text-gray-400">Staffing & Performance</p>
+						</div>
+					</a>
+					<a href="admin_panel.html"
+						class="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+						<div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+							<i class="fas fa-chart-line"></i>
+						</div>
+						<div>
+							<p class="font-bold text-gray-700">Admin Hub</p>
+							<p class="text-[10px] text-gray-400">Financials & Budgets</p>
+						</div>
+					</a>
+					<a href="#" onclick="navigateTo('officialdocs'); toggleMobileMenu(false); return false;"
+						class="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors">
+						<div class="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600"><i
+								class="fas fa-file-contract"></i></div>
+						<div>
+							<p class="font-bold text-gray-700">Official Docs</p>
+							<p class="text-[10px] text-gray-400">Agreements & Verification</p>
+						</div>
+					</a>
+				</div>
+			</div>
+
+			<!-- Logout in Mobile Menu -->
+			<div class="pt-6 border-t border-gray-100">
+				<button onclick="logoutUser()"
+					class="w-full text-left flex items-center gap-4 p-4 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-bold">
+					<i class="fas fa-sign-out-alt"></i>
+					<span>Secure Logout</span>
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Main Application Container -->
+	<main class="pt-28 pb-12 px-4 md:px-6 max-w-[1920px] mx-auto min-h-screen">
+
+		<!-- ======================= SECTION 1: DASHBOARD ======================= -->
+		<section id="dashboard" class="page-section hidden animate-fade-in">
+			<div class="flex justify-between items-end mb-8">
+				<div>
+					<h1 class="font-serif text-3xl font-bold text-royal-blue">Executive Overview</h1>
+					<p class="text-gray-500 text-sm mt-1">Real-time insights for Vesak Care Foundation.</p>
+				</div>
+			</div>
+
+			<!-- KPI Cards Grid -->
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4 md:gap-6 mb-10">
+
+				<!-- A. Clients (Total Inquiry) -->
+				<div class="royal-card p-6 cursor-pointer group" onclick="openAnalyticsExplorer('Total Inquiries')">
+					<div class="flex justify-between items-start">
+						<div>
+							<p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Inquiries</p>
+							<h2 id="kpi-total" class="text-4xl font-serif font-bold text-royal-blue">-</h2>
+						</div>
+						<div
+							class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-royal-blue text-lg transition-transform group-hover:scale-110">
+							<i class="fa-solid fa-users"></i>
+						</div>
+					</div>
+					<div class="mt-8 flex justify-between items-end border-t border-gray-50 pt-4">
+						<div>
+							<p class="text-xs text-royal-blue font-bold"><span id="kpi-this-month">-</span> <span
+									class="text-gray-400 font-normal">This
+									Month</span></p>
+							<p class="text-xs text-gray-400"><span id="kpi-last-month">-</span> <span
+									class="text-gray-400 font-normal">Last
+									Month</span></p>
+						</div>
+						<div class="text-right">
+							<span
+								class="text-[10px] uppercase font-bold text-royal-gold tracking-wide group-hover:mr-2 transition-all">View
+								List <i class="fa-solid fa-chevron-right ml-1"></i></span>
+						</div>
+					</div>
+				</div>
+
+				<!-- B. Active Services -->
+				<div class="royal-card p-6 cursor-pointer group" onclick="openAnalyticsExplorer('Active Service')">
+					<div class="flex justify-between items-start">
+						<div>
+							<p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Active Services</p>
+							<h2 id="kpi-active" class="text-4xl font-serif font-bold text-royal-blue">-</h2>
+						</div>
+						<div
+							class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-green-600 text-lg transition-transform group-hover:scale-110 relative">
+							<i class="fa-solid fa-heart-pulse"></i>
+							<span
+								class="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse"></span>
+						</div>
+					</div>
+					<div class="mt-8">
+						<div class="w-full bg-gray-100 rounded-full h-1.5 mb-2 overflow-hidden">
+							<div id="active-progress-bar"
+								class="bg-gradient-to-r from-green-400 to-green-600 h-1.5 rounded-full"
+								style="width: 0%"></div>
+						</div>
+						<p id="active-ongoing-text" class="text-[10px] text-gray-400 text-right">- Ongoing Cases</p>
+					</div>
+				</div>
+
+				<!-- C. Invoices -->
+				<div class="royal-card p-6 cursor-pointer group" onclick="openAnalyticsExplorer('Invoice Generated')">
+					<div class="flex justify-between items-start">
+						<div>
+							<p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Invoices Generated
+							</p>
+							<h2 id="kpi-invoices" class="text-4xl font-serif font-bold text-royal-blue">-</h2>
+						</div>
+						<div
+							class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 text-lg transition-transform group-hover:scale-110">
+							<i class="fa-solid fa-file-invoice-dollar"></i>
+						</div>
+					</div>
+					<div class="mt-8 flex gap-3">
+						<div class="flex-1 px-3 py-2 bg-gray-50 rounded-lg text-center border border-gray-100">
+							<span id="invoices-active-count" class="block text-lg font-bold text-royal-blue">-</span>
+							<span class="text-[10px] text-gray-400 uppercase font-semibold">Active</span>
+						</div>
+						<div class="flex-1 px-3 py-2 bg-gray-50 rounded-lg text-center border border-gray-100">
+							<span id="invoices-terminated-count" class="block text-lg font-bold text-gray-500">-</span>
+							<span class="text-[10px] text-gray-400 uppercase font-semibold">Terminated</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- D. Pending / Potential -->
+				<div class="royal-card p-6 cursor-pointer group border-l-4 border-l-royal-gold"
+					onclick="openAnalyticsExplorer('Pending Action')">
+					<div class="flex justify-between items-start">
+						<div>
+							<p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Pending Actions</p>
+							<h2 id="kpi-pending" class="text-4xl font-serif font-bold text-royal-gold">-</h2>
+						</div>
+						<div
+							class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 text-lg transition-transform group-hover:scale-110">
+							<i class="fa-solid fa-hourglass-half"></i>
+						</div>
+					</div>
+					<div class="mt-6 space-y-2">
+						<div class="flex justify-between text-xs border-b border-gray-50 pb-1.5">
+							<span class="text-gray-500 font-medium">Potential Clients</span>
+							<span id="potential-clients-count" class="font-bold text-royal-blue">-</span>
+						</div>
+						<div class="flex justify-between text-xs pt-1">
+							<span class="text-gray-500 font-medium">Rejected</span>
+							<span id="rejected-count" class="font-bold text-red-500">-</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- E. Terminated -->
+				<div class="royal-card p-6 cursor-pointer group" onclick="openAnalyticsExplorer('Terminated')">
+					<div class="flex justify-between items-start">
+						<div>
+							<p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Terminated Services
+							</p>
+							<h2 id="kpi-terminated" class="text-4xl font-serif font-bold text-gray-400">-</h2>
+						</div>
+						<div
+							class="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center text-red-500 text-lg transition-transform group-hover:scale-110">
+							<i class="fa-solid fa-user-xmark"></i>
+						</div>
+					</div>
+					<div class="mt-8 text-right">
+						<span
+							class="text-xs text-royal-blue font-bold uppercase tracking-wide group-hover:mr-2 transition-all">View
+							History <i class="fa-solid fa-chevron-right ml-1"></i></span>
+					</div>
+				</div>
+
+				<!-- F. Digital Inquiry -->
+				<div class="royal-card bg-gradient-to-br from-royal-blue to-[#00152e] p-6 cursor-pointer group relative overflow-hidden"
+					onclick="showWebInquiries()">
+					<!-- Decor -->
+					<div class="absolute -right-6 -top-6 w-32 h-32 bg-royal-gold opacity-10 blur-2xl">
+					</div>
+
+					<div class="flex justify-between items-start relative z-10">
+						<div>
+							<p class="text-xs font-bold text-royal-gold uppercase tracking-wider mb-1">Web Inquiries</p>
+							<h2 id="kpi-web" class="text-4xl font-serif font-bold text-white">-</h2>
+						</div>
+						<div
+							class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-royal-gold backdrop-blur-sm text-lg transition-transform group-hover:scale-110">
+							<i class="fa-solid fa-globe"></i>
+						</div>
+					</div>
+					<div class="mt-8 relative z-10">
+						<p class="text-xs text-gray-300 mb-3">From Website Form & Social Ads</p>
+						<button
+							class="w-full py-2 bg-royal-gold text-royal-blue text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-white transition-colors">Process
+							Leads</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Service Allocation Status (Dashboard Widget) -->
+			<div class="mb-8 animate-fade-in bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+				<div class="flex justify-between items-center mb-4">
+					<div class="flex flex-col">
+						<h3 class="font-serif text-xl font-bold text-royal-blue">Service Allocation Status</h3>
+						<p class="text-xs text-gray-400 capitalize">Real-time tracking of staff assignments per client
+						</p>
+					</div>
+					<button onclick="showServiceAllocation('All')"
+						class="text-xs font-bold text-royal-gold hover:text-royal-blue transition-colors uppercase tracking-wider">
+						Manage Allocations <i class="fa-solid fa-arrow-right ml-1"></i>
+					</button>
+				</div>
+				<div class="overflow-hidden border border-gray-100 rounded-lg">
+					<div class="overflow-x-auto">
+						<table class="w-full text-left table-royal">
+							<thead>
+								<tr>
+									<th>Client Name</th>
+									<th>Service Required</th>
+									<th>Location</th>
+									<th>Allocation Status</th>
+									<th>Assigned Staff</th>
+									<th class="text-center">Action</th>
+								</tr>
+							</thead>
+							<tbody id="dashboard-allocation-table-body" class="divide-y divide-gray-50">
+								<!-- Populated by dashboard.js -->
+								<tr>
+									<td colspan="6" class="p-6 text-center text-gray-400">Loading live status...</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
+						<button onclick="showServiceAllocation('All')"
+							class="text-xs font-bold text-royal-blue hover:underline">View All Allocations</button>
+					</div>
+				</div>
+			</div>
+
+			<!-- Dashboard Charts -->
+			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+				<div class="lg:col-span-2 royal-card p-6">
+					<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+						<h3 class="font-serif text-lg font-bold text-royal-blue">Inquiry Trend Analysis</h3>
+						<div class="flex flex-wrap items-center gap-2">
+							<!-- Trend Type -->
+							<select id="trend-type"
+								class="text-[10px] font-bold uppercase tracking-wider border rounded px-2 py-1 bg-gray-50 text-gray-600 focus:ring-1 focus:ring-royal-blue outline-none"
+								onchange="refreshTrendChart()">
+								<option value="Overall">Overall Trend</option>
+								<option value="Active">Active Trend</option>
+								<option value="Terminated">Terminated Trend</option>
+								<option value="Not Interested">Not Interested</option>
+								<option value="Email">Source: Email</option>
+								<option value="Web">Source: Web Form</option>
+								<option value="WhatsApp">Source: WhatsApp</option>
+								<option value="Social">Source: Social Media</option>
+							</select>
+
+							<!-- Period -->
+							<select id="trend-period"
+								class="text-[10px] font-bold uppercase tracking-wider border rounded px-2 py-1 bg-gray-50 text-gray-600 focus:ring-1 focus:ring-royal-blue outline-none"
+								onchange="refreshTrendChart()">
+								<option value="1w">1 Week</option>
+								<option value="1m">1 Month</option>
+								<option value="3m">3 Months</option>
+								<option value="6m" selected>6 Months</option>
+								<option value="1y">1 Year</option>
+							</select>
+
+							<!-- Compare Toggle -->
+							<div class="flex items-center gap-2 px-2 py-1 border rounded bg-gray-50">
+								<span class="text-[10px] font-bold uppercase text-gray-400">Compare</span>
+								<label class="relative inline-flex items-center cursor-pointer">
+									<input type="checkbox" id="trend-compare-toggle" class="sr-only peer"
+										onchange="refreshTrendChart()">
+									<div
+										class="w-7 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-royal-blue">
+									</div>
+								</label>
+							</div>
+						</div>
+					</div>
+					<div class="h-64 w-full relative">
+						<canvas id="dashboardChart"></canvas>
+					</div>
+				</div>
+				<!-- Recent Activity Feed with Merged View More -->
+				<div class="royal-card p-0 flex flex-col h-[320px]">
+					<div class="p-4 border-b border-gray-100 bg-gray-50/50">
+						<h3 class="font-serif text-lg font-bold text-royal-blue">Recent Activity</h3>
+					</div>
+					<div id="recent-activity-list"
+						class="flex-1 overflow-y-auto p-4 space-y-3 view-more-container relative">
+						<!-- Activity Items -->
+						<div class="text-center py-10 text-gray-400 text-xs italic">No recent activity detected</div>
+
+						<!-- Merged Fade Effect Button -->
+						<div class="view-more-fade">
+							<button class="merged-btn" onclick="openAnalyticsExplorer('Recent Activity')">View All
+								Activity</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ======================= SECTION 1.5: DISCOVERY & ANALYTICS EXPLORER (Hidden from Nav) ======================= -->
+		<section id="analytics-explorer" class="page-section hidden animate-fade-in">
+			<div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+				<div class="flex items-center gap-4">
+					<button onclick="navigateTo('dashboard')"
+						class="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center text-royal-blue hover:bg-gray-50 transition-all">
+						<i class="fa-solid fa-arrow-left"></i>
+					</button>
+					<div>
+						<h1 id="explorer-title" class="font-serif text-2xl sm:text-3xl font-bold text-royal-blue">
+							Analytics Explorer
+						</h1>
+						<p id="explorer-subtitle" class="text-gray-500 text-xs sm:text-sm mt-1">Deep-dive view of your
+							dashboard
+							metrics</p>
+					</div>
+				</div>
+
+				<!-- Specialized Sub-filters -->
+				<div id="explorer-subfilters" class="hidden flex flex-wrap gap-2 w-full sm:w-auto">
+					<button onclick="filterExplorer('Active')" id="btn-exp-active"
+						class="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-200 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-gray-50 transition-all text-gray-600">Active</button>
+					<button onclick="filterExplorer('Terminated')" id="btn-exp-term"
+						class="flex-1 sm:flex-none px-4 py-2 bg-white border border-gray-200 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider hover:bg-gray-50 transition-all text-gray-600">Terminated</button>
+					<button onclick="filterExplorer('All')" id="btn-exp-all"
+						class="w-full sm:w-auto px-4 py-2 bg-royal-blue text-white rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all">Show
+						All</button>
+				</div>
+			</div>
+
+			<!-- Explorer Table Card -->
+			<div class="royal-card overflow-hidden">
+				<div class="overflow-x-auto">
+					<table class="w-full text-left border-collapse">
+						<thead class="bg-gray-50 border-b border-gray-100">
+							<tr>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Serial No.</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Ref No.</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Call
+									Date</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Invoice No.</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Name
+								</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Mobile</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Service Required</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Location</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Sub-Location</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Status</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Rate
+									Agreed</th>
+								<th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+									Created By</th>
+								<th
+									class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 text-right">
+									Actions</th>
+							</tr>
+						</thead>
+						<tbody id="explorer-table-body" class="divide-y divide-gray-50">
+							<!-- Populated by dashboard.js -->
+						</tbody>
+					</table>
+				</div>
+				<div id="explorer-empty-state" class="hidden py-20 text-center">
+					<i class="fa-solid fa-folder-open text-gray-200 text-5xl mb-4"></i>
+					<p class="text-gray-400 italic">No records found for this selection</p>
+				</div>
+			</div>
+		</section>
+
+		<!-- ======================= SECTION 2: SERVICE ALLOCATION (Merged) ======================= -->
+		<section id="service-allocation" class="page-section hidden animate-fade-in">
+			<div class="mb-6 flex flex-col md:flex-row justify-between items-end gap-4">
+				<div>
+					<h1 class="font-serif text-3xl font-bold text-royal-blue">Operations Center</h1>
+					<p class="text-gray-500 text-sm mt-1">Real-time status of all inquiries and assignments of staff
+					</p>
+				</div>
+				<!-- Search -->
+				<div class="relative w-full md:w-96">
+					<input type="text" placeholder="Search Client, Ref No, Invoice No..."
+						class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-royal-gold focus:ring-1 focus:ring-royal-gold outline-none shadow-sm transition-all text-sm">
+					<i class="fa-solid fa-search absolute left-3 top-3.5 text-gray-400"></i>
+				</div>
+			</div>
+
+			<!-- Filters -->
+			<div
+				class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 flex flex-col sm:flex-row flex-wrap gap-4 items-start sm:items-center">
+				<div class="flex items-center gap-2">
+					<span class="text-xs font-bold text-gray-400 uppercase">Year:</span>
+					<select class="input-royal py-1 px-3 rounded text-sm w-auto">
+						<option>2026</option>
+						<option>2025</option>
+					</select>
+				</div>
+				<div class="flex items-center gap-2">
+					<span class="text-xs font-bold text-gray-400 uppercase">Month:</span>
+					<select class="input-royal py-1 px-3 rounded text-sm w-auto">
+						<option>Current (Feb)</option>
+						<option>All Months</option>
+					</select>
+				</div>
+				<div class="w-full sm:w-auto ml-auto flex flex-wrap gap-2">
+					<div class="flex gap-2 w-full sm:w-auto">
+						<input type="date" id="filterStartDate" class="border rounded px-2 py-1 text-sm flex-1">
+						<input type="date" id="filterEndDate" class="border rounded px-2 py-1 text-sm flex-1">
+					</div>
+					<button onclick="exportCSV()"
+						class="text-sm bg-royal-blue text-white px-4 py-2 rounded-lg hover:bg-slate-900 transition-colors shadow-md w-full sm:w-auto">
+						<i class="fa-solid fa-file-csv mr-2"></i> Download CSV
+					</button>
+				</div>
+			</div>
+
+			<!-- Master Allocation Tracker & Registry -->
+			<div
+				class="flex flex-col md:flex-row justify-between items-start md:items-end mb-4 mt-12 border-t border-gray-100 pt-8 gap-4">
+				<div>
+					<h2 class="font-serif text-2xl font-bold text-royal-blue">Operations Center & Registry</h2>
+					<p class="text-xs text-gray-400">Manage all allocations, corrections, and registry data</p>
+				</div>
+				<div class="overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+					<div class="flex bg-gray-100 p-1 rounded-lg min-w-max" id="operations-tabs-container">
+						<button onclick="switchOperationsTab('allocation')" id="tab-op-allocation"
+							class="px-4 py-1.5 bg-white shadow-sm rounded-md text-xs font-bold text-royal-blue op-tab-btn">Allocation
+							Tracker</button>
+						<button onclick="switchOperationsTab('registry')" id="tab-op-registry"
+							class="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-royal-blue op-tab-btn admin-action">Client
+							Registry</button>
+						<button onclick="switchOperationsTab('employees')" id="tab-op-employees"
+							class="px-4 py-1.5 text-xs font-bold text-gray-500 hover:text-royal-blue op-tab-btn">Employee
+							Management</button>
+					</div>
+				</div>
+
+				<!-- Sub-Tab Containers -->
+				<div id="op-allocation-container" class="op-tab-content">
+
+					<div class="royal-card overflow-hidden" id="clientsTable">
+						<div class="overflow-x-auto">
+							<table class="w-full text-left table-royal">
+								<thead>
+									<tr>
+										<th>Serial No.</th>
+										<th>Call Date</th>
+										<th>Invoice No.</th>
+										<th>Name</th>
+										<th>Mobile</th>
+										<th>Service Required</th>
+										<th>Location</th>
+										<th>Sub-Location</th>
+										<th>Status</th>
+										<th>Rate Agreed</th>
+										<th>Created By</th>
+										<th class="text-right">Actions</th>
+									</tr>
+								</thead>
+								<tbody id="allocationTableBody">
+									<!-- Data will be rendered via JS -->
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div> <!-- End op-allocation-container -->
+
+				<div id="op-registry-container" class="op-tab-content hidden">
+					<div class="mb-4">
+						<p class="text-xs text-gray-500 italic">Master client data corrections. Only accessible to
+							Admins.
+						</p>
+					</div>
+					<div class="royal-card overflow-hidden">
+						<div class="overflow-x-auto">
+							<table class="w-full text-left table-royal">
+								<thead>
+									<tr>
+										<th>Serial No.</th>
+										<th>Call Date</th>
+										<th>Invoice No.</th>
+										<th>Name</th>
+										<th>Mobile</th>
+										<th>Service Required</th>
+										<th>Location</th>
+										<th>Sub-Location</th>
+										<th>Status</th>
+										<th>Rate Agreed</th>
+										<th>Created By</th>
+										<th class="text-right">Actions</th>
+									</tr>
+								</thead>
+								<tbody id="registryTableBody">
+									<!-- Filtered logic -->
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+
+				<div id="op-employees-container" class="op-tab-content hidden">
+					<div class="mb-6 flex flex-wrap gap-4 items-center">
+						<div class="flex bg-gray-100 p-1 rounded-lg">
+							<button onclick="filterHREmployees('All')"
+								class="px-3 py-1.5 bg-white shadow-sm rounded-md text-[10px] font-bold text-royal-blue hr-filter-btn">All</button>
+							<button onclick="filterHREmployees('Office Staff')"
+								class="px-3 py-1.5 text-[10px] font-bold text-gray-500 hr-filter-btn">Office
+								Staff</button>
+							<button onclick="filterHREmployees('Field Staff')"
+								class="px-3 py-1.5 text-[10px] font-bold text-gray-500 hr-filter-btn">Field
+								Staff</button>
+						</div>
+						<div class="flex gap-2">
+							<select id="emp-type-filter" class="input-royal text-[10px] py-1 h-auto"
+								onchange="filterHREmployees()">
+								<option value="All">All Types</option>
+								<option value="Payroll">Payroll</option>
+								<option value="Contract">Contract</option>
+								<option value="Gig">Gig (Retainer)</option>
+							</select>
+						</div>
+						<button onclick="openEmployeeModal()"
+							class="ml-auto px-4 py-2 bg-royal-blue text-white text-[10px] font-bold rounded-lg shadow-sm hover:bg-black transition-all">
+							<i class="fas fa-plus mr-1"></i> Add Employee
+						</button>
+					</div>
+
+					<div class="royal-card overflow-hidden">
+						<div class="overflow-x-auto">
+							<table class="w-full text-left table-royal text-[10px]">
+								<thead>
+									<tr class="text-gray-500 border-b border-gray-100">
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Emp ID</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Name</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">PAN</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Aadhaar</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Gender</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Age</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Role</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Type</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Mobile</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Address</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Work Loc</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter">Salary</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter text-center">Status
+										</th>
+										<th class="px-2 py-3 font-bold uppercase tracking-tighter text-right">Actions
+										</th>
+									</tr>
+								</thead>
+								<tbody id="hrTableBody">
+									<!-- Populated via hr_management.js logic -->
+								</tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+		</section>
+
+
+		<!-- ======================= SECTION 4: INQUIRY (26 COLS + LOGIC) ======================= -->
+		<section id="inquiry" class="page-section hidden animate-fade-in">
+			<div class="mb-6 flex justify-between items-center">
+				<div>
+					<h1 class="font-serif text-3xl font-bold text-royal-blue">Inquiry Processing</h1>
+					<p class="text-gray-500 text-sm mt-1">Management for Clients, Staffing, and Financials</p>
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<span id="formStatusBadge"
+						class="px-3 py-1 bg-royal-gold/10 text-royal-gold text-[10px] font-bold rounded-full border border-royal-gold/20 uppercase tracking-tighter">Status:
+						New Inquiry</span>
+					<input type="hidden" id="editing_id" value="">
+				</div>
+			</div>
+
+			<div class="flex flex-col xl:flex-row gap-8">
+
+				<div class="xl:w-[55%] space-y-6">
+					<div class="royal-card p-8">
+						<form id="masterInquiryForm" class="space-y-10">
+
+							<div class="space-y-4">
+								<h4
+									class="text-xs font-bold text-royal-gold uppercase tracking-widest border-b border-gray-100 pb-2">
+									1. Client Identification</h4>
+
+								<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+									<div><label class="label-royal">Ref. No. <span
+												class="text-[10px] text-gray-400 font-normal">(Auto)</span></label>
+										<div class="relative">
+											<input type="text" id="in_invoice_no"
+												class="input-royal font-mono bg-gray-50 text-gray-400 cursor-not-allowed"
+												placeholder="PUN-DDMMYYYY-XXX" readonly>
+											<i class="fas fa-lock absolute right-3 top-2.5 text-gray-300 text-xs"></i>
+										</div>
+									</div>
+									<div><label class="label-royal">Invoice No.</label><input type="text"
+											class="input-royal bg-gray-50 text-gray-400 font-mono"
+											placeholder="Generated on payment" readonly></div>
+									<div class="sm:col-span-2 lg:col-span-1"><label
+											class="label-royal">Date</label><input type="date" id="in_date"
+											class="input-royal"></div>
+								</div>
+							</div>
+
+							<div class="space-y-6">
+								<!-- Row 1: Primary Info -->
+								<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+									<div>
+										<label class="label-royal">Customer Name</label>
+										<input type="text" id="in_name" class="input-royal" oninput="updatePreview()">
+									</div>
+									<div>
+										<label class="label-royal">Mobile</label>
+										<input type="text" id="in_mob" class="input-royal" oninput="updatePreview()"
+											onblur="autoFillCustomer()">
+									</div>
+									<div>
+										<label class="label-royal">City / Location</label>
+										<select class="input-royal w-full" id="in_location"
+											onchange="if(window.updateSubLocations) window.updateSubLocations(); updatePreview()">
+											<option value="">City</option>
+										</select>
+									</div>
+									<div>
+										<label class="label-royal">Zone / Sub-Location</label>
+										<select class="input-royal w-full" id="in_sublocation"
+											onchange="updatePreview()">
+											<option value="">Zone</option>
+										</select>
+									</div>
+								</div>
+
+								<!-- Row 2: Broad Address -->
+								<div class="grid grid-cols-1">
+									<div>
+										<label class="label-royal">Full Address</label>
+										<textarea id="in_addr" class="input-royal w-full h-20 resize-none"
+											placeholder="Enter detailed address here..."
+											oninput="updatePreview()"></textarea>
+									</div>
+								</div>
+							</div>
+
+							<div class="space-y-4 bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+								<h4
+									class="text-xs font-bold text-royal-blue uppercase tracking-widest border-b border-royal-gold/30 pb-2">
+									2. Service & Care Type</h4>
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+									<div>
+										<label class="label-royal">Service Required (Plan)</label>
+										<select id="planSelect" class="input-royal font-bold text-royal-blue"
+											onchange="handlePlanChange()">
+											<option value="">Select Plan...</option>
+											<option value="Plan A: Patient Attendant Care">Patient Attendant Care
+											</option>
+											<option value="Plan B: Skilled Nursing">Skilled Nursing</option>
+											<option value="Plan C: Chronic Management">Chronic Management</option>
+											<option value="Plan D: Elderly Companion">Elderly Companion</option>
+											<option value="Plan E: Maternal & Newborn">Maternal & Newborn</option>
+											<option value="Plan F: Rehabilitative Care">Rehabilitative Care</option>
+											<option value="AlaCarte">Other Services</option>
+										</select>
+									</div>
+
+									<div>
+										<label class="label-royal">Sub Service</label>
+										<select id="subServiceSelect" class="input-royal" disabled
+											onchange="updatePreview()">
+											<option>Select Plan First...</option>
+										</select>
+									</div>
+
+									<div>
+										<label class="label-royal">Shift / Recurring</label>
+										<div class="flex gap-2">
+											<select id="in_shift" class="input-royal"
+												onchange="if(window.enforceRecurringLogic) window.enforceRecurringLogic(); updatePreview()">
+												<option value="Per Visit">Per Visit</option>
+												<option value="12-hr Day">12-hr Day</option>
+												<option value="12-hr Night">12-hr Night</option>
+												<option value="24-hr">24-hr</option>
+											</select>
+											<select id="in_recurring" class="input-royal"
+												onchange="if(window.enforceRecurringLogic) window.enforceRecurringLogic(); updatePreview()">
+												<option value="Yes">Yes</option>
+												<option value="No">No</option>
+											</select>
+										</div>
+									</div>
+
+									<div>
+										<label class="label-royal">Period</label>
+										<select id="in_period" class="input-royal" onchange="updatePreview()">
+											<option value="Daily">Daily</option>
+											<option value="Weekly">Weekly</option>
+											<option value="Monthly">Monthly</option>
+										</select>
+									</div>
+
+									<div>
+										<label class="label-royal">Care Type (Auto)</label>
+										<select id="careType"
+											class="input-royal bg-white border-royal-gold/50 font-bold" disabled>
+											<option value="Caregiver">Caregiver</option>
+											<option value="Nurse">Nurse</option>
+											<option value="Physiotherapist">Physiotherapist</option>
+											<option value="Attendant">Attendant</option>
+										</select>
+									</div>
+								</div>
+
+
+							</div>
+
+
+							<!-- 3. Engagement Details (NEW Section) -->
+							<div class="space-y-4">
+								<h4
+									class="text-xs font-bold text-royal-blue uppercase tracking-widest border-b border-gray-100 pb-2">
+									3. Engagement Details</h4>
+								<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+									<div>
+										<label class="label-royal">Interest Level</label>
+										<select id="interestLevel" class="input-royal"
+											onchange="updateFormVisibility(); updatePreview()">
+											<option value="Low">Low</option>
+											<option value="Medium">Medium</option>
+											<option value="High" selected>High</option>
+										</select>
+									</div>
+									<div>
+										<label class="label-royal">Engagement Status</label>
+										<select id="engagementStatus" class="input-royal"
+											onchange="updateFormVisibility(); updatePreview()">
+											<option value="Pending">Pending</option>
+											<option value="Follow-up">Follow-up</option>
+											<option value="Quote Sent">Quote Sent</option>
+											<option value="Confirmed">Confirmed</option>
+											<option value="Not Interested">Not Interested</option>
+										</select>
+									</div>
+									<div>
+										<label class="label-royal">Source</label>
+										<select id="source" class="input-royal" onchange="updatePreview()">
+											<option value="Google Search">Google Search</option>
+											<option value="Doctor Referral">Doctor Referral</option>
+											<option value="Social Media">Social Media</option>
+											<option value="Word of Mouth">Word of Mouth</option>
+											<option value="Returning Client">Returning Client</option>
+										</select>
+									</div>
+								</div>
+								<div>
+									<label class="label-royal">Engagement Notes</label>
+									<textarea id="in_notes" class="input-royal h-20"
+										placeholder="Key discussion points, preferences, etc."
+										oninput="updatePreview()"></textarea>
+								</div>
+							</div>
+
+							<script>
+								function updateFormVisibility() {
+									const interest = document.getElementById('interestLevel').value;
+									const status = document.getElementById('engagementStatus').value;
+									const allocStatus = document.getElementById('shiftStatus')?.value;
+									const paymentMade = document.getElementById('paymentMade')?.checked;
+
+									const finSec = document.getElementById('financialSection');
+									const staffSec = document.getElementById('staffSection');
+
+									// Show Financials when status warrants it
+									const showFinancials = (interest === 'High' || interest === 'Medium') ||
+										(status === 'Confirmed' || status === 'Quote Sent' || status === 'Follow-up') ||
+										(allocStatus && (allocStatus === 'Confirmed' || allocStatus === 'Quote Sent' || allocStatus === 'Follow-up'));
+
+									if (showFinancials) {
+										finSec.classList.remove('hidden');
+									} else {
+										finSec.classList.add('hidden');
+									}
+
+									// Staff section ONLY appears after payment confirmation
+									if (paymentMade) {
+										staffSec.classList.remove('hidden', 'opacity-60', 'pointer-events-none', 'filter', 'grayscale');
+									} else {
+										staffSec.classList.add('hidden');
+									}
+								}
+							</script>
+
+							<!-- 4. Referral Details (Moved Up & Always Visible) -->
+							<div class="space-y-4">
+								<h4
+									class="text-xs font-bold text-royal-blue uppercase tracking-widest border-b border-gray-100 pb-2">
+									4. Referral Details</h4>
+								<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+									<div class="space-y-4">
+										<div class="grid grid-cols-2 gap-2">
+											<input type="text" id="referralName" class="input-royal col-span-2"
+												placeholder="Referral Name">
+											<input type="text" id="referralCode" class="input-royal" placeholder="Code">
+											<input type="number" id="referralCredit" class="input-royal"
+												placeholder="Credit (₹)">
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- 5. Financials (Hidden by default, shown if Confirmed/Quote) -->
+							<div id="financialSection" class="hidden space-y-4 animate-fade-in">
+								<h4
+									class="text-xs font-bold text-royal-gold uppercase tracking-widest border-b border-gray-100 pb-2">
+									5. Financials</h4>
+								<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+									<div class="col-span-1 sm:col-span-1"><label class="label-royal">Min Rate
+											(₹)</label><input type="number" id="min_rate" class="input-royal bg-gray-50"
+											value="800" readonly></div>
+									<div class="col-span-1 sm:col-span-1"><label class="label-royal">Quote Rate
+											(₹)</label><input type="number" id="max_rate" class="input-royal bg-gray-50"
+											value="1500" readonly>
+									</div>
+									<div class="col-span-1 sm:col-span-1"><label class="label-royal">Rate Agreed
+											(₹)</label><input type="number" id="rate_agreed"
+											class="input-royal border-green-200" oninput="calcTotal()">
+									</div>
+									<div class="col-span-1 sm:col-span-1"><label class="label-royal">Paid For
+											(Qty)</label><input type="number" id="paid_for_qty" class="input-royal"
+											placeholder="Days/Visits" oninput="calcTotal()"></div>
+								</div>
+
+								<!-- Payment Checkbox -->
+								<div class="flex items-center gap-2 pt-2">
+									<input type="checkbox" id="paymentMade"
+										onchange="updateFormVisibility(); updatePreview()"
+										class="w-5 h-5 text-royal-gold rounded focus:ring-royal-gold cursor-pointer">
+									<label for="paymentMade"
+										class="text-sm font-bold text-gray-700 cursor-pointer select-none">Payment
+										Received?</label>
+								</div>
+
+								<div class="flex justify-between items-center bg-royal-blue p-4 rounded-xl text-white">
+									<div>
+										<p class="text-[10px] uppercase font-bold text-royal-gold">Final Net Amount
+										</p>
+										<h2 class="text-2xl font-serif font-bold" id="display_total">₹ 0.00</h2>
+									</div>
+									<div class="text-right">
+										<p class="text-[10px] uppercase font-bold opacity-60">Status</p>
+										<p class="text-xs font-bold">Calculation Live</p>
+									</div>
+								</div>
+
+								<!-- Allocation Status (syncs with Allocation Tracker) -->
+								<div class="mt-4 border-t border-gray-100 pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+									<div>
+										<label class="label-royal">Allocation Status</label>
+										<select id="shiftStatus" class="input-royal font-bold text-royal-blue bg-white"
+											onchange="updateFormVisibility(); updatePreview()">
+											<option value="Pending">Pending</option>
+											<option value="Quote Sent">Quote Sent</option>
+											<option value="Follow-up">Follow-up</option>
+											<option value="Confirmed">Confirmed</option>
+											<option value="Active">Active</option>
+											<option value="Payment Pending">Payment Pending</option>
+											<option value="Staff Issue">Staff Issue</option>
+											<option value="Terminated">Terminated</option>
+										</select>
+									</div>
+								</div>
+							</div>
+
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+								<!-- 5. Referral Details (NEW Section) -->
+
+
+							</div>
+
+							<div id="staffSection"
+								class="hidden animate-fade-in space-y-6 opacity-60 pointer-events-none filter grayscale transition-all duration-300">
+								<h4
+									class="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 pb-2">
+									6. Staff Allocation (Only active after payment confirmation)</h4>
+
+								<!-- PRIMARY STAFF -->
+								<div
+									class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group hover:border-royal-blue/30 transition-all">
+									<div class="absolute top-0 left-0 w-1 h-full bg-royal-blue"></div>
+									<div class="space-y-4">
+										<div class="flex justify-between items-center mb-1">
+											<label id="staffLabel1"
+												class="label-royal text-sm font-bold text-royal-blue">Primary
+												Staff</label>
+											<span
+												class="text-[10px] uppercase font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-100">Primary</span>
+										</div>
+
+										<!-- Staff Search -->
+										<div class="relative">
+											<label class="label-royal text-[10px]">Search Staff (by name or
+												mobile)</label>
+											<input type="text" id="primaryStaffSearch" class="input-royal"
+												placeholder="Type name or mobile to search..."
+												oninput="searchStaffForAllocation('primary', this.value)">
+											<div id="primaryStaffDropdown"
+												class="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto hidden">
+											</div>
+										</div>
+
+										<!-- Row 1: Name, Age, Gender -->
+										<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+											<div class="sm:col-span-2">
+												<label class="label-royal">Full Name</label>
+												<input type="text" id="primaryStaffName"
+													class="input-royal bg-gray-50 pointer-events-none font-bold"
+													placeholder="Full Name" readonly>
+											</div>
+											<div class="col-span-1">
+												<label class="label-royal">Age</label>
+												<input type="number" id="primaryStaffAge"
+													class="input-royal bg-gray-50 pointer-events-none" placeholder="Age"
+													readonly>
+											</div>
+											<div class="col-span-1">
+												<label class="label-royal">Gender</label>
+												<select id="primaryStaffGender"
+													class="input-royal bg-gray-50 pointer-events-none">
+													<option value="">Gender</option>
+													<option value="Male">Male</option>
+													<option value="Female">Female</option>
+													<option value="Other">Other</option>
+												</select>
+											</div>
+										</div>
+
+										<!-- Row 2: Location, Sub-Location, Mobile -->
+										<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+											<div>
+												<label class="label-royal">Location</label>
+												<input type="text" id="primaryStaffLocation"
+													class="input-royal bg-gray-50 pointer-events-none"
+													placeholder="Location" readonly>
+											</div>
+											<div>
+												<label class="label-royal">Sub-Location</label>
+												<input type="text" id="primaryStaffSubLocation"
+													class="input-royal bg-gray-50 pointer-events-none"
+													placeholder="Sub-Location" readonly>
+											</div>
+											<div>
+												<label class="label-royal">Mobile</label>
+												<input type="text" id="primaryStaffMobile"
+													class="input-royal bg-gray-50 pointer-events-none"
+													placeholder="Mobile Number" readonly>
+											</div>
+										</div>
+
+										<!-- Row 3: Aadhaar, PAN -->
+										<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+											<div>
+												<label class="label-royal">Aadhaar No.</label>
+												<input type="text" id="primaryStaffAadhaar"
+													class="input-royal bg-gray-50 pointer-events-none font-mono"
+													placeholder="Aadhaar Number" readonly>
+											</div>
+											<div>
+												<label class="label-royal">PAN</label>
+												<input type="text" id="primaryStaffPan"
+													class="input-royal bg-gray-50 pointer-events-none font-mono"
+													placeholder="PAN Number" readonly>
+											</div>
+										</div>
+
+										<!-- Row 4: Address -->
+										<div>
+											<label class="label-royal">Address</label>
+											<textarea id="primaryStaffAddress"
+												class="input-royal h-16 bg-gray-50 pointer-events-none text-sm"
+												placeholder="Staff Address" readonly></textarea>
+										</div>
+
+										<!-- Row 5: Payment, Note -->
+										<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+											<div>
+												<label class="label-royal text-emerald-600">Staff Payment (₹)</label>
+												<input type="number" id="primaryStaffPayment"
+													class="input-royal border-emerald-300 font-bold"
+													placeholder="Payment Amount">
+											</div>
+											<div class="sm:col-span-1 lg:col-span-2">
+												<label class="label-royal">Note</label>
+												<input type="text" id="primaryStaffNote" class="input-royal"
+													placeholder="Special instructions / notes">
+											</div>
+										</div>
+									</div>
+									<div id="primaryAddStaffBtnWrapper">
+										<button type="button" onclick="addExtraStaff()"
+											class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-500 hover:border-royal-gold hover:text-royal-gold hover:bg-orange-50 transition-all shadow-sm">
+											<i class="fa-solid fa-plus-circle"></i>
+											<span class="btnAddStaffLabelDyn">Additional Staff</span>
+										</button>
+									</div>
+								</div>
+
+								<!-- Hidden: Staff ID for linking -->
+								<input type="hidden" id="primaryStaffId">
+							</div>
+					</div>
+
+					<!-- ADDITIONAL STAFF CONTAINER -->
+					<div id="extraStaffContainer" class="space-y-4">
+					</div>
+
+
+				</div>
+
+				<!-- Action Buttons at Bottom of Form -->
+				<div class="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
+					<button type="button" onclick="resetForm()" id="btnResetForm"
+						class="px-6 py-3 bg-white border border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-gray-50 transition-all text-xs uppercase tracking-wider flex items-center gap-2">
+						<i class="fa-solid fa-rotate-left"></i>
+						Reset
+					</button>
+					<button type="button" onclick="saveInquiryRecord()" id="btnSaveInquiry"
+						class="flex-1 md:flex-none px-8 py-3 bg-royal-blue text-white rounded-xl font-bold hover:shadow-lg hover:-translate-y-0.5 transition-all shadow-md text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+						<i class="fa-solid fa-cloud-arrow-up"></i>
+						Save Inquiry
+					</button>
+					<button type="button" onclick="downloadCurrentInquiry()" id="btnDownloadInquiry" disabled
+						class="flex-1 md:flex-none px-8 py-3 bg-gray-100 text-gray-400 rounded-xl font-bold cursor-not-allowed transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2">
+						<i class="fa-solid fa-file-pdf"></i>
+						Download PDF
+					</button>
+				</div>
+				</form>
+			</div>
+			</div>
+
+			<div class="xl:w-[45%]">
+				<div class="sticky top-28 space-y-6">
+
+					<div class="flex justify-between items-center">
+						<h3 class="font-serif text-lg font-bold text-royal-blue">Document Preview</h3>
+					</div>
+
+					<div class="bg-white p-1 rounded-full border border-gray-200 shadow-sm grid grid-cols-4 gap-1">
+						<button onclick="setActiveDocType('invoice')" id="btn-invoice"
+							class="py-2 rounded-full text-xs font-semibold transition-all duration-300">
+							Invoice
+						</button>
+						<button onclick="setActiveDocType('nurseagreement')" id="btn-nurse"
+							class="py-2 rounded-full text-xs font-semibold transition-all duration-300">
+							Nurse Agr.
+						</button>
+						<button onclick="setActiveDocType('patientagreement')" id="btn-patient"
+							class="py-2 rounded-full text-xs font-semibold transition-all duration-300">
+							Patient Agr.
+						</button>
+						<button onclick="setActiveDocType('warning')" id="btn-warning"
+							class="py-2 rounded-full text-xs font-semibold transition-all duration-300">
+							Warning
+						</button>
+					</div>
+
+					<div class="bg-gray-200/50 rounded-lg border border-gray-200 flex justify-center items-start pt-4 overflow-y-auto overflow-x-hidden"
+						style="max-height: 85vh;">
+
+						<div id="preview-wrapper"
+							style="transform: scale(0.85); transform-origin: top center; transition: margin-bottom 0.3s ease;">
+							<div id="preview-capture-area">
+								<div id="letterhead-live"></div>
+							</div>
+						</div>
+
+					</div>
+
+					<div class="royal-card p-4 bg-amber-50 border-amber-200">
+						<p class="text-[10px] text-amber-800 leading-relaxed italic">
+							<i class="fas fa-info-circle mr-1"></i> <b>Live Preview.</b> Select a document type
+							above to switch views. Final PDF is vector quality.
+						</p>
+					</div>
+				</div>
+			</div>
+			</div>
+		</section>
+
+		<!-- SECTION 5: OFFICIAL DOCUMENTS - PREMIUM REDESIGN -->
+		<section id="officialdocs" class="page-section hidden animate-fade-in">
+
+			<!-- Elite Header with Gradient Background -->
+			<div class="relative mb-8 md:mb-10 -mx-4 md:-mx-6 -mt-6 md:-mt-8 px-4 md:px-6 pt-6 md:pt-8 pb-8 md:pb-10 overflow-hidden"
+				style="background: linear-gradient(135deg, #002147 0%, #003d7a 100%);">
+				<!-- Decorative Elements -->
+				<div
+					class="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-royal-gold opacity-5 rounded-full blur-3xl">
+				</div>
+				<div
+					class="absolute bottom-0 left-0 w-48 md:w-64 h-48 md:h-64 bg-white opacity-5 rounded-full blur-2xl">
+				</div>
+
+				<div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+					<div>
+						<div class="flex items-center gap-3 mb-2 md:mb-3">
+							<div
+								class="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center">
+								<i class="fas fa-file-contract text-xl md:text-2xl" style="color:#C5A065"></i>
+							</div>
+							<div>
+								<h1 class="font-serif text-2xl md:text-4xl font-bold text-white tracking-tight">Official
+									Documents
+								</h1>
+								<p class="text-white/60 text-xs md:text-sm mt-0.5 md:mt-1 font-light">Enterprise
+									Document Creation Suite
+								</p>
+							</div>
+						</div>
+					</div>
+					<div class="flex items-center gap-3">
+						<!-- Admin Badge -->
+						<div class="px-4 md:px-5 py-2 md:py-2.5 rounded-full backdrop-blur-md border border-white/20 flex items-center gap-2"
+							style="background: rgba(255,255,255,0.1);">
+							<div class="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-400 animate-pulse"></div>
+							<span class="text-[10px] md:text-xs font-bold text-white uppercase tracking-wider">Admin
+								Access</span>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Main Content Grid -->
+			<div class="flex flex-col xl:flex-row gap-8">
+
+				<!-- LEFT PANEL: Document Input (55%) -->
+				<div class="xl:w-[55%] space-y-6">
+
+					<!-- Document Configuration Card -->
+					<div class="royal-card p-8 border-l-4" style="border-left-color: #C5A065;">
+						<div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+							<div
+								class="w-10 h-10 rounded-lg bg-gradient-to-br from-royal-blue to-blue-900 flex items-center justify-center shadow-md">
+								<i class="fas fa-cog text-white"></i>
+							</div>
+							<div>
+								<h3 class="font-serif text-lg font-bold text-royal-blue">Document Configuration</h3>
+								<p class="text-xs text-gray-400">Select type and basic information</p>
+							</div>
+						</div>
+
+						<form id="officialDocForm" class="space-y-5">
+
+
+							<!-- Document Type & Date -->
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<label class="label-royal flex items-center gap-2">
+										<i class="fas fa-file-alt text-royal-gold text-xs"></i> Document Type
+									</label>
+									<select id="docType" class="input-royal" onchange="handleDocTypeChange()">
+										<option value="">Select Type...</option>
+										<option value="Offer Letter">Offer Letter</option>
+										<option value="Experience Certificate">Experience Certificate</option>
+										<option value="NOC">No Objection Certificate</option>
+										<option value="Policy Letter">Policy Letter</option>
+										<option value="Memo">Internal Memo</option>
+										<option value="Appointment Letter">Appointment Letter</option>
+										<option value="Termination Letter">Termination Letter</option>
+										<option value="Reference Letter">Reference Letter</option>
+										<option value="Custom">Custom Document</option>
+									</select>
+								</div>
+								<div>
+									<label class="label-royal flex items-center gap-2">
+										<i class="fas fa-calendar-day text-royal-gold text-xs"></i> Date
+									</label>
+									<input type="date" id="docDate" class="input-royal"
+										onchange="updateOfficialPreview()">
+								</div>
+							</div>
+
+							<!-- ADDED: Custom Document Type Input (appears when Custom is selected) -->
+							<div id="customDocTypeContainer" class="hidden">
+								<label class="label-royal flex items-center gap-2">
+									<i class="fas fa-edit text-royal-gold text-xs"></i>
+									Custom Document Type
+									<span class="text-xs text-royal-gold">(This will appear in the header)</span>
+								</label>
+								<input type="text" id="customDocType" class="input-royal border-royal-gold"
+									placeholder="e.g., Salary Certificate, Transfer Letter, etc."
+									oninput="updateOfficialPreview()">
+							</div>
+
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+								<div>
+									<div class="flex items-center justify-between mb-1">
+										<label class="label-royal flex items-center gap-2">
+											<i class="fas fa-map-marker-alt text-royal-gold text-xs"></i> Location
+										</label>
+										<label class="flex items-center gap-2 cursor-pointer text-xs text-gray-500">
+											<input type="checkbox" id="showDocLocation"
+												class="w-3 h-3 rounded text-blue-600 focus:ring-blue-500"
+												onchange="updateOfficialPreview()">
+											Show City
+										</label>
+									</div>
+									<select id="docLocation" class="input-royal"
+										onchange="if(window.updateDocSubLocations) window.updateDocSubLocations(); updateOfficialPreview()">
+										<option value="">Select City...</option>
+									</select>
+								</div>
+								<div>
+									<div class="flex items-center justify-between mb-1">
+										<label class="label-royal flex items-center gap-2">
+											<i class="fas fa-map-signs text-royal-gold text-xs"></i> Sub-Location
+										</label>
+										<label class="flex items-center gap-2 cursor-pointer text-xs text-gray-500">
+											<input type="checkbox" id="showDocSubLocation"
+												class="w-3 h-3 rounded text-blue-600 focus:ring-blue-500"
+												onchange="updateOfficialPreview()">
+											Show Zone
+										</label>
+									</div>
+									<select id="docSublocation" class="input-royal" onchange="updateOfficialPreview()">
+										<option value="">Zone (Blank)</option>
+									</select>
+								</div>
+							</div>
+
+							<!-- Reference Number -->
+							<div>
+								<label class="label-royal flex items-center gap-2">
+									<i class="fas fa-hashtag text-royal-gold text-xs"></i>
+									Reference No.
+									<span class="text-gray-400 font-normal text-10px">(Auto-Generated)</span>
+								</label>
+								<div class="relative">
+									<input type="text" id="docRefNo"
+										class="input-royal font-mono bg-gray-50 text-gray-500 cursor-not-allowed"
+										placeholder="VCF/TYPE-LOC-DATE-SEQ" readonly>
+									<i
+										class="fas fa-magic absolute right-3 top-3 text-royal-gold opacity-50 animate-pulse"></i>
+								</div>
+							</div>
+
+						</form>
+
+					</div>
+
+					<!-- Addressee Details Card (Collapsible) -->
+					<div class="royal-card p-8 border-l-4 border-l-blue-400">
+						<div class="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
+							<div class="flex items-center gap-3">
+								<div
+									class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md">
+									<i class="fas fa-user text-white"></i>
+								</div>
+								<div>
+									<h3 class="font-serif text-lg font-bold text-royal-blue">Addressee Details</h3>
+									<p class="text-xs text-gray-400">Recipient information (optional)</p>
+								</div>
+							</div>
+							<button type="button"
+								onclick="document.getElementById('addresseeSection').classList.toggle('hidden')"
+								class="text-gray-400 hover:text-royal-blue transition-colors">
+								<i class="fas fa-chevron-down"></i>
+							</button>
+						</div>
+
+						<div id="addresseeSection" class="space-y-4">
+
+							<!-- Display Options Row 1 -->
+							<div class="flex flex-wrap items-center gap-4 mb-2 p-3 rounded-lg"
+								style="background:#F8FAFC; border:1px solid #E2E8F0;">
+								<label class="flex items-center gap-2 cursor-pointer text-xs text-gray-600">
+									<input type="checkbox" id="showToPrefix" checked onchange="updateOfficialPreview()"
+										class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+									Show "To,"
+								</label>
+								<label class="flex items-center gap-2 cursor-pointer text-xs text-gray-600">
+									<input type="checkbox" id="showDocType" checked onchange="updateOfficialPreview()"
+										class="w-3.5 h-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+									Show Doc Type
+								</label>
+								<div class="flex items-center gap-1">
+									<label class="text-xs font-semibold text-gray-500">Name</label>
+									<select id="nameFontSize" class="input-royal"
+										style="width:auto; padding:2px 6px; font-size:0.7rem;"
+										onchange="updateOfficialPreview()">
+										<option value="0.875rem">14px</option>
+										<option value="1rem">16px</option>
+										<option value="1.1rem" selected>17px</option>
+										<option value="1.25rem">20px</option>
+										<option value="1.5rem">24px</option>
+									</select>
+								</div>
+								<div class="flex items-center gap-1">
+									<label class="text-xs font-semibold text-gray-500">Subject</label>
+									<select id="subjectFontSize" class="input-royal"
+										style="width:auto; padding:2px 6px; font-size:0.7rem;"
+										onchange="updateOfficialPreview()">
+										<option value="0.75rem">12px</option>
+										<option value="0.875rem" selected>14px</option>
+										<option value="1rem">16px</option>
+										<option value="1.1rem">17px</option>
+										<option value="1.25rem">20px</option>
+									</select>
+								</div>
+								<div class="flex items-center gap-1">
+									<label class="text-xs font-semibold text-gray-500">Spacing</label>
+									<select id="lineSpacing" class="input-royal"
+										style="width:auto; padding:2px 6px; font-size:0.7rem;"
+										onchange="updateOfficialPreview()">
+										<option value="2px">Tight</option>
+										<option value="4px" selected>Normal</option>
+										<option value="8px">Relaxed</option>
+										<option value="12px">Loose</option>
+									</select>
+								</div>
+							</div>
+
+							<!-- Recipient Details -->
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<label class="label-royal flex items-center gap-2">
+										<i class="fas fa-user-circle text-blue-500 text-xs"></i>
+										Recipient Name
+									</label>
+									<input type="text" id="docRecipient" class="input-royal" placeholder="Full Name"
+										oninput="updateOfficialPreview()">
+								</div>
+								<div>
+									<label class="label-royal flex items-center gap-2">
+										<i class="fas fa-id-badge text-blue-500 text-xs"></i>
+										Designation
+									</label>
+									<input type="text" id="docDesignation" class="input-royal"
+										placeholder="e.g., Senior Nurse" oninput="updateOfficialPreview()">
+								</div>
+							</div>
+
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<label class="label-royal flex items-center gap-2">
+										<i class="fas fa-building text-blue-500 text-xs"></i>
+										Company Name
+									</label>
+									<input type="text" id="docCompanyName" class="input-royal"
+										placeholder="e.g., ABC Corp" oninput="updateOfficialPreview()">
+								</div>
+							</div>
+
+							<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<label class="label-royal flex items-center justify-between gap-2">
+										<span><i class="fas fa-phone text-blue-500 text-xs"></i> Mobile
+											Number</span>
+										<button type="button" onclick="autoFetchEmployee()"
+											class="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold hover:bg-blue-100 transition-colors">Auto-fill</button>
+									</label>
+									<input type="tel" id="docMobile" class="input-royal" placeholder="+91..."
+										oninput="updateOfficialPreview()">
+								</div>
+								<div class="md:col-span-2">
+									<label class="label-royal flex items-center gap-2">
+										<i class="fas fa-map-marker-alt text-blue-500 text-xs"></i>
+										Address
+									</label>
+									<textarea id="docAddress" class="input-royal h-20" placeholder="Full Postal Address"
+										oninput="updateOfficialPreview()"></textarea>
+								</div>
+							</div>
+						</div>
+
+					</div>
+
+					<!-- Subject -->
+					<div class="royal-card p-6 border-l-4 border-l-purple-400">
+						<label class="label-royal flex items-center gap-2 mb-2">
+							<i class="fas fa-heading text-purple-500 text-xs"></i>
+							Subject / Title
+						</label>
+						<input type="text" id="docSubject" class="input-royal font-bold text-gray-700"
+							placeholder="e.g., SUB: Appointment Letter for the post of Senior Nurse"
+							oninput="updateOfficialPreview()">
+					</div>
+
+					<!-- Content Editor Card -->
+					<div class="royal-card p-8 border-l-4 border-l-green-400">
+						<div class="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+							<div
+								class="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-green-700 flex items-center justify-center shadow-md">
+								<i class="fas fa-edit text-white"></i>
+							</div>
+							<div class="flex-1">
+								<h3 class="font-serif text-lg font-bold text-royal-blue">Document Content</h3>
+								<p class="text-xs text-gray-400">Compose your letter</p>
+							</div>
+							<div class="text-xs text-gray-400 font-mono" id="charCount">0 characters</div>
+						</div>
+
+						<div class="bg-white rounded-lg border border-gray-200 shadow-inner">
+							<div id="quillEditor" style="height: 500px; font-family: 'Inter', sans-serif;"></div>
+
+							<input type="hidden" id="docContent">
+						</div>
+					</div>
+
+					<div class="royal-card p-8 border-l-4 border-l-orange-400">
+						<div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+							<div
+								class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center shadow-md">
+								<i class="fas fa-signature text-white"></i>
+							</div>
+							<div>
+								<h3 class="font-serif text-lg font-bold text-royal-blue">Authorized Signature</h3>
+								<p class="text-xs text-gray-400">Upload or remove digital signature</p>
+							</div>
+						</div>
+
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+							<div>
+								<label class="label-royal mb-2">Upload Signature Image</label>
+								<div class="flex items-center gap-3">
+									<label
+										class="cursor-pointer bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition-all shadow-sm flex items-center gap-2">
+										<i class="fas fa-upload"></i> Choose File
+										<input type="file" id="signatureInput" accept="image/*" class="hidden"
+											onchange="handleSignatureUpload(this)">
+									</label>
+									<button type="button" onclick="removeSignature()"
+										class="text-red-500 hover:text-red-700 text-xs font-bold underline">Remove</button>
+								</div>
+								<p class="text-[10px] text-gray-400 mt-2">Recommended: Transparent PNG, 200x80px</p>
+							</div>
+
+							<div
+								class="border-2 border-dashed border-gray-200 rounded-lg p-4 flex flex-col items-center justify-center h-24 bg-gray-50 relative overflow-hidden group">
+								<img id="signaturePreview" src="" class="hidden max-h-16 max-w-full object-contain z-10"
+									alt="Signature Preview">
+								<div id="signaturePlaceholder" class="text-center">
+									<i class="fas fa-signature text-gray-300 text-xl mb-1"></i>
+									<p class="text-[10px] text-gray-400">No signature uploaded</p>
+								</div>
+							</div>
+						</div>
+
+					</div>
+
+
+					<!-- Settings & Actions Card -->
+					<div class="royal-card p-6">
+						<div class="flex items-center justify-between gap-4">
+							<!-- Signature Toggle -->
+							<label class="flex items-center gap-3 cursor-pointer group">
+								<input type="checkbox" id="includeSignature"
+									class="w-5 h-5 rounded border-2 border-gray-300 text-royal-blue focus:ring-2 focus:ring-royal-gold"
+									checked onchange="updateOfficialPreview()">
+								<span class="text-sm text-gray-700 group-hover:text-royal-blue transition-colors">
+									<i class="fas fa-signature text-royal-gold mr-2"></i>
+									Include signature section
+								</span>
+							</label>
+
+							<!-- Thank You Note Toggle -->
+							<label class="flex items-center gap-3 cursor-pointer group">
+								<input type="checkbox" id="includeThankYouInOfficialDoc"
+									class="w-5 h-5 rounded border-2 border-gray-300 text-royal-blue focus:ring-2 focus:ring-royal-gold"
+									onchange="updateOfficialPreview()">
+								<span class="text-sm text-gray-700 group-hover:text-royal-blue transition-colors">
+									<i class="fas fa-heart text-royal-gold mr-2"></i>
+									Include Thank You Note
+								</span>
+							</label>
+
+
+							<!-- Action Buttons -->
+							<div class="flex gap-3">
+								<!-- Clear Button -->
+								<button type="button"
+									onclick="event.preventDefault(); event.stopPropagation(); clearOfficialDocForm();"
+									class="px-5 py-2.5 bg-white border-2 border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:border-royal-blue hover:text-royal-blue transition-all shadow-sm">
+									<i class="fas fa-eraser mr-2"></i>Clear
+								</button>
+								<!-- Save Button -->
+								<button id="btnSaveOfficial" onclick="saveOfficialDocument()"
+									class="px-5 py-2.5 bg-royal-gold hover:bg-yellow-600 text-white rounded-lg font-bold shadow-lg transition flex items-center gap-2 text-sm uppercase tracking-wider">
+									<i class="fas fa-save"></i> Save
+								</button>
+								<!-- Download Button -->
+								<button type="button" id="btnDownloadOfficial" disabled
+									onclick="event.preventDefault(); event.stopPropagation(); downloadOfficialDoc()"
+									class="px-6 py-2.5 rounded-lg text-sm font-bold shadow-lg transition-all transform hover:scale-105 bg-gray-100 text-gray-400 cursor-not-allowed"
+									data-target="officialdocs">
+									<i class="fas fa-download mr-2"></i>Download PDF
+								</button>
+							</div>
+						</div>
+					</div>
+
+				</div>
+
+				<!-- RIGHT PANEL: Live Preview (45%) -->
+				<div class="w-full xl:w-[45%]">
+					<div class="sticky top-28 space-y-4">
+
+						<!-- Preview Header -->
+						<div class="royal-card p-5">
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-3">
+									<div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+										<i class="fas fa-eye text-purple-600"></i>
+									</div>
+									<div>
+										<h3 class="font-serif text-base font-bold text-royal-blue">Live Preview</h3>
+										<p class="text-10px text-gray-400 uppercase tracking-wider">Real-time
+											rendering
+										</p>
+									</div>
+								</div>
+								<div class="flex items-center gap-2">
+									<div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+									<span class="text-10px text-gray-500 font-medium">ACTIVE</span>
+								</div>
+							</div>
+						</div>
+
+						<!-- Preview Container -->
+						<div class="royal-card p-4 bg-gray-50">
+							<div class="bg-white rounded-lg shadow-2xl overflow-hidden" style="height: 700px;">
+								<div class="w-full h-full overflow-y-auto overflow-x-hidden overscroll-none flex justify-center items-start p-4"
+									style="background: #f8fafc;">
+									<div id="official-preview-wrapper"
+										style="transform: scale(0.85); transform-origin: top center;">
+										<div id="official-preview-capture">
+											<div id="official-letterhead-live"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Preview Info -->
+							<div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+								<div class="flex items-start gap-3">
+									<i class="fas fa-info-circle text-blue-500 mt-1"></i>
+									<div class="flex-1 text-xs text-blue-800">
+										<p class="font-bold mb-1">Preview Information</p>
+										<p class="leading-relaxed">Your document updates instantly as you type. The
+											final PDF will be A4 size with full letterhead, watermark, header, and
+											footer.</p>
+									</div>
+								</div>
+							</div>
+						</div>
+
+					</div>
+				</div>
+			</div>
+
+			</div>
+		</section>
+
+
+
+	</main>
+
+	<!-- JS Logic -->
+	<!-- LOAD TEMPLATE MODULES BEFORE MAIN SCRIPT -->
+	<script src="templates/shared.js"></script>
+	<script src="templates/agreements.js"></script>
+	<script src="templates/invoice.js"></script>
+	<script src="templates/official.js"></script>
+
+	<!-- JS Logic -->
+	<script>
+		// ============================================================================
+		// NAVIGATION SYSTEM
+		// ============================================================================
+
+		// --- Global State ---
+		let activeDocType = 'invoice';
+		let quill; // Global Quill instance
+		let signatureDataUrl = null; // Store the signature image data
+
+		// ============================================================================
+		// GLOBAL FUNCTIONS (callable from inline onclick handlers)
+		// ============================================================================
+
+		window.navigateTo = function (targetId) {
+			document.querySelectorAll('.page-section').forEach(el => {
+				el.classList.add('hidden');
+				el.classList.remove('block');
+			});
+
+			const target = document.getElementById(targetId);
+			if (!target) return console.error('Section not found:', targetId);
+
+			target.classList.remove('hidden');
+			target.classList.add('block');
+
+			document.querySelectorAll('.nav-item').forEach(btn => {
+				const active = btn.dataset.target === targetId;
+				btn.classList.toggle('text-royal-blue', active);
+				btn.classList.toggle('font-bold', active);
+				btn.classList.toggle('text-gray-500', !active);
+			});
+
+			if (targetId === 'dashboard') renderDashboardChart();
+			if (targetId === 'inquiry') setActiveDocType('invoice');
+			if (targetId === 'officialdocs') {
+				activeDocType = 'official';
+				updateOfficialPreview();
+			}
+		}
+
+		window.setActiveDocType = function (type) {
+			activeDocType = type;
+
+			// UI Helpers
+			const buttons = {
+				'invoice': document.getElementById('btn-invoice'),
+				'nurseagreement': document.getElementById('btn-nurse'),
+				'patientagreement': document.getElementById('btn-patient'),
+				'warning': document.getElementById('btn-warning')
+			};
+
+			// Reset all
+			Object.values(buttons).forEach(btn => {
+				if (!btn) return;
+				btn.className = "py-2 rounded-full text-xs font-semibold text-gray-500 hover:bg-gray-50 transition-all duration-300";
+			});
+
+			// Set Active
+			if (buttons[type]) {
+				buttons[type].className = "py-2 rounded-full text-xs font-bold bg-royal-blue text-white shadow-md transition-all duration-300";
+			}
+
+			// Refresh Preview
+			updatePreview();
+		}
+
+		// CASCADING DROPDOWN DATA
+		const serviceLogic = {
+			"Plan A: Patient Attendant Care": [
+				"All",
+				"Basic Care",
+				"Assistance with Activities for Daily Living",
+				"Feeding & Oral Hygiene",
+				"Mobility Support & Transfers",
+				"Bed Bath and Emptying Bedpans and Changing Diapers",
+				"Catheter & Ostomy Care (If Attendant Knows)"
+			],
+			"Plan B: Skilled Nursing": [
+				"All",
+				"Intravenous (IV) Therapy & Injections",
+				"Medication Management & Administration",
+				"Advanced Wound Care & Dressing",
+				"Catheter & Ostomy Care",
+				"Post-Surgical Care"
+			],
+			"Plan C: Chronic Management": [
+				"All",
+				"Care for Bed-Ridden Patients",
+				"Dementia & Alzheimer's Care",
+				"Disability Support & Assistance"
+			],
+			"Plan D: Elderly Companion": [
+				"All",
+				"Companionship & Conversation",
+				"Fall Prevention & Mobility Support"
+			],
+			"Plan E: Maternal & Newborn": [
+				"All",
+				"Postnatal & Maternal Care",
+				"Newborn Care Assistance"
+			],
+			"Plan F: Rehabilitative Care": [
+				"Pain Management (Back, Knee, Neck, etc.)",
+				"Neuro Rehabilitation",
+				"Stroke Rehabilitation",
+				"Paralysis Rehabilitation",
+				"Parkinson's Rehabilitation",
+				"Post-Operative Rehabilitation",
+				"Orthopedic (Fractures)",
+				"Total Knee Replacement / Total Hip Replacement",
+				"Geriatric Wellness",
+				"Cardio-Respiratory",
+				"Pain Relief Pack",
+				"Mobility Pack",
+				"Active Recovery Pack",
+				"Acute Care Pack",
+				"Progressive Strength Training",
+				"Joint Stabilization & Proprioception",
+				"Women's Health (Antenatal/Postnatal)",
+				"Women's Health (Antenatal)",
+				"Women's Health (Postnatal)",
+				"Work-From-Home (Ergonomic) Care",
+				"Bedridden and Palliative Care",
+				"Bedridden",
+				"Palliative Care",
+				"Fall Proof Pack",
+				"Chest & Lungs Recovery Pack",
+				"Chest & Lungs (Post-Viral Pack)",
+				"Total Spine Pack",
+				"Walk Again Pack (Intensive)"
+			],
+			"AlaCarte": [
+				"Hospital Visits (Assistance with Family)",
+				"Hospital Visits (Care Coordination)",
+				"Doctor Visits (Home)",
+				"Diagnostic Services",
+				"Blood Collection",
+				"Nutrition Consultation (Home Visit)",
+				"Dietetic Consultation (Home Visit)",
+				"Hospital Discharge Pack",
+				"Dialysis Assistance (Visits)",
+				"Senior Wellness Pack",
+				"Ambulance Services",
+				"Medical Equipment Rental",
+				"ECG at Home",
+				"X-Ray at Home",
+				"Critical Care Setup (ICU at Home)"
+			]
+		};
+
+		// Detailed descriptions for Plan F & AlaCarte sub-services
+		const descriptionMap = {
+			// ---------- Plan F: Rehabilitative Care ----------
+			"Pain Management (Back, Knee, Neck, etc.)": "One or Combinations of: Manual Therapy (Maitland/Mulligan Mobilization), Soft Tissue Release/Massage, Kinesio-Taping application (Tape provided by client), Ergonomic & Postural Correction, Cryotherapy/Heat application (using home packs).",
+			"Neuro Rehabilitation": "One or Combinations of: Neuro-developmental Therapy (NDT) handling, Proprioceptive Neuromuscular Facilitation (PNF), Gross Motor function training, Tone management (Inhibitory/Facilitatory techniques).",
+			"Stroke Rehabilitation": "One or Combinations of: Hemiplegic Gait Training, Mirror Therapy concepts (using home mirror), Upper limb functional reaching tasks, Trunk control exercises, Sit-to-stand practice.",
+			"Paralysis Rehabilitation": "One or Combinations of: Passive Range of Motion (to prevent contractures), Bed mobility (rolling/transfer techniques), Pressure sore prevention positioning, Respiratory muscle training.",
+			"Parkinson’s Rehabilitation": "One or Combinations of: Cueing strategies (Auditory/Visual for freezing), Big & Loud movement therapy concepts, Rotational trunk exercises, Balance training against resistance.",
+			"Post-Operative Rehabilitation": "One or Combinations of: Edema management (Elevation/Massage), Graded Range of Motion exercises, Isometric muscle setting, Desensitization of scar tissue, Crutch/Walker training.",
+			"Orthopedic (Fracture)": "One or Combinations of: Patellar mobilization (for knee), Heel slides and Quadriceps activation, Gait re-education (weaning off walker), Functional stair climbing training.",
+			"Total Knee Replacement / Total Hip Replacement": "One or Combinations of: Patellar mobilization (for knee), Heel slides and Quadriceps activation, Gait re-education (weaning off walker), Functional stair climbing training.",
+			"Geriatric Wellness": "One or Combinations of: Fall Prevention Audit & Obstacle negotiation, General mobility exercises, Sit-to-stand endurance, Balance recovery strategies.",
+			"Cardio-Respiratory": "One or Combinations of: Postural Drainage (Positioning for secretion removal), Percussion/Vibrations, Active Cycle of Breathing Techniques (ACBT), Paced walking/Energy conservation techniques.",
+			"Pain Relief Pack": "Manual Therapy (Mobilization/Massage) and Heat/Cold application (using home packs). Focus: Symptom reduction.",
+			"Mobility Pack": "Assisted stretching, Passive Range of Motion of major joints, and Assisted walking. Focus: Joint stiffness reduction.",
+			"Active Recovery Pack": "Guided active exercise session, Foam rolling instruction (roller provided by client), and Cool-down stretching. Focus: Post-sport/exertion recovery.",
+			"Acute Care Pack": "R.I.C.E Protocol education, Lymphatic drainage massage (light touch), and Compression bandaging (bandage provided by client).",
+			"Progressive Strength Training": "One or Combinations of: Bodyweight resistance training (Calisthenics), Resistance Band exercises (bands provided by client), Functional lifting mechanics, Eccentric muscle loading.",
+			"Joint Stabilization & Proprioception": "One or Combinations of: Closed kinetic chain exercises, Single-leg balance tasks, Surface instability training (using pillows/cushions available at home), Perturbation training.",
+			"Women’s Health (Antenatal/Postnatal)": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
+			"Women’s Health (Antenatal)": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
+			"Women’s Health (Postnatal)": "One or Combinations of: Pelvic Floor Muscle Training (Kegels), Diastasis Recti assessment and correction, Core engagement, Posture correction for breastfeeding, Back care education.",
+			"Work-From-Home (Ergonomic) Care": "One or Combinations of: Workstation Assessment (Chair/Desk height advice), Neck/Upper Trap Release, Postural resetting exercises, 'Desk-Yoga' stretches.",
+			"Bedridden and Palliative Care": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
+			"Bedridden": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
+			"Palliative Care": "One or Combinations of: Passive movements for comfort, Positioning for pressure sore prevention, Gentle massage for circulation, Chest clearance positioning.",
+			"Fall Proof Pack": "Home Hazard Assessment (identifying rugs/cords), Balance & Coordination training, and Lower Limb Strengthening. Focus: Senior Safety.",
+			"Chest & Lungs Recovery Pack": "Spirometry Coaching (device by client), Deep breathing exercises, Thoracic expansion exercises, and fatigue management. Focus: Post-flu/Post-infection recovery.",
+			"Chest & Lungs (Post-Viral Pack)": "Spirometry Coaching (device by client), Deep breathing exercises, Thoracic expansion exercises, and fatigue management. Focus: Post-flu/Post-infection recovery.",
+			"Total Spine Pack": "Manual traction (manual handling only), Spinal mobilization, Core stabilization exercises, and Hamstring/Hip Flexor stretching. Focus: Chronic Back/Neck Pain.",
+			"Walk Again Pack (Intensive)": "Weight shifting drills, Standing tolerance building, Gait pattern correction, and outdoor terrain negotiation (if safe). Focus: Returning to independence.",
+
+			// ---------- AlaCarte: Other Services ----------
+			"Hospital Visits (Assistance with Family)": "Includes: One of the Family Member will be Present all the Time - Pick-up from residence, Management of hospital files/registration papers, Wheelchair assistance within hospital premises, Wait-time companionship, and drop-back to residence.",
+			"Hospital Visits (Care Coordination)": "Includes: Pick-up from residence, Management of hospital files/registration papers, Wheelchair assistance within hospital premises, Wait-time companionship, and drop-back to residence.",
+			"Doctor Visits (Home)": "General physical assessment (BP, Pulse, Chest Auscultation), Medication review (de-prescribing), and Written prescription generation.",
+			"Diagnostic Services": "Hygiene protocol adherence (gloves/sanitization), Sample collection (vacutainer method), Labeling sample in front of patient, and Digital report delivery coordination.",
+			"Blood Collection": "Hygiene protocol adherence (gloves/sanitization), Sample collection (vacutainer method), Labeling sample in front of patient, and Digital report delivery coordination.",
+			"Nutrition Consultation (Home Visit)": "Body Composition Analysis, Kitchen Audit (checking oil/salt/pantry staples), and Customized diet chart generation based on home cooking style.",
+			"Dietetic Consultation (Home Visit)": "Body Composition Analysis, Kitchen Audit (checking oil/salt/pantry staples), and Customized diet chart generation based on home cooking style.",
+			"Hospital Discharge Pack": "Ambulance Pickup + Medical Equipment Rental (Bed/Oxygen) + 1 Nurse Visit for Room Setup & Vitals Check.",
+			"Dialysis Assistance (Visits)": "Assisting patient down stairs/lift, Transport coordination, Post-dialysis snack assistance, and Monitoring for BP drops during return journey.",
+			"Senior Wellness Pack": "1 Doctor Visit + Full Body Blood Profile + 1 Nutrition Consultation + 1 Fall Prevention Audit.",
+			"Ambulance Services": "Coordination of BLS/ACLS ambulance, Transfer of patient from bed to stretcher (Bed-to-Bed service), and Vitals monitoring during transit.",
+			"Medical Equipment Rental": "Delivery logistics, On-site demonstration of usage (e.g., how to fill oxygen water, how to lock wheelchair brakes), Collection of security deposit, and rental agreement signing.",
+			"ECG at Home": "Lead placement on chest/limbs, Recording of trace, and Digital forwarding of graph to Cardiologist for reporting.",
+			"X-Ray at Home": "Setup of portable machine at bedside, Safety shielding for family members, and Immediate film/digital transfer.",
+			"Critical Care Setup (ICU at Home)": "Installation of Monitor/Ventilator/Suction, 24/7 Nurse Roster management, and Daily reporting to treating consultant."
+		};
+
+		// Initialize Quill on Load
+		window.addEventListener('DOMContentLoaded', () => {
+			// Init Dashboard Logic (Navigation handled by trailing listener)
+			setActiveDocType('invoice');
+			renderDashboardChart();
+			document.getElementById('in_date').valueAsDate = new Date();
+			initOfficialDoc();
+			updatePreview();
+
+			// Auto-update Warning tab when staff names change
+			const primaryStaffNameField = document.getElementById('primaryStaffName');
+			if (primaryStaffNameField) {
+				primaryStaffNameField.addEventListener('input', function () {
+					if (activeDocType === 'warning') {
+						updatePreview();
+					}
+				});
+			}
+
+			// Monitor extra staff container for dynamically added staff name fields
+			const extraStaffContainer = document.getElementById('extraStaffContainer');
+			if (extraStaffContainer) {
+				// Use MutationObserver to watch for new staff fields being added
+				const observer = new MutationObserver(function (mutations) {
+					mutations.forEach(function (mutation) {
+						mutation.addedNodes.forEach(function (node) {
+							if (node.nodeType === 1) { // Element node
+								const nameInputs = node.querySelectorAll('input[id*="name"]');
+								nameInputs.forEach(function (input) {
+									input.addEventListener('input', function () {
+										if (activeDocType === 'warning') {
+											updatePreview();
+										}
+									});
+								});
+							}
+						});
+					});
+				});
+
+				observer.observe(extraStaffContainer, { childList: true, subtree: true });
+			}
+
+			// Init Quill Editor
+			if (document.getElementById('quillEditor')) {
+				quill = new Quill('#quillEditor', {
+					theme: 'snow',
+					placeholder: 'Type your official document content here...',
+					modules: {
+						toolbar: [
+							// Font & Size
+							[{ 'font': [] }],
+							[{ 'size': ['small', false, 'large', 'huge'] }],
+
+							// Header
+							[{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+
+							// Formatting
+							['bold', 'italic', 'underline', 'strike'],
+
+							// Colors (Text & Background)
+							[{ 'color': [] }, { 'background': [] }],
+
+							// Alignment
+							[{ 'align': [] }],
+
+							// Lists & Indent
+							[{ 'list': 'ordered' }, { 'list': 'bullet' }],
+							[{ 'indent': '-1' }, { 'indent': '+1' }],
+
+							// Clean
+							['clean']
+						]
+					}
+				});
+
+				// Update Preview on Text Change
+				quill.on('text-change', function () {
+					const html = quill.root.innerHTML;
+					document.getElementById('docContent').value = html;
+					updateOfficialPreview();
+					updateCharCount();
+				});
+			}
+		});
+
+		// --- Signature Functions ---
+		window.handleSignatureUpload = function (input) {
+			if (input.files && input.files[0]) {
+				const reader = new FileReader();
+				reader.onload = function (e) {
+					signatureDataUrl = e.target.result; // Store for PDF
+
+					// Update UI
+					const img = document.getElementById('signaturePreview');
+					const placeholder = document.getElementById('signaturePlaceholder');
+
+					img.src = signatureDataUrl;
+					img.classList.remove('hidden');
+					placeholder.classList.add('hidden');
+
+					// Update PDF Preview
+					updateOfficialPreview();
+				};
+				reader.readAsDataURL(input.files[0]);
+			}
+		}
+
+		window.removeSignature = function () {
+			signatureDataUrl = null;
+
+			// Reset UI
+			const img = document.getElementById('signaturePreview');
+			const placeholder = document.getElementById('signaturePlaceholder');
+			const input = document.getElementById('signatureInput');
+
+			img.src = "";
+			img.classList.add('hidden');
+			placeholder.classList.remove('hidden');
+			input.value = ""; // Clear file input
+
+			// Update PDF Preview
+			updateOfficialPreview();
+		}
+
+
+
+
+
+		// Global State for Staff Allocation
+		window.staffState = {
+			count: 0,
+			max: 4,
+			type: ''
+		};
+
+		// Track selected staff IDs to prevent duplicate selection
+		window.selectedStaffIds = new Set();
+
+		// Debounce timer for staff search
+		let staffSearchTimer = null;
+
+		/**
+		 * Search staff for allocation — fetches from /api/employees/by-location
+		 * Filters by inquiry form Location (strict) and Sub-Location (optional)
+		 * @param {string} slotPrefix - 'primary' or an extra staff slot ID
+		 * @param {string} query - search text (name or mobile)
+		 */
+		window.searchStaffForAllocation = function (slotPrefix, query) {
+			clearTimeout(staffSearchTimer);
+			const dropdown = document.getElementById(slotPrefix + 'StaffDropdown');
+			if (!dropdown) return;
+
+			if (!query || query.length < 2) {
+				dropdown.classList.add('hidden');
+				dropdown.innerHTML = '';
+
+				// CLEAR ALL ASSOCIATED FIELDS IF SEARCH IS EMPTIED
+				const prevId = document.getElementById(slotPrefix + 'StaffId')?.value;
+				if (prevId) window.selectedStaffIds.delete(prevId);
+
+				const fieldsToClear = ['Id', 'Name', 'Age', 'Gender', 'Location', 'SubLocation', 'Mobile', 'Mob', 'Number', 'Aadhaar', 'Aadhar', 'Pan', 'Address'];
+				fieldsToClear.forEach(suffix => {
+					const el = document.getElementById(slotPrefix + 'Staff' + suffix);
+					if (el) el.value = '';
+				});
+				return;
+			}
+
+			staffSearchTimer = setTimeout(async () => {
+				const location = document.getElementById('in_location')?.value;
+				const subLocation = document.getElementById('in_sublocation')?.value;
+
+				if (!location) {
+					dropdown.innerHTML = '<div class="p-3 text-xs text-gray-400">Select a Location first</div>';
+					dropdown.classList.remove('hidden');
+					return;
+				}
+
+				try {
+					const params = new URLSearchParams({ location, query });
+					if (subLocation) params.set('sub_location', subLocation);
+
+					const res = await apiFetch(`/api/employees/by-location?${params.toString()}`);
+					const staff = await res.json();
+
+					if (!staff || staff.length === 0) {
+						dropdown.innerHTML = '<div class="p-3 text-xs text-gray-400 italic">No staff found for this location</div>';
+						dropdown.classList.remove('hidden');
+						return;
+					}
+
+					// Filter out already selected staff
+					const available = staff.filter(s => !window.selectedStaffIds.has(s.id));
+
+					if (available.length === 0) {
+						dropdown.innerHTML = '<div class="p-3 text-xs text-gray-400 italic">All matching staff already assigned</div>';
+						dropdown.classList.remove('hidden');
+						return;
+					}
+
+					// Format: Name, Number, Location, Sub-Location
+					dropdown.innerHTML = available.map(s => `
+						<div class="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 transition-colors"
+							onclick="selectStaffForSlot('${slotPrefix}', ${JSON.stringify(s).replace(/"/g, '&quot;')})">
+							<div class="font-bold text-sm text-gray-800">${s.name || 'Unknown'}</div>
+							<div class="text-[10px] text-gray-500 mt-0.5">
+								${s.mobile || 'No Mobile'} · ${s.work_location || 'No Location'}${s.sub_location ? ' / ' + s.sub_location : ''}
+							</div>
+						</div>
+					`).join('');
+					dropdown.classList.remove('hidden');
+				} catch (err) {
+					console.error('Staff search error:', err);
+					dropdown.innerHTML = '<div class="p-3 text-xs text-red-400">Search failed</div>';
+					dropdown.classList.remove('hidden');
+				}
+			}, 300); // Debounce 300ms
+		};
+
+		/**
+		 * Auto-fill staff fields after selecting from search dropdown
+		 */
+		window.selectStaffForSlot = function (slotPrefix, staffData) {
+			// Remove previous selection from tracking if re-selecting
+			const prevId = document.getElementById(slotPrefix + 'StaffId')?.value;
+			if (prevId) window.selectedStaffIds.delete(prevId);
+
+			// Fill all fields
+			const setVal = (suffix, val) => {
+				const el = document.getElementById(slotPrefix + 'Staff' + suffix);
+				if (el) el.value = val || '';
+			};
+
+			setVal('Id', staffData.id);
+			setVal('Name', staffData.name);
+			setVal('Age', staffData.age);
+			setVal('Gender', staffData.gender);
+			setVal('Location', staffData.work_location);
+			setVal('SubLocation', staffData.sub_location);
+			setVal('Mobile', staffData.mobile);
+			setVal('Aadhaar', staffData.aadhaar_no);
+			setVal('Pan', staffData.pan);
+			setVal('Address', staffData.address);
+
+			// Track selection
+			if (staffData.id) window.selectedStaffIds.add(staffData.id);
+
+			// Hide dropdown and clear search
+			const dropdown = document.getElementById(slotPrefix + 'StaffDropdown');
+			if (dropdown) { dropdown.classList.add('hidden'); dropdown.innerHTML = ''; }
+			const search = document.getElementById(slotPrefix + 'StaffSearch');
+			if (search) search.value = '';
+		};
+
+		// Close dropdowns on click outside
+		document.addEventListener('click', function (e) {
+			if (!e.target.closest('[id$="StaffSearch"]') && !e.target.closest('[id$="StaffDropdown"]')) {
+				document.querySelectorAll('[id$="StaffDropdown"]').forEach(d => {
+					d.classList.add('hidden');
+				});
+			}
+		});
+
+
+		window.handlePlanChange = function () {
+			const plan = document.getElementById('planSelect').value;
+			const careDropdown = document.getElementById('careType');
+			const staffSection = document.getElementById('staffSection');
+			const staffLabel = document.getElementById('staffLabel1');
+			const btnAddLabels = document.querySelectorAll('.btnAddStaffLabelDyn');
+
+
+			// Reset Dynamic Section
+			document.getElementById('extraStaffContainer').innerHTML = ''; // Clear extras
+			window.staffState.count = 0; // Reset counter
+			updateFormVisibility(); // Sync visibility after reset
+
+			const pBtn = document.getElementById('primaryAddStaffBtnWrapper');
+			if (pBtn) pBtn.classList.remove('hidden');
+
+
+			let staffType = "";
+
+			// Logic to determine Staff Type
+			if (plan.startsWith("Plan A") || plan.startsWith("Plan C") || plan.startsWith("Plan D") || plan.startsWith("Plan E")) {
+				staffType = "Caregiver";
+				if (careDropdown) careDropdown.value = "Caregiver";
+				if (staffLabel) staffLabel.innerText = "Primary Caregiver";
+			} else if (plan.startsWith("Plan B")) {
+				staffType = "Nurse";
+				if (careDropdown) careDropdown.value = "Nurse";
+				if (staffLabel) staffLabel.innerText = "Primary Nurse";
+			} else if (plan.startsWith("Plan F")) {
+				staffType = "Physiotherapist";
+				if (careDropdown) careDropdown.value = "Physiotherapist";
+				if (staffLabel) staffLabel.innerText = "Primary Physiotherapist";
+			} else if (plan === "AlaCarte") {
+				staffType = "Attendant";
+				if (careDropdown) careDropdown.value = "Attendant";
+				if (staffLabel) staffLabel.innerText = "Primary Attendant";
+			}
+
+			// Update State and Button Label
+			window.staffState.type = staffType;
+			btnAddLabels.forEach(el => el.innerText = `Additional ${staffType}`);
+
+			updateSubServices();
+			updatePreview();
+			updateStatus('Pending');
+		}
+
+		window.addExtraStaff = function () {
+			const state = window.staffState;
+
+			if (state.count >= state.max) return;
+
+
+			state.count++;
+			// Hide previous button
+			if (state.count === 1) {
+				const pBtn = document.getElementById('primaryAddStaffBtnWrapper');
+				if (pBtn) pBtn.classList.add('hidden');
+			} else {
+				const eBtn = document.getElementById('extraAddStaffBtnWrapper_' + (state.count - 1));
+				if (eBtn) eBtn.classList.add('hidden');
+			}
+
+			const index = state.count;
+			const type = state.type;
+			const container = document.getElementById('extraStaffContainer');
+
+			// Label Logic based on Requirements
+			let labelSuffix = "";
+			if (type === "Nurse" || type === "Caregiver") {
+				// Nurse (2nd Extra), Nurse (3rd Extra)...
+				const ordinals = ["2nd", "3rd", "4th", "5th"];
+				labelSuffix = `(${ordinals[index - 1]} Extra)`;
+			} else {
+				// Physiotherapist (Extra), Physiotherapist (2nd Extra)...
+				if (index === 1) labelSuffix = "(Extra)";
+				else {
+					const ordinals = ["2nd", "3rd", "4th"];
+					labelSuffix = `(${ordinals[index - 2]} Extra)`;
+				}
+			}
+
+			const blockLabel = `${type} ${labelSuffix}`;
+			const baseId = type.toLowerCase() + "_extra_" + index;
+
+			// Template Selection
+			let fieldsHtml = "";
+
+			if (type === "Nurse" || type === "Caregiver") {
+				fieldsHtml = `
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label class="label-royal text-gray-400 font-bold">${type} Name</label>
+						<input type="text" id="${baseId}_name" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Full Name">
+					</div>
+					<div class="grid grid-cols-3 gap-2">
+						<div class="col-span-1">
+							<label class="label-royal text-gray-400">Age</label>
+							<input type="number" id="${baseId}_age" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Age">
+						</div>
+						<div class="col-span-1">
+							<label class="label-royal text-gray-400">Aadhaar</label>
+							<input type="text" id="${baseId}_aadhar" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Aadhaar">
+						</div>
+						<div class="col-span-1">
+							<label class="label-royal text-gray-400">PAN</label>
+							<input type="text" id="${baseId}_pan" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="PAN">
+						</div>
+					</div>
+				</div>
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+					<div>
+						<label class="label-royal text-gray-400">Mobile Number</label>
+						<input type="tel" id="${baseId}_mob" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Mobile Number">
+					</div>
+					<div>
+						<label class="label-royal text-emerald-600 font-bold">Payment (₹)</label>
+						<input type="number" id="${baseId}_payment" class="input-royal border-emerald-300" placeholder="Payment Amount">
+					</div>
+				</div>
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3 items-end">
+					<div class="sm:col-span-2 lg:col-span-1">
+						<label class="label-royal text-gray-400">Address</label>
+						<textarea id="${baseId}_address" class="input-royal h-12 bg-gray-50 pointer-events-none text-sm" readonly placeholder="Staff Address"></textarea>
+					</div>
+					<div class="sm:col-span-1 lg:col-span-1">
+						<label class="label-royal text-gray-400">Note</label>
+						<input type="text" id="${baseId}_note" class="input-royal h-12" placeholder="Special instructions / notes">
+					</div>
+                    <div id="extraAddStaffBtnWrapper_${index}" class="sm:col-span-1 lg:col-span-1">
+                        <button type="button" onclick="addExtraStaff()" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-500 hover:border-royal-gold hover:text-royal-gold hover:bg-orange-50 transition-all shadow-sm h-12">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span class="btnAddStaffLabelDyn">Additional Staff</span>
+                        </button>
+                    </div>
+				</div>
+			`;
+			} else {
+				// Physiotherapist / Attendant (Includes Note Field)
+				fieldsHtml = `
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+					<div>
+						<label class="label-royal text-gray-400 font-bold">${type} Name</label>
+						<input type="text" id="${baseId}_name" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Full Name">
+					</div>
+					<div class="grid grid-cols-3 gap-2">
+						<div class="col-span-1">
+							<label class="label-royal text-gray-400">Age</label>
+							<input type="number" id="${baseId}_age" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Age">
+						</div>
+						<div class="col-span-1">
+							<label class="label-royal text-gray-400">Aadhaar</label>
+							<input type="text" id="${baseId}_aadhar" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Aadhaar">
+						</div>
+						<div class="col-span-1">
+							<label class="label-royal text-gray-400">PAN</label>
+							<input type="text" id="${baseId}_pan" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="PAN">
+						</div>
+					</div>
+				</div>
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+					<div>
+						<label class="label-royal text-gray-400">Number</label>
+						<input type="tel" id="${baseId}_number" class="input-royal bg-gray-50 pointer-events-none" readonly placeholder="Mobile Number">
+					</div>
+					<div>
+						<label class="label-royal text-emerald-600 font-bold">Payment (₹)</label>
+						<input type="number" id="${baseId}_payment" class="input-royal border-emerald-300" placeholder="Payment Amount">
+					</div>
+				</div>
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-3 items-end">
+					<div class="sm:col-span-2 lg:col-span-1">
+						<label class="label-royal text-gray-400">Address</label>
+						<textarea id="${baseId}_address" class="input-royal h-12 bg-gray-50 pointer-events-none text-sm" readonly placeholder="Staff Address"></textarea>
+					</div>
+					<div class="sm:col-span-1 lg:col-span-1">
+						<label class="label-royal text-gray-400">Note</label>
+						<input type="text" id="${baseId}_note" class="input-royal h-12" placeholder="Special instructions / notes">
+					</div>
+                    <div id="extraAddStaffBtnWrapper_${index}" class="sm:col-span-1 lg:col-span-1">
+                        <button type="button" onclick="addExtraStaff()" class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-white border border-dashed border-gray-300 rounded-lg text-xs font-bold text-gray-500 hover:border-royal-gold hover:text-royal-gold hover:bg-orange-50 transition-all shadow-sm h-12">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            <span class="btnAddStaffLabelDyn">Additional Staff</span>
+                        </button>
+                    </div>
+				</div>
+			`;
+			}
+
+			// Create the Block Wrapper
+			const blockDiv = document.createElement('div');
+			blockDiv.className = "bg-gray-50 p-5 rounded-xl border border-gray-200 border-dashed animate-fade-in relative";
+			blockDiv.innerHTML = `
+			<div class="absolute top-0 left-0 w-1 h-full bg-gray-300"></div>
+			<div class="flex justify-between items-center mb-3">
+				<h5 class="text-xs font-bold text-gray-500 uppercase tracking-wider">${blockLabel}</h5>
+				<i class="fa-solid fa-user-plus text-gray-300"></i>
+			</div>
+			${fieldsHtml}
+		`;
+
+			container.appendChild(blockDiv);
+
+			// Hide button if max reached
+			if (state.count >= state.max) {
+				document.getElementById('addStaffBtnContainer').classList.add('hidden');
+			}
+		}
+
+		window.handleDocTypeChange = function () {
+			const docType = document.getElementById('docType').value;
+			const customContainer = document.getElementById('customDocTypeContainer');
+			const customInput = document.getElementById('customDocType');
+
+			if (docType === 'Custom') {
+				customContainer.classList.remove('hidden');
+				customInput.focus();
+			} else {
+				customContainer.classList.add('hidden');
+				customInput.value = '';
+			}
+
+			updateOfficialPreview();
+		}
+
+		window.updateCharCount = function () {
+			if (!quill) return;
+			const text = quill.getText(); // Get plain text ignoring HTML tags
+			const count = text.trim().length;
+			const counter = document.getElementById('charCount');
+			if (counter) {
+				counter.textContent = `${count.toLocaleString()} characters`;
+				if (count > 5000) {
+					counter.classList.add('text-red-500');
+					counter.classList.remove('text-gray-400');
+				} else {
+					counter.classList.remove('text-red-500');
+					counter.classList.add('text-gray-400');
+				}
+			}
+		}
+
+		window.calcTotal = function () {
+			const rate = parseFloat(document.getElementById('rate_agreed').value) || 0;
+			const qty = parseFloat(document.getElementById('paid_for_qty').value) || 0;
+			const total = rate * qty;
+
+			document.getElementById('display_total').innerText = "₹ " + total.toLocaleString('en-IN');
+			updatePreview();
+		}
+
+		window.resetClientForm = function () {
+			if (!confirm('⚠️ Are you sure you want to reset the form? All unsaved data will be lost.')) {
+				return;
+			}
+
+			const form = document.getElementById('masterInquiryForm');
+
+			if (form) {
+				form.reset();
+
+				const planSelect = document.getElementById('planSelect');
+				const subServiceSelect = document.getElementById('subServiceSelect');
+
+				if (planSelect) planSelect.value = '';
+				if (subServiceSelect) {
+					subServiceSelect.value = '';
+					subServiceSelect.disabled = true;
+				}
+
+				const minrate = document.getElementById('minrate');
+				const maxrate = document.getElementById('maxrate');
+				const rateagreed = document.getElementById('rate_agreed');
+				const paidforqty = document.getElementById('paid_for_qty');
+				const displaytotal = document.getElementById('display_total');
+
+				if (minrate) minrate.value = '';
+				if (maxrate) maxrate.value = '';
+				if (rateagreed) rateagreed.value = '';
+				if (paidforqty) paidforqty.value = '';
+				if (displaytotal) displaytotal.textContent = '₹ 0.00';
+
+				const staffSection = document.getElementById('staffSection');
+				if (staffSection) {
+					staffSection.classList.add('hidden');
+				}
+
+				const statusBadge = document.getElementById('formStatusBadge');
+				if (statusBadge) {
+					statusBadge.textContent = 'Status: New Inquiry';
+					statusBadge.className = 'px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-xs font-bold uppercase tracking-widest border border-blue-200';
+				}
+
+				if (typeof updatePreview === 'function') {
+					updatePreview();
+				}
+
+				alert('✅ Form has been reset successfully!');
+			}
+		}
+
+		window.clearOfficialDocForm = function () {
+			if (!confirm('⚠️ Clear all fields?')) return;
+
+			const form = document.getElementById('officialDocForm');
+			if (form) {
+				form.reset();
+
+				// 1. Clear Quill
+				if (quill) quill.setText('');
+				document.getElementById('docContent').value = '';
+
+				// 2. Clear Signature
+				removeSignature();
+
+				// 3. Clear other custom fields
+				const customContainer = document.getElementById('customDocTypeContainer');
+				if (customContainer) customContainer.classList.add('hidden');
+
+				if (document.getElementById('docMobile')) document.getElementById('docMobile').value = '';
+				if (document.getElementById('docAddress')) document.getElementById('docAddress').value = '';
+				// ... (rest of your existing clear logic) ...
+
+				console.log('✅ Official doc form cleared');
+				updateOfficialPreview();
+			}
+		}
+
+		// ============================================================================
+		// PART 1: NEW PDF GENERATION ENGINE
+		// ============================================================================
+
+		// ============================================================================
+		// PDF GENERATION -> Moved to static/templates/download.js
+		// ============================================================================
+
+		async function savePdfToDrive(blob, fileName, docType) {
+			console.log(`[Backend Hook] Uploading ${fileName} to folder type: ${docType}...`);
+		}
+
+		async function savePdfToSupabase(blob, fileName, docType) {
+			const SUPABASE_URL = 'https://pmlpedkufsbbxsmmxlea.supabase.co';
+			const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtbHBlZGt1ZnNiYnhzbW14bGVhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1Njg5NjcsImV4cCI6MjA4NjE0NDk2N30.NhFhA6QnUJh8qDjqGbZO9-a-RGf0IwTkBtmAeiNGw_4';
+			const BUCKET_NAME = 'documents';
+
+			let folder = 'invoices';
+			let tableName = 'invoices';
+
+			if (docType === 'nurseagreement' || docType === 'patientagreement' || docType === 'warning') {
+				folder = 'agreements';
+				tableName = 'document_agreements'; // Assuming you might handle agreements differently later
+			} else if (docType === 'invoice') {
+				folder = 'invoices';
+				tableName = 'invoices';
+			} else {
+				folder = 'official';
+				tableName = 'official_documents';
+			}
+
+			const storagePath = `${folder}/${fileName}`;
+
+			// 1. Upload File
+			const uploadResponse = await fetch(
+				`${SUPABASE_URL}/storage/v1/object/${BUCKET_NAME}/${storagePath}`,
+				{
+					method: 'POST',
+					headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+					body: blob
+				}
+			);
+
+			if (!uploadResponse.ok) {
+				console.error("Upload Error:", uploadResponse);
+				// We continue anyway to try and save the data row, or you can throw error
+			}
+
+			let metadata = {};
+
+			// ============================================================
+			// LOGIC FOR INVOICES (Includes Staff Allocation Gathering)
+			// ============================================================
+			if (tableName === 'invoices') {
+
+				// --- GATHER STAFF DATA START ---
+				const staffArray = [];
+				const currentType = window.staffState.type || "Staff"; // Nurse, Caregiver, etc.
+
+				// A. Get Primary Staff
+				const primaryName = document.getElementById('primaryStaffName')?.value;
+				if (primaryName) {
+					staffArray.push({
+						role: "Primary",
+						type: currentType,
+						name: primaryName,
+						age: document.getElementById('primaryStaffAge')?.value,
+						mobile: document.getElementById('primaryStaffMob')?.value,
+						aadhar: document.getElementById('primaryStaffAadhar')?.value,
+						pan: document.getElementById('primaryStaffPan')?.value,
+						payment: document.getElementById('primaryStaffPayment')?.value,
+						address: document.getElementById('primaryStaffAddress')?.value
+					});
+				}
+
+				// B. Get Extra Staff (Loop through generated blocks)
+				// We check up to the max (4) to see if data exists
+				for (let i = 1; i <= window.staffState.count; i++) {
+					const baseId = currentType.toLowerCase() + "_extra_" + i;
+					const extraName = document.getElementById(baseId + "_name")?.value;
+
+					if (extraName) {
+						// Different types have slightly different field IDs (mob vs number, note vs address)
+						// We safely grab whatever exists
+						staffArray.push({
+							role: `Extra ${i}`,
+							type: currentType,
+							name: extraName,
+							age: document.getElementById(baseId + "_age")?.value,
+							aadhar: document.getElementById(baseId + "_aadhar")?.value,
+							pan: document.getElementById(baseId + "_pan")?.value,
+							payment: document.getElementById(baseId + "_payment")?.value,
+							// Handle variation in field names (Mobile vs Number, Note vs Address)
+							mobile: document.getElementById(baseId + "_mob")?.value || document.getElementById(baseId + "_number")?.value,
+							address: document.getElementById(baseId + "_address")?.value,
+							note: document.getElementById(baseId + "_note")?.value || ""
+						});
+					}
+				}
+				// --- GATHER STAFF DATA END ---
+
+				metadata = {
+					ref_no: document.getElementById('in_ref_no')?.value, // Ensure this ID exists in HTML or use placeholder
+					invoice_number: document.getElementById('in_invoice_no')?.value,
+					date: document.getElementById('in_date')?.value,
+					customer_name: document.getElementById('in_name')?.value,
+					customer_mobile: document.getElementById('in_mob')?.value,
+					customer_age: parseInt(document.getElementById('in_age')?.value) || null,
+					customer_gender: document.getElementById('in_gender')?.value,
+					customer_location: document.getElementById('in_location')?.value,
+					customer_address: document.getElementById('in_addr')?.value,
+					plan: document.getElementById('planSelect')?.value,
+					service: document.getElementById('subServiceSelect')?.value,
+					amount: parseFloat(document.getElementById('rate_agreed')?.value) || 0,
+					staff_allocation: staffArray, // <--- SAVES THE LIST HERE
+					file_url: storagePath,
+					created_at: new Date().toISOString()
+				};
+			}
+			// ============================================================
+			// LOGIC FOR OFFICIAL DOCUMENTS
+			// ============================================================
+			else if (tableName === 'official_documents') {
+				metadata = {
+					title: document.getElementById('docSubject')?.value || fileName,
+					doc_type: document.getElementById('docType')?.value,
+					doc_date: document.getElementById('docDate')?.value,
+					doc_ref_no: document.getElementById('docRefNo')?.value,
+
+					// Recipient Details
+					recipient_name: document.getElementById('docRecipient')?.value,
+					recipient_designation: document.getElementById('docDesignation')?.value,
+					recipient_mobile: document.getElementById('docMobile')?.value,   // Linked to DB
+					recipient_address: document.getElementById('docAddress')?.value, // Linked to DB
+
+					document_subject: document.getElementById('docSubject')?.value,
+					document_body: document.getElementById('docContent')?.value,
+
+					file_url: storagePath,
+					file_name: fileName,
+					signature_included: document.getElementById('includeSignature')?.checked,
+					created_by: 'Admin',
+					created_at: new Date().toISOString()
+				};
+			}
+			// ============================================================
+			// LOGIC FOR AGREEMENTS (Generic Fallback)
+			// ============================================================
+			else {
+				metadata = {
+					doc_type: docType,
+					invoice_number: document.getElementById('in_invoice_no')?.value,
+					file_url: storagePath,
+					file_name: fileName,
+					created_at: new Date().toISOString()
+				};
+			}
+
+			// 3. Save to Database
+			const dbResponse = await fetch(`${SUPABASE_URL}/rest/v1/${tableName}`, {
+				method: 'POST',
+				headers: {
+					'apikey': SUPABASE_ANON_KEY,
+					'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+					'Content-Type': 'application/json',
+					'Prefer': 'return=minimal'
+				},
+				body: JSON.stringify(metadata)
+			});
+
+			if (!dbResponse.ok) {
+				const err = await dbResponse.text();
+				console.error("DB Error:", err);
+				throw new Error(`DB insert failed: ${dbResponse.status} ${err}`);
+			}
+
+			console.log(`✅ ${docType} saved successfully to ${tableName}`);
+		}
+
+		function drawFooter(pdf, includeThankYou = false) {
+			const pageWidth = pdf.internal.pageSize.getWidth();
+			const pageHeight = pdf.internal.pageSize.getHeight();
+			const footerY = pageHeight - 20;
+
+			const navyBlue = [0, 33, 71];
+			const gold = [191, 155, 48];
+			const grayText = [107, 114, 128];
+			const lightGray = [156, 163, 175];
+
+			let currentY = footerY;
+
+			if (includeThankYou) {
+				pdf.setFont('helvetica', 'italic');
+				pdf.setFontSize(9);
+				pdf.setTextColor(...lightGray);
+				pdf.text('Thank you for choosing Vesak Care Foundation!', pageWidth / 2, currentY, { align: 'center' });
+				currentY += 4;
+			}
+
+			const lineY = currentY;
+			const lineSegments = 50;
+			const segmentWidth = pageWidth / lineSegments;
+
+			for (let i = 0; i < lineSegments; i++) {
+				const progress = i / lineSegments;
+				let opacity;
+
+				if (progress < 0.25) {
+					opacity = progress * 4;
+				}
+				else if (progress < 0.75) {
+					opacity = 1;
+				}
+				else {
+					opacity = (1 - progress) * 4;
+				}
+
+				const r = 191 + (255 - 191) * (1 - opacity);
+				const g = 155 + (255 - 155) * (1 - opacity);
+				const b = 48 + (255 - 48) * (1 - opacity);
+
+				pdf.setDrawColor(r, g, b);
+				pdf.setLineWidth(0.2);
+				pdf.line(i * segmentWidth, lineY, (i + 1) * segmentWidth, lineY);
+			}
+
+			currentY += 4;
+
+			const leftX = 10;
+			const rightX = pageWidth - 10;
+
+			pdf.setFont('times', 'italic');
+			pdf.setFontSize(10);
+			pdf.setTextColor(...navyBlue);
+			pdf.text('Our Offices', leftX, currentY);
+
+			currentY += 4;
+
+			pdf.setFont('helvetica', 'normal');
+			pdf.setFontSize(9);
+			pdf.setTextColor(...grayText);
+
+			const offices = 'Pune  •  Mumbai  •  Kolhapur';
+			pdf.text(offices, leftX, currentY);
+
+			const socialY = currentY - 4;
+			pdf.setFont('helvetica', 'normal');
+			pdf.setFontSize(9);
+			pdf.setTextColor(...grayText);
+
+			const instaText = '   @VesakCare';
+			const instaX = rightX - 80;
+			pdf.text(instaText, instaX, socialY);
+
+			pdf.setDrawColor(...grayText);
+			pdf.setLineWidth(0.3);
+			pdf.circle(instaX - 2, socialY - 1.5, 1.5, 'S');
+
+			const fbText = '   @VesakCare';
+			const fbX = rightX - 35;
+			pdf.text(fbText, fbX, socialY);
+
+			pdf.circle(fbX - 2, socialY - 1.5, 1.5, 'S');
+			pdf.setFont('helvetica', 'bold');
+			pdf.setFontSize(8);
+			pdf.text('f', fbX - 2.5, socialY - 0.5);
+
+			currentY += 4;
+
+			pdf.setFillColor(...navyBlue);
+			pdf.rect(0, currentY, pageWidth, 1, 'F');
+		}
+
+
+
+		function updateSubServices() {
+			const plan = document.getElementById('planSelect').value;
+			const subSelect = document.getElementById('subServiceSelect');
+
+			subSelect.innerHTML = '<option value="">Select Sub Service...</option>';
+			subSelect.disabled = true;
+
+			if (plan && serviceLogic[plan]) {
+				serviceLogic[plan].forEach(s => {
+					const opt = document.createElement('option');
+					opt.value = s;
+					opt.text = s;
+					subSelect.appendChild(opt);
+				});
+				subSelect.disabled = false;
+			}
+		}
+
+		function updateServiceDisplay() {
+			const plan = document.getElementById('planSelect').value;
+			const sub = document.getElementById('subServiceSelect').value;
+			const incBox = document.getElementById('services_included');
+			const excDiv = document.getElementById('col-excluded');
+			const incDiv = document.getElementById('col-included');
+
+			let displayText = "";
+
+			if (plan === "Plan F" || plan === "AlaCarte") {
+				excDiv.classList.add('hidden');
+				incDiv.classList.remove('col-span-1');
+				incDiv.classList.add('col-span-2');
+
+				if (sub && descriptionMap[sub]) {
+					displayText = descriptionMap[sub];
+				} else {
+					displayText = "Select a sub-service to view details.";
+				}
+			}
+			else {
+				excDiv.classList.remove('hidden');
+				incDiv.classList.remove('col-span-2');
+				incDiv.classList.add('col-span-1');
+
+				if (plan && serviceLogic[plan]) {
+					if (sub === "All") {
+						const items = serviceLogic[plan].filter(x => x !== "All");
+						displayText = items.join("\n• ");
+						if (items.length > 0) displayText = "• " + displayText;
+					} else if (sub) {
+						displayText = "• " + sub;
+					}
+
+					if (plan === "Plan D") {
+						displayText += "\n\n(Note: Includes Light Meal Preparation)";
+					}
+				}
+			}
+
+			incBox.value = displayText;
+			updatePreview();
+		}
+
+		function fillFormMock(name) {
+			document.getElementById('clientName').value = name;
+			document.getElementById('clientMobile').value = '9876543210';
+			document.getElementById('planSelect').value = 'Plan B';
+			updateSubServices();
+			document.getElementById('subServiceSelect').value = 'All';
+			document.getElementById('shiftSelect').value = '24-hr';
+		}
+
+
+		function updateStatus(newStatus) {
+			const badge = document.getElementById('formStatusBadge');
+			badge.innerText = "Status: " + newStatus;
+			if (newStatus === 'Pending') badge.className = "px-4 py-2 bg-amber-100 text-amber-700 rounded-full text-xs font-bold uppercase tracking-widest border border-amber-200";
+		}
+
+		// ============================================================================
+		// LETTERHEAD & DOCUMENT BUILDER FUNCTIONS
+		// ============================================================================
+
+		// buildLetterheadShell has been moved to templates/shared.js
+
+
+		// buildOfficialDocBody has been moved to templates/official.js
+
+		function updatePreview() {
+			const typeLabel =
+				activeDocType === 'invoice' ? 'INVOICE' :
+					activeDocType === 'nurseagreement' ? 'NURSE AGREEMENT' :
+						activeDocType === 'patientagreement' ? 'PATIENT AGREEMENT' :
+							activeDocType === 'warning' ? 'WARNING' : 'DOCUMENT';
+
+			// Get invoice number and swap prefix for agreements/warnings
+			let displayInvNo = document.getElementById('in_invoice_no')?.value || '---';
+			if (displayInvNo && displayInvNo !== '---' && activeDocType !== 'invoice') {
+				// Swap prefix: IN → NU/PA/WA for agreements
+				if (typeof swapDocPrefix === 'function') {
+					displayInvNo = swapDocPrefix(displayInvNo, activeDocType);
+				}
+			}
+
+			const data = {
+				type: typeLabel,
+				name: document.getElementById('in_name')?.value || 'Client Name',
+				date: document.getElementById('in_date')?.value || new Date().toISOString().slice(0, 10),
+				inv: displayInvNo,
+				gender: document.getElementById('in_gender')?.value || 'Male',
+				age: document.getElementById('in_age')?.value || '--',
+				mobile: (document.getElementById('in_mob')?.value || '--').split('.')[0],
+				address: document.getElementById('in_addr')?.value || '',
+				location: document.getElementById('in_location')?.value || '',
+				sublocation: document.getElementById('in_sublocation')?.value || '',
+				notes: document.getElementById('in_notes')?.value || 'No additional notes.',
+				plan: document.getElementById('planSelect')?.value,
+				subService: document.getElementById('subServiceSelect') ? document.getElementById('subServiceSelect').value : '',
+				shift: document.getElementById('in_shift') ? document.getElementById('in_shift').value : '',
+				period: document.getElementById('in_period') ? document.getElementById('in_period').value : '',
+				rate: document.getElementById('rate_agreed') ? document.getElementById('rate_agreed').value : 0,
+				paidQty: document.getElementById('paid_for_qty') ? document.getElementById('paid_for_qty').value : 1,
+				visits: document.getElementById('in_visits') ? document.getElementById('in_visits').value : '',
+				isRecurring: document.getElementById('in_recurring') ? document.getElementById('in_recurring').value : 'No',
+				totalDisp: document.getElementById('display_total') ? document.getElementById('display_total').innerText : '₹ 0.00'
+			};
+
+			let bodyContent = '';
+			if (activeDocType === 'invoice') bodyContent = buildInvoiceBody(data);
+			else if (activeDocType === 'nurseagreement') bodyContent = buildNurseAgreementBody(data);
+			else if (activeDocType === 'patientagreement') bodyContent = buildPatientAgreementBody(data);
+			else if (activeDocType === 'warning') bodyContent = buildWarningLetterBody(data);
+
+			const finalHtml = buildLetterheadShell(data, bodyContent);
+			document.getElementById('letterhead-live').innerHTML = finalHtml;
+
+			// Run pagination after rendering
+			requestAnimationFrame(() => paginatePreview('letterhead-live'));
+		}
+
+		// ============================================================================
+		// LIVE PREVIEW PAGINATION
+		// Splits content across multiple A4 pages with watermark, footer, page numbers
+		// ============================================================================
+		function adjustPreviewHeight(containerId) {
+			let wrapperId, scale;
+			if (containerId === 'letterhead-live') {
+				wrapperId = 'preview-wrapper';
+				scale = 0.715;
+			} else if (containerId === 'official-letterhead-live') {
+				wrapperId = 'official-preview-wrapper';
+				scale = 0.58;
+			} else {
+				return;
+			}
+
+			const wrapper = document.getElementById(wrapperId);
+			if (!wrapper) return;
+
+			// Reset margin (so we get true height if content shrunk)
+			wrapper.style.marginBottom = '0px';
+
+			// Calculate negative margin to pull up space
+			// Visual Height = ScrollHeight * Scale
+			// Flow Height = ScrollHeight
+			// Margin = Visual Height - Flow Height = ScrollHeight * (Scale - 1)
+			const scrollHeight = wrapper.scrollHeight;
+			const marginBottom = scrollHeight * (scale - 1);
+
+			// Apply negative margin
+			wrapper.style.marginBottom = `${marginBottom}px`;
+		}
+
+		// Helper: apply Thank You note visibility on a given page element
+		function applyThankYouVisibility(pageEl, pageNum, totalPages, containerId) {
+			const thankYouDiv = pageEl.querySelector('.footer-thank-you');
+			if (!thankYouDiv) return;
+
+			const isLastPage = (pageNum === totalPages);
+
+			// Agreements / Warning: NEVER show
+			if (activeDocType === 'nurseagreement' || activeDocType === 'patientagreement' || activeDocType === 'warning') {
+				thankYouDiv.style.setProperty('display', 'none', 'important');
+				return;
+			}
+
+			// Official Docs: show only if checkbox is ticked AND last page
+			if (containerId === 'official-letterhead-live') {
+				const wantIt = document.getElementById('includeThankYouInOfficialDoc')?.checked ?? false;
+				thankYouDiv.style.setProperty('display', (wantIt && isLastPage) ? 'block' : 'none', 'important');
+				return;
+			}
+
+			// Invoices (default): show only on last page
+			thankYouDiv.style.setProperty('display', isLastPage ? 'block' : 'none', 'important');
+		}
+
+		function paginatePreview(containerId = 'letterhead-live') {
+			const container = document.getElementById(containerId);
+			if (!container) return;
+
+			const originalPage = container.querySelector('.invoice-page');
+			if (!originalPage) return;
+
+			const header = originalPage.querySelector('header');
+			const main = originalPage.querySelector('main');
+			const footer = originalPage.querySelector('footer');
+			const watermark = originalPage.querySelector('.watermark-container');
+			if (!main) return;
+
+			// Temporarily make page auto-height to measure real content
+			originalPage.style.minHeight = 'auto';
+			originalPage.style.height = 'auto';
+			originalPage.style.overflow = 'visible';
+
+			// Measure real heights
+			const PAGE_HEIGHT = 1123; // 297mm at 96dpi
+			const headerH = header ? header.offsetHeight + 20 : 0;
+			const footerH = footer ? footer.offsetHeight + 15 : 80;
+			const PAGE_PADDING_TOP = 35;
+			const PAGE_PADDING_BOTTOM = 25;
+			const PAGE_NUM_SPACE = 20;
+
+			const availPage1 = PAGE_HEIGHT - headerH - footerH - PAGE_PADDING_TOP - PAGE_PADDING_BOTTOM - PAGE_NUM_SPACE;
+			const contentH = main.scrollHeight;
+
+			// If content fits on one page, restore fixed height and add page number
+			if (contentH <= availPage1) {
+				originalPage.style.height = '297mm';
+				originalPage.style.overflow = 'hidden';
+				addPageNum(originalPage, 1, 1);
+				// Apply thank-you visibility on this single page
+				applyThankYouVisibility(originalPage, 1, 1, containerId);
+				adjustPreviewHeight(containerId);
+				return;
+			}
+
+			// Multi-page needed
+			const CONT_TOP_MARGIN = 45;
+			const availPageN = PAGE_HEIGHT - CONT_TOP_MARGIN - footerH - PAGE_PADDING_BOTTOM - PAGE_NUM_SPACE;
+			const overflow = contentH - availPage1;
+			const extraPages = Math.ceil(overflow / availPageN);
+			const totalPages = 1 + extraPages;
+
+			// Constrain page 1
+			originalPage.style.height = PAGE_HEIGHT + 'px';
+			originalPage.style.minHeight = '';
+			originalPage.style.overflow = 'hidden';
+			main.style.maxHeight = availPage1 + 'px';
+			main.style.overflow = 'hidden';
+			addPageNum(originalPage, 1, totalPages);
+			// Apply thank-you visibility on page 1 (multi-page)
+			applyThankYouVisibility(originalPage, 1, totalPages, containerId);
+
+			// Get footer and watermark HTML for cloning
+			const footerHtml = footer ? footer.outerHTML : '';
+			const wmHtml = watermark ? watermark.outerHTML : '';
+
+			// Clone the FULL main content once for reuse
+			const mainClone = main.cloneNode(true);
+			mainClone.style.maxHeight = 'none';
+			mainClone.style.overflow = 'visible';
+
+			// Create additional pages
+			for (let i = 2; i <= totalPages; i++) {
+				// Spacer between pages
+				const spacer = document.createElement('div');
+				spacer.style.cssText = 'height: 15px; background: transparent;';
+				container.appendChild(spacer);
+
+				// New page element
+				const page = document.createElement('div');
+				page.className = 'invoice-page';
+				page.style.height = PAGE_HEIGHT + 'px';
+				page.style.minHeight = '';
+				page.style.overflow = 'hidden';
+				page.style.display = 'flex';
+				page.style.flexDirection = 'column';
+				page.style.justifyContent = 'space-between';
+
+				// Watermark
+				page.insertAdjacentHTML('beforeend', wmHtml);
+
+				// Content viewport (clips the content window)
+				const viewport = document.createElement('div');
+				viewport.style.cssText = `
+		padding-top: ${CONT_TOP_MARGIN}px;
+		overflow: hidden;
+		max-height: ${availPageN + CONT_TOP_MARGIN}px;
+		position: relative;
+		z-index: 5;
+		flex: 1;
+		`;
+
+				// Cloned main with offset
+				const contentClone = mainClone.cloneNode(true);
+				const offset = availPage1 + (i - 2) * availPageN;
+				contentClone.style.marginTop = `-${offset}px`;
+
+				viewport.appendChild(contentClone);
+				page.appendChild(viewport);
+
+				// Footer
+				page.insertAdjacentHTML('beforeend', footerHtml);
+
+				// Apply thank-you visibility on this page
+				applyThankYouVisibility(page, i, totalPages, containerId);
+
+				// Page number
+				addPageNum(page, i, totalPages);
+
+				container.appendChild(page);
+			}
+			adjustPreviewHeight(containerId);
+		}
+
+		function addPageNum(page, current, total) {
+			const el = document.createElement('div');
+			el.className = 'page-number';
+			el.textContent = `Page ${current} of ${total} `;
+			page.appendChild(el);
+		}
+
+		function initOfficialDoc() {
+			document.getElementById('docDate').valueAsDate = new Date();
+			updateOfficialPreview();
+		}
+
+		function updateOfficialPreview() {
+			const docTypeSelect = document.getElementById('docType').value;
+			const customDocType = document.getElementById('customDocType').value;
+			const docLocation = document.getElementById('docLocation')?.value || '';
+			const showDocLocation = document.getElementById('showDocLocation')?.checked !== false;
+
+			let documentType = docTypeSelect;
+			if (docTypeSelect === 'Custom') {
+				documentType = customDocType || 'Custom Document';
+			}
+
+			const data = {
+				type: documentType,
+				docLocation: docLocation,
+				sub_location: document.getElementById('docSublocation')?.value || '',
+				showDocLocation: showDocLocation,
+				showDocSubLocation: document.getElementById('showDocSubLocation')?.checked !== false,
+				date: document.getElementById('docDate').value || new Date().toISOString().slice(0, 10),
+				refNo: document.getElementById('docRefNo').value || '',
+				subject: document.getElementById('docSubject').value || '',
+				recipient: document.getElementById('docRecipient').value || '',
+				designation: document.getElementById('docDesignation').value || '',
+				companyName: document.getElementById('docCompanyName')?.value || '',
+				showTo: document.getElementById('showToPrefix')?.checked !== false,
+				showDocType: document.getElementById('showDocType')?.checked !== false,
+				nameFontSize: document.getElementById('nameFontSize')?.value || '1.1rem',
+				subjectFontSize: document.getElementById('subjectFontSize')?.value || '0.875rem',
+				lineSpacing: document.getElementById('lineSpacing')?.value || '4px',
+				mobile: document.getElementById('docMobile').value || '',
+				address: document.getElementById('docAddress').value || '',
+
+				// Use the raw HTML from the editor (or the hidden input)
+				content: document.getElementById('docContent').value || (quill ? quill.root.innerHTML : ''),
+
+				includeSignature: document.getElementById('includeSignature').checked,
+				signatureImage: signatureDataUrl // Pass the uploaded image data
+			};
+
+
+
+			const bodyHtml = buildOfficialDocBody(data);
+			const fullHtml = buildLetterheadShell(data, bodyHtml);
+			document.getElementById('official-letterhead-live').innerHTML = fullHtml;
+
+			// Run pagination for Official Docs too
+			requestAnimationFrame(() => paginatePreview('official-letterhead-live'));
+
+			// Footer logic handled in paginatePreview
+			// const includeFooter = document.getElementById('includeFooterInOfficialDoc')?.checked ?? true;
+			// const includeThankYou = document.getElementById('includeThankYouInOfficialDoc')?.checked ?? false;
+			// ...
+		}
+
+
+
+		// escapeHtml moved to templates/shared.js
+
+		// Update warning letter staff name when dropdown changes
+		window.updateWarningStaffName = function () {
+			const dropdown = document.getElementById('warningStaffDropdown');
+			const display = document.getElementById('warningStaffNameDisplay');
+
+			if (dropdown && display) {
+				const selectedStaffName = dropdown.value;
+				display.textContent = selectedStaffName;
+			}
+		}
+
+		window.autoFetchEmployee = async function () {
+			const mobile = document.getElementById('docMobile').value.trim();
+			if (!mobile) {
+				alert("Please enter a mobile number to search.");
+				return;
+			}
+			try {
+				const res = await apiFetch(`/api/employees/search/${encodeURIComponent(mobile)}`);
+				if (res.ok) {
+					const emp = await res.json();
+					document.getElementById('docRecipient').value = emp.name || '';
+					document.getElementById('docAddress').value = emp.address || '';
+					document.getElementById('docDesignation').value = emp.job_category || 'Staff';
+					updateOfficialPreview();
+					alert("Employee details auto-filled successfully!");
+				} else {
+					alert("Employee not found with this mobile number.");
+				}
+			} catch (e) {
+				console.error("Error auto-fetching employee", e);
+				alert("Failed to search employee database.");
+			}
+		}
+
+		// buildBulletList moved to templates/shared.js
+
+		// Build Services Included / Not Included section for the PDF body
+		// buildServicesSection moved to templates/invoice.js
+
+		// buildInvoiceBody moved to templates/invoice.js
+
+
+
+		// Agreements moved to templates/agreements.js
+
+		// ============================================================================
+		// MOCK REGISTRY LOGIC
+		// ============================================================================
+		const mockRegistryData = [
+			{
+				id: 'inv-001',
+				type: 'invoice',
+				date: '2023-10-25',
+				ref: 'INV-23-001',
+				client: 'Rajesh Kumar',
+				status: 'Paid',
+				data: {
+					name: 'Rajesh Kumar',
+					date: '2023-10-25',
+					invoice_no: 'INV-23-001',
+					plan: 'Plan B: Skilled Nursing',
+					shift: '12-hr Day',
+					period: 'Monthly',
+					rate: 1200,
+					paidQty: 30,
+					notes: 'Patient handled well.'
+				}
+			},
+			{
+				id: 'doc-001',
+				type: 'official',
+				date: '2023-10-26',
+				ref: 'OFF-23-005',
+				client: 'Dr. Anjali Deshmukh',
+				docType: 'Offer Letter',
+				status: 'Draft',
+				data: {
+					docType: 'Offer Letter',
+					docDate: '2023-10-26',
+					docRefNo: 'OFF-23-005',
+					docRecipient: 'Dr. Anjali Deshmukh',
+					docSubject: 'Offer of Employment',
+					docContent: '<p>Dear Dr. Anjali,</p><p>We are pleased to offer you the position...</p>'
+				}
+			},
+			{
+				id: 'inv-002',
+				type: 'invoice',
+				date: '2023-10-27',
+				ref: 'INV-23-002',
+				client: 'Suresh Patil',
+				status: 'Pending',
+				data: {
+					name: 'Suresh Patil',
+					date: '2023-10-27',
+					invoice_no: 'INV-23-002',
+					plan: 'Plan A: Patient Attendant Care',
+					shift: '24-hr',
+					period: 'Weekly',
+					rate: 900,
+					paidQty: 4,
+					notes: ''
+				}
+			}
+		];
+
+		function initRegistry() {
+			const tbody = document.getElementById('registryTableBody');
+			if (!tbody) return;
+			tbody.innerHTML = '';
+
+			mockRegistryData.forEach(item => {
+				const tr = document.createElement('tr');
+				tr.className = 'hover:bg-gray-50 transition-colors';
+
+				let statusClass = 'bg-gray-100 text-gray-600';
+				if (item.status === 'Paid') statusClass = 'bg-green-100 text-green-700';
+				if (item.status === 'Pending') statusClass = 'bg-orange-100 text-orange-700';
+
+				tr.innerHTML = `
+			< td class="p-4 text-sm text-gray-600" > ${item.date}</td >
+					<td class="p-4 text-sm font-bold text-royal-blue">${item.ref}</td>
+					<td class="p-4 text-sm font-medium text-gray-800">${item.client}</td>
+					<td class="p-4 text-xs">
+						<span class="px-2 py-1 rounded border border-gray-200 ${item.type === 'invoice' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}">
+							${item.type === 'invoice' ? 'Invoice' : item.docType}
+						</span>
+					</td>
+					<td class="p-4 text-xs"><span class="px-2 py-1 rounded font-bold ${statusClass}">${item.status}</span></td>
+					<td class="p-4 text-right">
+						<button onclick="editRecord('${item.id}')" class="text-xs font-bold text-royal-gold hover:text-royal-blue border border-royal-gold hover:border-royal-blue px-3 py-1.5 rounded transition-all">
+							<i class="fas fa-edit mr-1"></i> Edit
+						</button>
+					</td>
+		`;
+				tbody.appendChild(tr);
+			});
+		}
+
+		function editRecord(id) {
+			const record = mockRegistryData.find(r => r.id === id);
+			if (!record) return;
+
+			if (record.type === 'invoice') {
+				// 1. Switch Tab
+				navigateTo('inquiry'); // Assuming 'inquiry' is the Invoice Form ID (or 'invoices'?)
+				// Wait, navigation logic hides sections. 'inquiry' section ID is 'inquiry'.
+
+				// 2. Populate Form
+				const d = record.data;
+				if (document.getElementById('in_name')) document.getElementById('in_name').value = d.name || '';
+				if (document.getElementById('in_date')) document.getElementById('in_date').value = d.date || '';
+				if (document.getElementById('in_invoice_no')) document.getElementById('in_invoice_no').value = d.invoice_no || '';
+
+				// Select Plan (trigger change to populate sub-options if needed)
+				const planSelect = document.getElementById('planSelect');
+				if (planSelect) {
+					planSelect.value = d.plan || '';
+					handlePlanChange(); // custom function to update state
+				}
+
+				if (document.getElementById('in_shift')) document.getElementById('in_shift').value = d.shift || '';
+				if (document.getElementById('in_period')) document.getElementById('in_period').value = d.period || '';
+				if (document.getElementById('rate_agreed')) document.getElementById('rate_agreed').value = d.rate || '';
+				if (document.getElementById('paid_for_qty')) document.getElementById('paid_for_qty').value = d.paidQty || '';
+				if (document.getElementById('in_notes')) document.getElementById('in_notes').value = d.notes || '';
+
+				// 3. Trigger Preview Update
+				updatePreview();
+				calcTotal();
+
+				// 4. Show Banner (Optional)
+				alert(`Editing Invoice ${record.ref} `); // Simple feedback for now
+
+			} else if (record.type === 'official') {
+				// 1. Switch Tab
+				navigateTo('officialdocs');
+
+				// 2. Populate Form
+				const d = record.data;
+				if (document.getElementById('docType')) document.getElementById('docType').value = d.docType || 'Custom';
+				if (document.getElementById('docDate')) document.getElementById('docDate').value = d.docDate || '';
+				if (document.getElementById('docRefNo')) document.getElementById('docRefNo').value = d.docRefNo || '';
+				if (document.getElementById('docRecipient')) document.getElementById('docRecipient').value = d.docRecipient || '';
+				if (document.getElementById('docSubject')) document.getElementById('docSubject').value = d.docSubject || '';
+
+				// Rich Text Content
+				if (document.getElementById('docContent')) document.getElementById('docContent').value = d.docContent || '';
+				// If Quill exists
+				if (typeof quill !== 'undefined' && quill) {
+					quill.root.innerHTML = d.docContent || '';
+				}
+
+				// 3. Trigger Preview
+				updateOfficialPreview();
+
+				// 4. Feedback
+				alert(`Editing Document ${record.ref}`);
+			}
+		}
+
+		// Initialize Registry on Load
+		document.addEventListener('DOMContentLoaded', () => {
+			initRegistry();
+		});
+
+		// ============================================================================
+		// INITIALIZATION (handled by first DOMContentLoaded listener above)
+		// ============================================================================
+
+		// ============================================================================
+		// AUTO-NUMBERING HANDLERS
+		// ============================================================================
+		// Auto-trigger Invoice Number
+		function generateInvoiceNumber() {
+			// Invoice numbers are generated SERVER-SIDE only when status → Confirmed/Active.
+			// This function now just shows a placeholder in the field.
+			const invoiceField = document.getElementById('in_invoice_no');
+			if (!invoiceField) return;
+			// Don't overwrite if already has a real invoice number from DB
+			if (invoiceField.value && invoiceField.value.length > 5 && invoiceField.value.startsWith('IN-')) return;
+			invoiceField.value = '';
+			invoiceField.placeholder = 'Auto-generated on Confirm';
+		}
+
+		// Attach listeners for Invoice Auto-Gen
+		document.addEventListener('DOMContentLoaded', () => {
+			const triggerFields = ['in_location', 'in_date'];
+			triggerFields.forEach(id => {
+				const el = document.getElementById(id);
+				if (el) {
+					el.addEventListener('change', generateInvoiceNumber);
+					// Also trigger on blur for good measure if changed
+					el.addEventListener('blur', () => {
+						if (!document.getElementById('in_invoice_no').value) generateInvoiceNumber();
+					});
+				}
+			});
+		});
+
+		async function generateRefNumber() {
+			const loc = document.getElementById('docLocation').value;
+			const date = document.getElementById('docDate').value || new Date().toISOString().slice(0, 10);
+			const docTypeSelect = document.getElementById('docType').value;
+			const customDocType = document.getElementById('customDocType').value;
+			const refField = document.getElementById('docRefNo');
+
+			// Determine effective title
+			let typeTitle = docTypeSelect;
+			if (docTypeSelect === 'Custom') typeTitle = customDocType || 'Custom';
+
+			// Guard clauses
+			if (!typeTitle || !loc) return;
+			// Don't overwrite if likely already valid (simple length check or regex could be better)
+			if (refField.value.length > 10 && !refField.value.includes('PENDING')) return;
+
+			refField.value = "Generating...";
+
+			try {
+				// 1. Get Sequence
+				const seqRes = await fetch(`/api/sequence/next?type=official&location=${loc}&date=${date}`);
+				const seqData = await seqRes.json();
+				const seq = seqData.sequence || '001';
+
+				// 2. Format: VCF/TYPE/LOC/YEAR/SEQ
+				const year = date.substring(0, 4);
+				// Short code for type (first 3 letters uppercase)
+				const typeCode = typeTitle.substring(0, 3).toUpperCase();
+				const locCode = loc.substring(0, 3).toUpperCase();
+
+				const refNo = `VCF/${typeCode}/${locCode}/${year}/${seq}`;
+				refField.value = refNo;
+
+				// Update Preview
+				updateOfficialPreview();
+
+			} catch (e) {
+				console.error("Auto-Ref Gen Failed:", e);
+				refField.value = "";
+			}
+		}
+
+		// Attach listeners for Official Section
+		document.addEventListener('DOMContentLoaded', () => {
+			const offTriggers = ['docLocation', 'docDate', 'docType', 'customDocType'];
+			offTriggers.forEach(id => {
+				const el = document.getElementById(id);
+				if (el) {
+					el.addEventListener('change', generateRefNumber);
+				}
+			});
+		});
+
+
+
+		// Official Document Persistence
+		window.saveOfficialDocument = async function () {
+			const getVal = (id) => document.getElementById(id)?.value || '';
+			const payload = {
+				doc_type: getVal('docType'),
+				custom_doc_type: getVal('customDocType'),
+				date: getVal('docDate'),
+				ref_no: getVal('docRefNo'),
+				recipient: getVal('docRecipient'),
+				subject: getVal('docSubject'),
+				content: typeof quill !== 'undefined' ? quill.root.innerHTML : getVal('docContent'),
+				location: getVal('docLocation')
+			};
+
+			try {
+				const response = await fetch('/api/documents/', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload)
+				});
+
+				if (response.ok) {
+					alert("Official Document Saved Successfully!");
+					setFormDirty(false);
+					// Enable Download
+					const dlBtn = document.getElementById('btnDownloadOfficial');
+					if (dlBtn) {
+						dlBtn.disabled = false;
+						dlBtn.classList.remove('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+						dlBtn.classList.add('text-white', 'hover:bg-slate-900');
+						dlBtn.style.background = 'linear-gradient(135deg, #002147 0%, #003d7a 100%)';
+					}
+				} else {
+					alert("Save Failed");
+				}
+			} catch (err) {
+				alert("Network Error: " + err.message);
+			}
+		};
+
+		// Navigation Logic
+		let isFormDirty = false;
+		function setFormDirty(value) { isFormDirty = value; }
+
+		function navigateTo(sectionId) {
+			// Check for unsaved changes
+			if (isFormDirty) {
+				const confirmLeave = confirm("You have unsaved changes. Are you sure you want to leave this page?");
+				if (!confirmLeave) return;
+				isFormDirty = false; // Reset if they choose to leave
+			}
+
+			// Toggle Sections
+			document.querySelectorAll('.page-section').forEach(sec => {
+				if (sec.id === sectionId) {
+					sec.classList.remove('hidden');
+					sec.classList.add('block');
+				} else {
+					sec.classList.add('hidden');
+					sec.classList.remove('block');
+				}
+			});
+
+			// Re-fetch locations for specific sections to ensure they are up to date
+			if ((sectionId === 'inquiry' || sectionId === 'officialdocs') && typeof window.loadAppLocations === 'function') {
+				window.loadAppLocations();
+			}
+
+			// Update Nav Styling
+			document.querySelectorAll('.nav-item').forEach(item => {
+				if (item.dataset.target === sectionId) {
+					item.classList.add('text-royal-blue', 'font-bold', 'border-b-2', 'border-royal-blue');
+					item.classList.remove('text-gray-500');
+				} else {
+					item.classList.remove('text-royal-blue', 'font-bold', 'border-b-2', 'border-royal-blue');
+					item.classList.add('text-gray-500');
+				}
+			});
+
+			// Trigger specific initializations
+			if (sectionId === 'registry' && typeof initRegistry === 'function') initRegistry();
+			if (sectionId === 'dashboard' && typeof refreshDashboard === 'function') refreshDashboard();
+			if (sectionId === 'service-allocation' && typeof refreshDashboard === 'function') refreshDashboard();
+		}
+
+		function showServiceAllocation(filter) {
+			// Navigate to the section
+			navigateTo('service-allocation');
+			// Wait a tick for visibility then apply filter
+			setTimeout(() => {
+				if (typeof applyFilter === 'function') {
+					applyFilter(filter);
+				}
+			}, 50);
+		}
+
+		document.addEventListener('DOMContentLoaded', () => {
+			// Dirty flag listeners for both forms
+			const forms = ['masterInquiryForm', 'officialDocForm'];
+			forms.forEach(id => {
+				const f = document.getElementById(id);
+				if (f) {
+					f.addEventListener('input', () => setFormDirty(true));
+					f.addEventListener('change', () => setFormDirty(true));
+
+					// Special handling for Official Docs Download Lock
+					if (id === 'officialDocForm') {
+						f.addEventListener('input', () => {
+							const dlBtn = document.getElementById('btnDownloadOfficial');
+							if (dlBtn && !dlBtn.disabled) {
+								dlBtn.disabled = true;
+								dlBtn.classList.add('bg-gray-100', 'text-gray-400', 'cursor-not-allowed');
+								dlBtn.classList.remove('text-white', 'hover:bg-slate-900', 'bg-royal-blue');
+								dlBtn.style.background = '';
+							}
+						});
+					}
+				}
+			});
+
+			const hash = window.location.hash.replace('#', '');
+			if (hash === 'service-allocation') {
+				showServiceAllocation('All');
+			} else {
+				navigateTo(hash || 'dashboard');
+			}
+		});
+	</script>
+	<!-- HR MASTER MODAL -->
+	<div id="employee-modal" class="fixed inset-0 bg-black/50 hidden z-[100] flex items-center justify-center p-4">
+		<div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto shadow-2xl animate-fade-in">
+			<div class="p-8 border-b border-gray-100 flex justify-between items-center">
+				<h3 id="modal-title" class="font-serif text-2xl font-bold text-royal-blue">Register Asset (Employee)
+				</h3>
+				<button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-gray-600"><i
+						class="fas fa-times text-xl"></i></button>
+			</div>
+			<div class="p-8">
+				<form id="employee-form" class="space-y-8">
+					<input type="hidden" id="emp-id">
+
+					<!-- Row 1: Name, Gender, Age -->
+					<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+						<div class="md:col-span-2">
+							<label class="label-royal">Full Name</label>
+							<input type="text" id="emp-name" class="input-royal" required>
+						</div>
+						<div>
+							<label class="label-royal">Gender</label>
+							<select id="emp-gender" class="input-royal">
+								<option value="Male">Male</option>
+								<option value="Female">Female</option>
+								<option value="Other">Other</option>
+							</select>
+						</div>
+						<div>
+							<label class="label-royal">Age</label>
+							<input type="number" id="emp-age" class="input-royal" placeholder="e.g. 28">
+						</div>
+					</div>
+
+					<!-- Row 2: Mobile, Aadhaar, PAN -->
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+						<div>
+							<label class="label-royal">Mobile Number</label>
+							<input type="tel" id="emp-mobile" class="input-royal" required>
+						</div>
+						<div>
+							<label class="label-royal">Aadhar No.</label>
+							<input type="text" id="emp-aadhar" class="input-royal" placeholder="12-digit Aadhaar">
+						</div>
+						<div>
+							<label class="label-royal">PAN No.</label>
+							<input type="text" id="emp-pan" class="input-royal uppercase" placeholder="ABCDE1234F">
+						</div>
+					</div>
+
+					<!-- Row 3: Work Orientation, Employment Type, Role -->
+					<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+						<div>
+							<label class="label-royal">Work Orientation</label>
+							<select id="emp-work-type" class="input-royal font-bold" onchange="toggleWorkTypeFields()">
+								<option value="Field Staff">Field Staff (Care/Nursing)</option>
+								<option value="Office Staff">Office Staff (Admin/Mgmt)</option>
+								<option value="Hybrid">Hybrid (Field + Office)</option>
+							</select>
+						</div>
+						<div>
+							<label class="label-royal">Employment Type</label>
+							<select id="emp-employment-type" class="input-royal"
+								onchange="toggleEmploymentTypeFields()">
+								<option value="Payroll">Regular Payroll</option>
+								<option value="Contract">Contract</option>
+								<option value="Gig/Retainer">Gig Worker (Per Order)</option>
+							</select>
+						</div>
+						<div>
+							<label class="label-royal">Designation / Role</label>
+							<input type="text" id="emp-role" class="input-royal" placeholder="e.g. Senior Nurse">
+						</div>
+					</div>
+
+					<!-- Contract Duration (shown only for Contract type) -->
+					<div id="contract-duration-section"
+						class="hidden p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+						<h4 class="text-[10px] font-bold text-royal-blue uppercase tracking-widest">Contract Duration
+						</h4>
+						<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+							<div>
+								<label class="label-royal">Duration</label>
+								<select id="emp-contract-duration" class="input-royal" onchange="calcContractEndDate()">
+									<option value="6">6 Months</option>
+									<option value="12">1 Year</option>
+									<option value="custom">Custom</option>
+								</select>
+							</div>
+							<div id="custom-duration-field" class="hidden">
+								<label class="label-royal">Custom (Months)</label>
+								<input type="number" id="emp-contract-custom-months" class="input-royal"
+									placeholder="e.g. 9" min="1" onchange="calcContractEndDate()">
+							</div>
+							<div>
+								<label class="label-royal">Contract End Date <span
+										class="text-[9px] text-gray-400">(Auto)</span></label>
+								<input type="date" id="emp-contract-end" class="input-royal bg-gray-50" readonly>
+							</div>
+						</div>
+					</div>
+
+					<!-- Row 4: CTC, Joining, Location, Status -->
+					<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+						<div id="ctc-field-wrapper">
+							<label class="label-royal text-green-600">Monthly CTC (₹)</label>
+							<input type="number" id="emp-salary" class="input-royal font-bold"
+								placeholder="Monthly CTC">
+							<p id="gig-ctc-note" class="hidden text-[9px] text-amber-600 mt-1 italic">
+								<i class="fas fa-info-circle mr-1"></i>CTC is order-based for Gig Workers — no fixed
+								monthly salary.
+							</p>
+						</div>
+						<div>
+							<label class="label-royal">Joining Date</label>
+							<input type="date" id="emp-joining" class="input-royal">
+						</div>
+						<div>
+							<label class="label-royal">Work Location</label>
+							<select id="emp-work-location" class="input-royal">
+								<option value="">Loading...</option>
+							</select>
+						</div>
+						<div>
+							<label class="label-royal">Status</label>
+							<select id="emp-status" class="input-royal font-bold">
+								<option value="Active">Active</option>
+								<option value="Terminated">Terminated</option>
+								<option value="On Leave">On Leave</option>
+							</select>
+						</div>
+					</div>
+
+					<!-- Field Staff Specifics -->
+					<div id="field-staff-only" class="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+						<h4 class="text-[10px] font-bold text-royal-gold uppercase tracking-widest">Field Staff
+							Specifics</h4>
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label class="label-royal">Primary Service</label>
+								<select id="emp-service-type" class="input-royal">
+									<option value="Nurse">Skilled Nursing</option>
+									<option value="Caregiver">Caregiver</option>
+									<option value="Attendant">Patient Attendant</option>
+									<option value="Physiotherapist">Physiotherapist</option>
+								</select>
+							</div>
+							<div>
+								<label class="label-royal">Prior Experience</label>
+								<input type="text" id="emp-exp-total" class="input-royal"
+									placeholder="e.g. 3 years nursing">
+							</div>
+						</div>
+					</div>
+
+					<!-- Office Staff Specifics -->
+					<div id="office-staff-only"
+						class="hidden space-y-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+						<h4 class="text-[10px] font-bold text-purple-700 uppercase tracking-widest">Office Staff
+							Details</h4>
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label class="label-royal">Department</label>
+								<input type="text" id="emp-dept" class="input-royal"
+									placeholder="e.g. HR, Finance, Operations">
+							</div>
+							<div>
+								<label class="label-royal">Functional Responsibilities</label>
+								<input type="text" id="emp-func-resp" class="input-royal"
+									placeholder="e.g. Payroll Management">
+							</div>
+						</div>
+					</div>
+
+					<!-- Education (available for ALL staff types) -->
+					<div class="space-y-4 p-4 bg-amber-50/50 rounded-xl border border-amber-100">
+						<div class="flex justify-between items-center">
+							<h4 class="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Education &
+								Qualifications</h4>
+							<button type="button" onclick="addEducationRow()"
+								class="text-[10px] font-bold text-royal-blue hover:text-royal-gold transition-colors flex items-center gap-1">
+								<i class="fas fa-plus-circle"></i> Add More
+							</button>
+						</div>
+						<div id="education-rows-container">
+							<!-- First education row (default) -->
+							<div class="edu-row grid grid-cols-1 md:grid-cols-4 gap-3 mb-3 items-end">
+								<div>
+									<label class="label-royal text-[9px]">Level</label>
+									<select class="edu-level input-royal text-xs">
+										<option value="10th">10th</option>
+										<option value="12th">12th</option>
+										<option value="Diploma">Diploma</option>
+										<option value="UG" selected>Undergraduate (UG)</option>
+										<option value="PG">Postgraduate (PG)</option>
+										<option value="Masters">Masters</option>
+										<option value="Certification">Certification</option>
+										<option value="Other">Other</option>
+									</select>
+								</div>
+								<div>
+									<label class="label-royal text-[9px]">Course / Specialization</label>
+									<input type="text" class="edu-course input-royal text-xs"
+										placeholder="e.g. B.Sc Nursing">
+								</div>
+								<div>
+									<label class="label-royal text-[9px]">Institution</label>
+									<input type="text" class="edu-institution input-royal text-xs"
+										placeholder="College / University">
+								</div>
+								<div class="flex gap-2 items-end">
+									<div class="flex-1">
+										<label class="label-royal text-[9px]">Year</label>
+										<input type="number" class="edu-year input-royal text-xs" placeholder="2020"
+											min="1970" max="2030">
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Address -->
+					<div>
+						<label class="label-royal">Permanent Address</label>
+						<textarea id="emp-address" class="input-royal h-16"></textarea>
+					</div>
+
+					<div class="flex justify-end gap-4">
+						<button type="button" onclick="closeEmployeeModal()"
+							class="px-6 py-3 font-bold text-gray-500 hover:text-gray-700">Cancel</button>
+						<button type="submit"
+							class="px-8 py-3 bg-royal-blue text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all">Save
+							Record</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+
+	<!-- Added for HR operations -->
+	<script src="templates/hr_management.js"></script>
+
+	<script>
+		// Mobile Menu Logic
+		const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+		const closeMobileMenu = document.getElementById('closeMobileMenu');
+		const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+
+		function toggleMobileMenu(show) {
+			if (show) {
+				mobileMenuOverlay.classList.remove('translate-x-full');
+				document.body.style.overflow = 'hidden'; // Prevent body scroll
+			} else {
+				mobileMenuOverlay.classList.add('translate-x-full');
+				document.body.style.overflow = '';
+			}
+		}
+
+		if (mobileMenuToggle) {
+			mobileMenuToggle.addEventListener('click', () => toggleMobileMenu(true));
+		}
+
+		if (closeMobileMenu) {
+			closeMobileMenu.addEventListener('click', () => toggleMobileMenu(false));
+		}
+
+		window.mobileNavigate = function (target) {
+			toggleMobileMenu(false);
+			if (window.navigateTo) window.navigateTo(target);
+		};
+	</script>
+</body>
+
+</html>

@@ -1,0 +1,15 @@
+.env
+.venv
+__pycache__/
+*.py[cod]
+*$py.class
+.vscode/
+.idea/
+*.xlsx
+*.zip
+*.pdf
+*.png
+*.jpg
+node_modules/
+dist/
+build/

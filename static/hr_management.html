@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VesakCare - HR Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .font-serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .text-royal-blue {
+            color: #002147;
+        }
+
+        .bg-royal-blue {
+            background-color: #002147;
+        }
+
+        .text-royal-gold {
+            color: #C5A065;
+        }
+
+        .bg-royal-gold {
+            background-color: #C5A065;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0, 33, 71, 0.08);
+        }
+
+        .royal-card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+            border: 1px solid #f1f5f9;
+        }
+
+        .input-royal {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            border: 1px solid #E2E8F0;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .input-royal:focus {
+            outline: none;
+            border-color: #C5A065;
+            box-shadow: 0 0 0 3px rgba(197, 160, 101, 0.1);
+        }
+
+        .label-royal {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="templates/auth.js"></script>
+</head>
+
+<body class="text-slate-800 antialiased h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="glass-nav h-20 w-full z-50 flex-none">
+        <div class="max-w-[1920px] mx-auto px-4 md:px-6 h-full flex items-center justify-between">
+            <div class="flex items-center gap-4 cursor-pointer group" onclick="window.location.href='index.html'">
+                <div class="w-10 h-10 md:w-12 md:h-12 relative">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#002147" />
+                                <stop offset="100%" style="stop-color:#003d7a" />
+                            </linearGradient>
+                        </defs>
+                        <path d="M50 5 L90 25 L90 75 L50 95 L10 75 L10 25 Z" fill="url(#logoGrad)" />
+                        <path d="M50 20 L80 35 L80 65 L50 80 L20 65 L20 35 Z" stroke="#C5A065" stroke-width="2" />
+                        <path d="M25 25 L40 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M60 60 L75 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M75 25 L60 40" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <path d="M40 60 L25 75" stroke="#C5A065" stroke-width="2.5" stroke-linecap="round" />
+                        <circle cx="50" cy="50" r="8" fill="#CC4E00" />
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span
+                        class="font-serif text-lg md:text-xl font-bold text-royal-blue tracking-wide leading-none">VesakCare</span>
+                    <span class="text-[10px] text-royal-gold uppercase tracking-[0.2em] font-medium mt-1">Control
+                        Hub</span>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <button id="mobileMenuToggle" class="lg:hidden text-royal-blue text-2xl p-2 focus:outline-none">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden lg:flex items-center gap-6">
+                <!-- Unified Dropdown -->
+                <div class="relative group">
+                    <button
+                        class="flex items-center gap-2 px-5 py-2.5 bg-royal-blue text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-900/20 hover:scale-105 transition-all">
+                        <i class="fas fa-th-large"></i> Control Hub <i
+                            class="fas fa-chevron-down text-[10px] opacity-50"></i>
+                    </button>
+                    <div
+                        class="absolute right-0 top-full pt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-3 hidden group-hover:block animate-fade-in z-[100]">
+                        <div class="px-4 pb-2 mb-2 border-b border-gray-50">
+                            <span class="text-[9px] font-bold text-royal-gold uppercase tracking-[0.15em]">Operations &
+                                Personnel</span>
+                        </div>
+                        <a href="index.html#service-allocation"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600"><i
+                                    class="fas fa-tasks"></i></div>
+                            <div>
+                                <p>Operations Desk</p>
+                                <p class="text-[9px] font-normal text-gray-400">Registry & Allocations</p>
+                            </div>
+                        </a>
+                        <a href="hr_management.html"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-royal-blue bg-blue-50/50 transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-royal-blue flex items-center justify-center text-white"><i
+                                    class="fas fa-user-tie"></i></div>
+                            <div>
+                                <p>HR Master Hub</p>
+                                <p class="text-[9px] font-normal text-gray-400">Staffing & Performance</p>
+                            </div>
+                        </a>
+                        <div class="px-4 py-2 mb-2 mt-2 border-y border-gray-50">
+                            <span
+                                class="text-[9px] font-bold text-royal-gold uppercase tracking-[0.15em]">Administration</span>
+                        </div>
+                        <a href="admin_panel.html"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+                            <div
+                                class="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <div>
+                                <p>Admin Hub</p>
+                                <p class="text-[9px] font-normal text-gray-400">Financials & Budgets</p>
+                            </div>
+                        </a>
+                        <a href="index.html#officialdocs"
+                            class="flex items-center gap-3 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-50 hover:text-royal-blue transition-colors">
+                            <div class="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+                                <i class="fas fa-file-contract"></i>
+                            </div>
+                            <div>
+                                <p>Official Docs</p>
+                                <p class="text-[9px] font-normal text-gray-400">Agreements & Verification</p>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <button onclick="window.location.href='index.html'"
+                    class="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i> Back to Desk
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Navigation Overlay -->
+    <div id="mobileMenuOverlay"
+        class="fixed inset-0 bg-white z-[60] transform translate-x-full transition-transform duration-300 lg:hidden flex flex-col">
+        <div class="h-20 px-6 flex items-center justify-between border-b border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 relative">
+                    <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                        <path d="M50 5 L90 25 L90 75 L50 95 L10 75 L10 25 Z" fill="url(#logoGrad)" />
+                        <circle cx="50" cy="50" r="8" fill="#CC4E00" />
+                    </svg>
+                </div>
+                <span class="font-serif text-lg font-bold text-royal-blue">VesakCare</span>
+            </div>
+            <button onclick="toggleMobileMenu()" class="text-gray-400 p-2"><i
+                    class="fas fa-times text-2xl"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto py-6 px-6 space-y-8">
+            <div class="space-y-4">
+                <button onclick="window.location.href='index.html'"
+                    class="w-full text-left px-4 py-3 rounded-xl bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                    <i class="fas fa-home w-5"></i> Back to Desk
+                </button>
+                <button onclick="window.location.href='index.html#dashboard'"
+                    class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                    <i class="fas fa-chart-pie w-5"></i> Dashboard
+                </button>
+            </div>
+
+            <div class="space-y-4 pt-6 border-t border-gray-100">
+                <h3 class="text-[10px] font-bold text-royal-gold uppercase tracking-widest px-4">Management Hub</h3>
+                <div class="grid grid-cols-1 gap-2">
+                    <button onclick="window.location.href='index.html#service-allocation'"
+                        class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                        <i class="fas fa-tasks w-5 text-blue-600"></i> Operations Desk
+                    </button>
+                    <button onclick="window.location.href='hr_management.html'"
+                        class="w-full text-left px-4 py-3 rounded-xl bg-royal-blue text-white font-bold flex items-center gap-3">
+                        <i class="fas fa-user-tie w-5"></i> HR Master Hub
+                    </button>
+                    <button onclick="window.location.href='admin_panel.html'"
+                        class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                        <i class="fas fa-chart-line w-5 text-purple-600"></i> Admin Hub
+                    </button>
+                    <button onclick="window.location.href='index.html#officialdocs'"
+                        class="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 text-gray-600 font-bold flex items-center gap-3">
+                        <i class="fas fa-file-contract w-5 text-amber-600"></i> Official Docs
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="flex-1 overflow-auto p-4 md:p-8 max-w-[1920px] mx-auto w-full">
+        <div class="mb-6 md:mb-10">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6 mb-8">
+                <div>
+                    <h2 class="font-serif text-2xl md:text-3xl font-bold text-royal-blue">HR Master Hub</h2>
+                    <p class="text-gray-500 text-xs md:text-sm mt-1">Manage personnel records and performance metrics
+                    </p>
+                </div>
+                <button onclick="openEmployeeModal()"
+                    class="w-full sm:w-auto px-6 py-3 bg-royal-blue text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 hover:scale-105 hover:bg-black transition-all">
+                    <i class="fas fa-user-plus mr-2"></i> Register New Asset
+                </button>
+            </div>
+
+            <!-- Dashboard Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                            <i class="fas fa-users-cog text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active Assets</p>
+                            <h3 id="stat-active" class="text-2xl font-bold text-royal-blue">--</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                            <i class="fas fa-user-clock text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Field Personnel</p>
+                            <h3 id="stat-field" class="text-2xl font-bold text-royal-blue">--</h3>
+                        </div>
+                    </div>
+                </div>
+                <!-- Add more stat cards as needed -->
+            </div>
+
+            <!-- HR Filters -->
+            <div class="bg-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm mb-6">
+                <div class="flex flex-col lg:flex-row gap-4">
+                    <div class="flex-1 relative">
+                        <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="hr-search"
+                            class="input-royal w-full pl-11 !rounded-xl !bg-gray-50 border-transparent focus:!bg-white"
+                            placeholder="Search by name, ID or role..." oninput="filterHREmployees()">
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <select id="filter-type" class="input-royal !rounded-xl text-xs font-bold min-w-[140px]"
+                            onchange="filterHREmployees()">
+                            <option value="All">All Assets</option>
+                            <option value="Contract">Third-Party</option>
+                            <option value="Full-Time">Permanent</option>
+                            <option value="Gig/Retainer">Gig Worker</option>
+                        </select>
+                        <select id="filter-location" class="input-royal !rounded-xl text-xs font-bold min-w-[140px]"
+                            onchange="filterHREmployees()">
+                            <option value="">All Locations</option>
+                        </select>
+                        <button onclick="refreshHRHub()"
+                            class="p-2.5 text-gray-400 hover:text-royal-blue transition-colors">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Employees Table (Master View) -->
+            <div class="royal-card overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-[10px] whitespace-nowrap">
+                        <thead
+                            class="bg-gray-50 text-gray-500 border-b border-gray-100 font-bold uppercase tracking-tighter">
+                            <tr>
+                                <th class="px-2 py-4">Employee ID</th>
+                                <th class="px-2 py-4">Employee Name</th>
+                                <th class="px-2 py-4">PAN</th>
+                                <th class="px-2 py-4">Aadhaar</th>
+                                <th class="px-2 py-4">Gender</th>
+                                <th class="px-2 py-4">Age</th>
+                                <th class="px-2 py-4">Role</th>
+                                <th class="px-2 py-4">Type</th>
+                                <th class="px-2 py-4">Mobile</th>
+                                <th class="px-2 py-4">Address</th>
+                                <th class="px-2 py-4">Work Location</th>
+                                <th class="px-2 py-4">Salary (CTC)</th>
+                                <th class="px-2 py-4 text-center">Status</th>
+                                <th class="px-2 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hrTableBody" class="divide-y divide-gray-100 bg-white">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- HR MASTER MODAL -->
+    <div id="employee-modal" class="fixed inset-0 bg-black/50 hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-auto shadow-2xl animate-fade-in">
+            <div class="p-8 border-b border-gray-100 flex justify-between items-center">
+                <h3 id="modal-title" class="font-serif text-2xl font-bold text-royal-blue">Register Asset (Employee)
+                </h3>
+                <button onclick="closeEmployeeModal()" class="text-gray-400 hover:text-gray-600"><i
+                        class="fas fa-times text-xl"></i></button>
+            </div>
+            <div class="p-8">
+                <form id="employee-form" class="space-y-8">
+                    <input type="hidden" id="emp-id">
+
+                    <!-- Row 1: Name, Gender, Age -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="label-royal">Full Name</label>
+                            <input type="text" id="emp-name" class="input-royal" required>
+                        </div>
+                        <div>
+                            <label class="label-royal">Gender</label>
+                            <select id="emp-gender" class="input-royal">
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Age</label>
+                            <input type="number" id="emp-age" class="input-royal" placeholder="e.g. 28">
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Mobile, Aadhaar, PAN -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="label-royal">Mobile Number</label>
+                            <input type="tel" id="emp-mobile" class="input-royal" required>
+                        </div>
+                        <div>
+                            <label class="label-royal">Aadhar No.</label>
+                            <input type="text" id="emp-aadhar" class="input-royal" placeholder="12-digit Aadhaar">
+                        </div>
+                        <div>
+                            <label class="label-royal">PAN No.</label>
+                            <input type="text" id="emp-pan" class="input-royal uppercase" placeholder="ABCDE1234F">
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Work Orientation, Employment Type, Role -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div>
+                            <label class="label-royal">Work Orientation</label>
+                            <select id="emp-work-type" class="input-royal font-bold" onchange="toggleWorkTypeFields()">
+                                <option value="Field Staff">Field Staff (Care/Nursing)</option>
+                                <option value="Office Staff">Office Staff (Admin/Mgmt)</option>
+                                <option value="Hybrid">Hybrid (Field + Office)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Employment Type</label>
+                            <select id="emp-employment-type" class="input-royal"
+                                onchange="toggleEmploymentTypeFields()">
+                                <option value="Payroll">Regular Payroll</option>
+                                <option value="Contract">Contract</option>
+                                <option value="Gig/Retainer">Gig Worker (Per Order)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Designation / Role</label>
+                            <input type="text" id="emp-role" class="input-royal" placeholder="e.g. Senior Nurse">
+                        </div>
+                    </div>
+
+                    <!-- Contract Duration (shown only for Contract type) -->
+                    <div id="contract-duration-section"
+                        class="hidden p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+                        <h4 class="text-[10px] font-bold text-royal-blue uppercase tracking-widest">Contract Duration
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="label-royal">Duration</label>
+                                <select id="emp-contract-duration" class="input-royal" onchange="calcContractEndDate()">
+                                    <option value="6">6 Months</option>
+                                    <option value="12">1 Year</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                            </div>
+                            <div id="custom-duration-field" class="hidden">
+                                <label class="label-royal">Custom (Months)</label>
+                                <input type="number" id="emp-contract-custom-months" class="input-royal"
+                                    placeholder="e.g. 9" min="1" onchange="calcContractEndDate()">
+                            </div>
+                            <div>
+                                <label class="label-royal">Contract End Date <span
+                                        class="text-[9px] text-gray-400">(Auto)</span></label>
+                                <input type="date" id="emp-contract-end" class="input-royal bg-gray-50" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: CTC, Joining, Location, Status -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div id="ctc-field-wrapper">
+                            <label class="label-royal text-green-600">Monthly CTC (₹)</label>
+                            <input type="number" id="emp-salary" class="input-royal font-bold"
+                                placeholder="Monthly CTC">
+                            <p id="gig-ctc-note" class="hidden text-[9px] text-amber-600 mt-1 italic">
+                                <i class="fas fa-info-circle mr-1"></i>CTC is order-based for Gig Workers — no fixed
+                                monthly salary.
+                            </p>
+                        </div>
+                        <div>
+                            <label class="label-royal">Joining Date</label>
+                            <input type="date" id="emp-joining" class="input-royal">
+                        </div>
+                        <div>
+                            <label class="label-royal">Work Location</label>
+                            <select id="emp-work-location" class="input-royal">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="label-royal">Status</label>
+                            <select id="emp-status" class="input-royal font-bold">
+                                <option value="Active">Active</option>
+                                <option value="Terminated">Terminated</option>
+                                <option value="On Leave">On Leave</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Field Staff Specifics -->
+                    <div id="field-staff-only" class="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <h4 class="text-[10px] font-bold text-royal-gold uppercase tracking-widest">Field Staff
+                            Specifics</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="label-royal">Primary Service</label>
+                                <select id="emp-service-type" class="input-royal">
+                                    <option value="Nurse">Skilled Nursing</option>
+                                    <option value="Caregiver">Caregiver</option>
+                                    <option value="Attendant">Patient Attendant</option>
+                                    <option value="Physiotherapist">Physiotherapist</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="label-royal">Prior Experience</label>
+                                <input type="text" id="emp-exp-total" class="input-royal"
+                                    placeholder="e.g. 3 years nursing">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Office Staff Specifics -->
+                    <div id="office-staff-only"
+                        class="hidden space-y-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+                        <h4 class="text-[10px] font-bold text-purple-700 uppercase tracking-widest">Office Staff
+                            Details</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="label-royal">Department</label>
+                                <input type="text" id="emp-dept" class="input-royal"
+                                    placeholder="e.g. HR, Finance, Operations">
+                            </div>
+                            <div>
+                                <label class="label-royal">Functional Responsibilities</label>
+                                <input type="text" id="emp-func-resp" class="input-royal"
+                                    placeholder="e.g. Payroll Management">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Education (available for ALL staff types) -->
+                    <div class="space-y-4 p-4 bg-amber-50/50 rounded-xl border border-amber-100">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Education &
+                                Qualifications</h4>
+                            <button type="button" onclick="addEducationRow()"
+                                class="text-[10px] font-bold text-royal-blue hover:text-royal-gold transition-colors flex items-center gap-1">
+                                <i class="fas fa-plus-circle"></i> Add More
+                            </button>
+                        </div>
+                        <div id="education-rows-container">
+                            <!-- First education row (default) -->
+                            <div class="edu-row grid grid-cols-1 md:grid-cols-4 gap-3 mb-3 items-end">
+                                <div>
+                                    <label class="label-royal text-[9px]">Level</label>
+                                    <select class="edu-level input-royal text-xs">
+                                        <option value="10th">10th</option>
+                                        <option value="12th">12th</option>
+                                        <option value="Diploma">Diploma</option>
+                                        <option value="UG" selected>Undergraduate (UG)</option>
+                                        <option value="PG">Postgraduate (PG)</option>
+                                        <option value="Masters">Masters</option>
+                                        <option value="Certification">Certification</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="label-royal text-[9px]">Course / Specialization</label>
+                                    <input type="text" class="edu-course input-royal text-xs"
+                                        placeholder="e.g. B.Sc Nursing">
+                                </div>
+                                <div>
+                                    <label class="label-royal text-[9px]">Institution</label>
+                                    <input type="text" class="edu-institution input-royal text-xs"
+                                        placeholder="College / University">
+                                </div>
+                                <div class="flex gap-2 items-end">
+                                    <div class="flex-1">
+                                        <label class="label-royal text-[9px]">Year</label>
+                                        <input type="number" class="edu-year input-royal text-xs" placeholder="2020"
+                                            min="1970" max="2030">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Address -->
+                    <div>
+                        <label class="label-royal">Permanent Address</label>
+                        <textarea id="emp-address" class="input-royal h-16"></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-4">
+                        <button type="button" onclick="closeEmployeeModal()"
+                            class="px-6 py-3 font-bold text-gray-500 hover:text-gray-700">Cancel</button>
+                        <button type="submit"
+                            class="px-8 py-3 bg-royal-blue text-white font-bold rounded-xl shadow-lg hover:bg-black transition-all">Save
+                            Record</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="templates/shared.js"></script>
+    <script src="templates/hr_management.js"></script>
+    <script>
+        function toggleMobileMenu() {
+            const overlay = document.getElementById('mobileMenuOverlay');
+            const isHidden = overlay.classList.contains('translate-x-full');
+            if (isHidden) {
+                overlay.classList.remove('translate-x-full');
+                overlay.classList.add('translate-x-0');
+                document.body.style.overflow = 'hidden';
+            } else {
+                overlay.classList.remove('translate-x-0');
+                overlay.classList.add('translate-x-full');
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close menu on resize if above mobile breakpoint
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+                const overlay = document.getElementById('mobileMenuOverlay');
+                if (overlay && overlay.classList.contains('translate-x-0')) {
+                    toggleMobileMenu();
+                }
+            }
+        });
+
+        // Branding fix if logo fails or other visual tweaks
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mobile Menu Toggle Event
+            const mobileBtn = document.getElementById('mobileMenuToggle');
+            if (mobileBtn) {
+                mobileBtn.addEventListener('click', toggleMobileMenu);
+            }
+        });
+    </script>
+</body>
+
+</html>
